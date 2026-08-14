@@ -1,0 +1,137 @@
+name: OpenPitStop Gate
+description: >-
+  Run the OpenPitStop scan + gate on a PR (or push) and post the verdict as a
+  PR comment. Fails the job when the gate fails — SUSPICIOUS needs a human,
+  CONFIRMED_CHEAT is blocked. Diagnostic-only: OpenPitStop never edits your
+  code, so this action is safe to add to any repository.
+
+branding:
+  icon: shield
+  color: orange
+
+inputs:
+  score:
+    description: >-
+      Minimum OpenPitStop Score required to pass the gate (0 disables the
+      score check). Defaults to the CLI default of 60.
+    required: false
+    default: "60"
+  version:
+    description: >-
+      Version of the openpitstop CLI to run. Defaults to 'latest'; pin for
+      reproducible gates (e.g. '1.1.0').
+    required: false
+    default: latest
+
+runs:
+  using: composite
+  steps:
+    - name: Run pitstop ci (report)
+      id: pitstop-ci
+      shell: bash
+      continue-on-error: true
+      run: |
+        set +e
+        npx --yes openpitstop@${{ inputs.version }} ci > "$RUNNER_TEMP/pitstop-ci.md" 2> "$RUNNER_TEMP/pitstop-ci.err"
+        code=$?
+        echo "exit-code=$code" >> "$GITHUB_OUTPUT"
+        if [ -s "$RUNNER_TEMP/pitstop-ci.err" ]; then cat "$RUNNER_TEMP/pitstop-ci.err" >&2; fi
+        exit 0
+
+    - name: Run pitstop gate (verdict)
+      id: pitstop-gate
+      shell: bash
+      continue-on-error: true
+      run: |
+        set +e
+        npx --yes openpitstop@${{ inputs.version }} gate --score "${{ inputs.score }}" --json > "$RUNNER_TEMP/pitstop-gate.json" 2> "$RUNNER_TEMP/pitstop-gate.err"
+        code=$?
+        echo "exit-code=$code" >> "$GITHUB_OUTPUT"
+        if [ -s "$RUNNER_TEMP/pitstop-gate.err" ]; then cat "$RUNNER_TEMP/pitstop-gate.err" >&2; fi
+        exit 0
+
+    - name: Compose gate comment
+      shell: bash
+      run: |
+        set -e
+        {
+          echo "<!-- openpitstop:report -->"
+          echo "## OpenPitStop Gate"
+          echo ""
+          gj="$RUNNER_TEMP/pitstop-gate.json"
+          if [ -s "$gj" ] && jq -e . "$gj" > /dev/null 2>&1; then
+            ex=$(jq -r '.exitCode // "?"' "$gj")
+            sc=$(jq -r '.score // "-"' "$gj")
+            gr=$(jq -r '.grade // "-"' "$gj")
+            iv=$(jq -r '.integrity // "-"' "$gj")
+            case "$ex" in
+              0) v="**PASS** — safe to merge";;
+              1) v="**FAIL** — needs a human review";;
+              2) v="**CONFIRMED_CHEAT — blocked**";;
+              *) v="no verdict";;
+            esac
+            echo "$v"
+            echo ""
+            echo "- OpenPitStop Score: **${sc}/100 (${gr})** · Integrity: **${iv}** · Gate exit code: \`${ex}\`"
+            echo ""
+          else
+            echo "**No verdict** — this repo has no OpenPitStop baseline yet. Run the"
+            echo "[badge job](https://github.com/Krish-1507/OpenPitStop/blob/main/docs/github-action.md#the-badge-loop)"
+            echo "once (or \`npx openpitstop scan\` locally and commit) to arm the gate."
+            echo ""
+          fi
+          if [ -s "$RUNNER_TEMP/pitstop-ci.md" ]; then cat "$RUNNER_TEMP/pitstop-ci.md"; fi
+        } > "$RUNNER_TEMP/pitstop-comment.md"
+
+    - name: Publish report to job summary
+      shell: bash
+      run: cat "$RUNNER_TEMP/pitstop-comment.md" >> "$GITHUB_STEP_SUMMARY"
+
+    - name: Post gate as PR comment
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v7
+      env:
+        PITSTOP_COMMENT_FILE: ${{ runner.temp }}/pitstop-comment.md
+      with:
+        script: |
+          const fs = require('fs');
+          const body = fs.readFileSync(process.env.PITSTOP_COMMENT_FILE, 'utf8');
+          const marker = '<!-- openpitstop:report -->';
+          const { data: comments } = await github.rest.issues.listComments({
+            ...context.repo,
+            issue_number: context.issue.number,
+          });
+          const existing = comments.find((c) => c.body && c.body.includes(marker));
+          try {
+            if (existing) {
+              await github.rest.issues.updateComment({
+                ...context.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                ...context.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }
+          } catch (e) {
+            core.warning(
+              `OpenPitStop: could not post PR comment (read-only token on fork PRs is expected): ${e.message}`,
+            );
+          }
+
+    - name: Fail the job on a failing gate
+      shell: bash
+      run: |
+        code="${{ steps.pitstop-gate.outputs.exit-code }}"
+        if [ -n "$code" ] && [ "$code" != "0" ] && [ "$code" != "" ]; then
+          gj="$RUNNER_TEMP/pitstop-gate.json"
+          if [ -s "$gj" ] && grep -q 'no baseline' "$gj"; then
+            echo "::warning::OpenPitStop has no baseline in this repo yet — run the badge job once on your default branch to arm the gate. Not failing this run."
+            exit 0
+          fi
+          echo "::error::OpenPitStop gate FAILED (exit code $code) — see the PR comment or job summary."
+          exit "$code"
+        fi

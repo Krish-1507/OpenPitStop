@@ -16,12 +16,63 @@ const READY_MESSAGE =
 const CODEX_APP_MESSAGE =
   "Codex App and Codex VS Code extension don't support custom slash commands yet (OpenAI hasn't shipped this) — use Codex CLI for /pitstop, or copy templates/pitstop.prompt.md's content directly into a Codex App chat as a one-off prompt.";
 
+/**
+ * The git pre-commit gate hook, written by `pitstop install --hooks`.
+ * POSIX sh on purpose: git runs hooks through its own bundled sh on every
+ * platform (including Windows Git for Windows), so no interpreter guessing.
+ *
+ * Honest by design:
+ *  - no HEAD yet (first commit) -> allowed, nothing to diff against
+ *  - no baseline scanned yet   -> warned, allowed — never jail an unscanned repo
+ *  - gate verdict FAIL/HARD     -> commit blocked, with the full gate box
+ *  - PITSTOP_CLI / PITSTOP_SCORE env overrides honored
+ */
+const PRE_COMMIT_HOOK = `#!/usr/bin/env sh
+# OpenPitStop pre-commit gate — installed by \`npx openpitstop install --hooks\`.
+# Blocks commits the gate would fail (SUSPICIOUS, CONFIRMED_CHEAT, High risk,
+# score below threshold, tampered evidence). Bypass once: git commit --no-verify
+set -u
+
+CLI="\${PITSTOP_CLI:-npx --yes openpitstop@latest}"
+SCORE="\${PITSTOP_SCORE:-60}"
+
+if ! git rev-parse --verify HEAD > /dev/null 2>&1; then
+  echo "[openpitstop] first commit (no HEAD yet) — allowed."
+  exit 0
+fi
+
+# git runs hooks with the repo root as cwd, so no repo arg is passed — a
+# POSIX-style \$PWD would break Windows builds of the CLI.
+echo "[openpitstop] gating commit (score >= \${SCORE}/100) ..."
+OUT="\$(\$CLI gate --score "\$SCORE" 2>&1)"
+CODE=\$?
+
+if printf '%s' "\$OUT" | grep -q 'no baseline'; then
+  echo "[openpitstop] no baseline yet — run \`npx openpitstop scan\` once to arm the gate. Commit allowed."
+  exit 0
+fi
+
+if [ "\$CODE" -ne 0 ]; then
+  printf '%s\\n' "\$OUT"
+  echo ""
+  echo "[openpitstop] GATE FAILED (exit \$CODE) — commit blocked."
+  echo "[openpitstop] Bypass once (e.g. a false alarm) with: git commit --no-verify"
+fi
+
+exit "\$CODE"
+`;
+
 export const install = new Command("install")
-  .description("Install the pitstop slash-command into Claude Code, Cursor, OpenCode, Antigravity, Kilo Code, Gemini CLI, Codex")
+  .description("Install the pitstop slash-command into Claude Code, Cursor, OpenCode, Antigravity, Kilo Code, Gemini CLI, Codex (--hooks also adds the git pre-commit gate)")
   .argument("[repo]", "target repo (defaults to cwd)", ".")
   .option("--force", "overwrite existing pitstop files", false)
   .option("-y, --yes", "same as --force (re-runnable one-liner: npx openpitstop@latest install -y)", false)
   .option("--uninstall", "remove pitstop files only", false)
+  .option(
+    "--hooks",
+    "also install (or with --uninstall, remove) the git pre-commit gate hook — every commit is gated before it can land",
+    false,
+  )
   .action(async (repoArg: string, opts: any) => {
     const cwd = path.resolve(repoArg);
     const targets = getTargets(cwd);
@@ -44,12 +95,54 @@ export const install = new Command("install")
         }
       }
       console.log(table.toString());
+      if (opts.hooks) {
+        const hook = path.join(cwd, ".git", "hooks", "pre-commit");
+        if (fs.existsSync(hook)) {
+          fs.rmSync(hook);
+          console.log(chalk.red("🗑️  ") + `pre-commit gate hook removed (${hook})`);
+        } else {
+          console.log(`pre-commit gate hook: ${chalk.dim("— absent")}`);
+        }
+      }
       console.log(
         chalk.bold(
           `\nOpenPitStop uninstalled (${removed} file(s) removed). Nothing else was touched.`,
         ),
       );
       return;
+    }
+
+    // Pre-commit gate hook first (independent of the slash-command files).
+    const hookPath = path.join(cwd, ".git", "hooks", "pre-commit");
+    if (opts.hooks) {
+      if (!fs.existsSync(path.join(cwd, ".git"))) {
+        console.log(chalk.yellow("\n⚠ not a git repo — skipping the pre-commit gate hook"));
+      } else if (fs.existsSync(hookPath) && !force) {
+        const existing = fs.readFileSync(hookPath, "utf8");
+        if (existing.includes("OpenPitStop pre-commit gate")) {
+          console.log(chalk.green("\n✅ Pre-commit gate hook refreshed (already installed)"));
+        } else {
+          console.log(
+            chalk.yellow("\n⚠ existing pre-commit hook kept — to combine, append this line to it:\n") +
+              chalk.dim("    npx --yes openpitstop@latest gate || exit $?\n"),
+          );
+        }
+      } else {
+        fs.mkdirSync(path.dirname(hookPath), { recursive: true });
+        fs.writeFileSync(hookPath, PRE_COMMIT_HOOK);
+        try {
+          fs.chmodSync(hookPath, 0o755);
+        } catch {
+          /* Windows: no chmod, git still runs hooks via its bundled sh */
+        }
+        console.log(chalk.green("\n✅ Pre-commit gate hook installed at " + chalk.cyan(hookPath)));
+        console.log(
+          chalk.dim(
+            "   Every commit is now gated before it can land — SUSPICIOUS → blocked," +
+              " CONFIRMED_CHEAT → blocked.\n   Bypass once with: git commit --no-verify",
+          ),
+        );
+      }
     }
 
     const templateText = fs.readFileSync(resolveTemplatePath(), "utf8");

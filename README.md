@@ -40,11 +40,13 @@ your agent.
 
 | Jump to | |
 |---|---|
-| [Feature tour](#feature-tour) — the 11 demos | [Install](#install) · [Usage](#usage) · [Tool support](#tool-support) |
+| [Feature tour](#feature-tour) — the 13 demos | [Install](#install) · [Usage](#usage) · [Tool support](#tool-support) |
 | [See it in 90 seconds](#see-it-in-90-seconds) | [What OpenPitStop actually does](#what-openpitstop-actually-does) · [Every command](#every-command) |
 | [Architecture](#architecture) | [Known limitations](#known-limitations) · [Contributing](#contributing) · [License](#license) |
 
-**Straight to one feature:** [The scan](#the-scan) · [Verify](#verify) · [Trends](#trends) · [Inspect](#inspect) · [Repro](#repro) · [The pen test](#the-pen-test) · [Report](#report) · [Share](#share) · [Honesty](#honesty) · [Try it on your repo](#try-it-on-your-repo) · [The live shield](#the-live-shield)
+**Straight to one feature:** [The scan](#the-scan) · [Verify](#verify) · [Trends](#trends) · [Inspect](#inspect) · [Repro](#repro) · [The pen test](#the-pen-test) · [Report](#report) · [Share](#share) · [Honesty](#honesty) · [Try it on your repo](#try-it-on-your-repo) · [The live shield](#the-live-shield) · [The GitHub Action](#the-github-action) · [The pre-commit hook](#the-pre-commit-hook)
+
+**Receipts:** [Caught in the wild](docs/caught-in-the-wild.md) — real gate output, screenshot-ready.
 
 ---
 
@@ -142,6 +144,19 @@ Every clip below is real command output — the only thing that was trimmed is d
   <img src="docs/media/pitstop-watch.gif" alt="pitstop watch — live score delta when a file changes" width="700">
 </p>
 
+### The GitHub Action
+
+`uses: openpitstop/action` (or `Krish-1507/OpenPitStop@main` today) — every PR
+gets the gate as a comment and a failing check when it matters. No wiring by
+hand; the badge in your README regenerates itself. [Setup & badge loop →
+](docs/github-action.md)
+
+### The pre-commit hook
+
+`npx openpitstop install --hooks` — the gate one step earlier: the commit
+can't land until the gate passes. Caught it before it shipped. [Real blocked
+commits → ](docs/caught-in-the-wild.md#bonus-the-same-catches-as-a-pre-commit-hook)
+
 ---
 
 ## See it in 90 seconds
@@ -161,7 +176,9 @@ node node_modules/openpitstop/scripts/cheat-demo.cjs   # from any project that i
 ```
 
 Set `PITSTOP_CLI="node /path/to/dist/cli.js"` to run it against a local build instead
-of the registry.
+of the registry. For a tight re-record, `node scripts/cheat-demo.cjs --fast --no-pitch`
+reuses the cached `node_modules` (skips `npm install`) and ends the arc on the
+CONFIRMED_CHEAT box — no pitch, no dead air.
 
 ```
 ACT 1  honest baseline              →  1 failed test, scanned and sealed
@@ -187,6 +204,9 @@ npx openpitstop try .
 Two seconds of scanning, your repo, your score (plus a one-time package download on the
 first-ever `npx` run — see the speed tip in [Install](#install)). Everything else can wait.
 
+Real catches — focused tests, deleted tests, edited assertions, tampered baselines — with
+verbatim gate output you can screenshot and share: [Caught in the wild](docs/caught-in-the-wild.md).
+
 ---
 
 ## Install
@@ -207,6 +227,20 @@ npx openpitstop install -y
 
 Re-installing overwrites each tool's `/pitstop` command file with the latest prompt
 (say, a new mode or an updated loop) — your tool picks it up on its next use.
+
+Want the gate *before* the commit, not just on the PR? One extra flag installs the
+pre-commit hook — every commit is checked (SUSPICIOUS/CONFIRMED_CHEAT → blocked) before
+it can land:
+
+```bash
+npx openpitstop install --hooks
+```
+
+The hook runs the same `pitstop gate` (exit 0 = PASS · 1 = FAIL · 2 = CONFIRMED_CHEAT),
+never blocks the first commit of a repo, never jails a repo that hasn't been scanned yet
+(it warns instead), and can be bypassed once with `git commit --no-verify`. Remove it with
+`npx openpitstop install --uninstall --hooks`. To point the hook at a local build, export
+`PITSTOP_CLI` (e.g. `PITSTOP_CLI="node /path/to/dist/cli.js"`).
 
 Speed tip: the `try`/`scan` itself takes ~2 seconds — but the **first** `npx openpitstop …`
 on a machine has to download the package first (a few seconds on a fast connection, more on a
@@ -275,6 +309,8 @@ writes into your tool configs (that stays an explicit `pitstop install`).
 | Gemini CLI | `.gemini/commands/pitstop.toml` (project + user) | Full support |
 | Codex CLI | `~/.codex/prompts/pitstop.md` | Full support |
 | Codex App / VS Code extension | — (no file written) | **Not supported** — OpenAI hasn't shipped custom slash commands there; install prints a manual-copy note instead |
+| GitHub Action (PRs) | `uses: Krish-1507/OpenPitStop@main` | **Full support** — gate verdict as a PR comment + failing check; see [docs/github-action.md](docs/github-action.md) |
+| git pre-commit hook | `.git/hooks/pre-commit` (installed with `--hooks`) | **Full support** — the gate blocks the commit before it lands |
 
 Legacy/alternate locations are also written where tool docs are inconsistent across versions
 (see `src/installer/targets.ts`). Existing files are never overwritten unless you pass
@@ -341,9 +377,9 @@ one-shot.
 
 | Command | What it does |
 |---|---|
-| `pitstop gate [--score 60]` | A commit gate for CI or pre-commit: score threshold + regression risk + diff integrity + evidence signature. **Exit 0 = PASS · 1 = FAIL · 2 = CONFIRMED_CHEAT.** |
+| `pitstop gate [--score 60]` | A commit gate for CI, pre-commit hooks or PRs: score threshold + regression risk + diff integrity + evidence signature. **Exit 0 = PASS · 1 = FAIL · 2 = CONFIRMED_CHEAT.** |
 | `pitstop integrity [path]` | Checks the latest commit or working tree for cheat patterns *without* a full scan: deleted or neutered tests, swallowed errors, suppression comments, hardcoded-to-pass values, mocked modules, forced exits. **Exit 0 = CLEAN · 1 = SUSPICIOUS · 2 = CONFIRMED_CHEAT.** |
-| `pitstop ci [path]` | CI-friendly scan + verify against the base branch → a PR-ready markdown report — the gate as a PR comment. It only reports; fixes stay local via `/pitstop`. |
+| `pitstop ci [path]` | CI-friendly scan + verify against the base branch → a PR-ready markdown report — the gate as a PR comment. It only reports; fixes stay local via `/pitstop`. Wired into the [GitHub Action](docs/github-action.md), which comments the gate on every PR and fails the check when it fails. |
 
 **Penetration test — attack your own app**
 
@@ -366,7 +402,7 @@ one-shot.
 
 | Command | What it does |
 |---|---|
-| `pitstop install` / `install --uninstall` | Writes `/pitstop` into every supported tool (project + user level). `--uninstall` removes it all. |
+| `pitstop install` / `install --uninstall` | Writes `/pitstop` into every supported tool (project + user level). `--uninstall` removes it all. `--hooks` also installs (or with `--uninstall`, removes) the git pre-commit gate. |
 | `pitstop doctor` | Explains why categories show `skipped`: checks your toolchain (Node, git, jscpd, gitleaks, semgrep, pa11y) and prints copy-paste install hints. |
 | `pitstop prompt [--args …]` | Prints the exact prompt your AI tool expands `/pitstop` into, with your arguments filled in — full transparency into what the agent was told. |
 | `pitstop demo [demo]` | Scaffolds an intentionally-broken demo repo into a fresh temp dir (`demo-repo`, `demo-repo-integrity`, `demo-repo-fintech`, `demo-repo-generators`), initializes git, and scans it immediately. |

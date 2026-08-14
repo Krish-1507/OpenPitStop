@@ -2,6 +2,40 @@
 
 All notable changes to this project are documented here.
 
+## [1.1.0] - 2026-08-14
+
+The distribution release: the gate gets everywhere — PRs, pre-commit — and the
+receipts get published.
+
+### Added
+
+- **GitHub Action (`action.yml`).** A composite action, usable today as
+  `uses: Krish-1507/OpenPitStop@main`, and ready to publish as
+  `openpitstop/action@v1`: runs `pitstop ci` + `pitstop gate` on every PR,
+  posts the verdict as a (deduped, marker-based) PR comment, publishes the
+  report to the job summary, and fails the job when the gate fails — so branch
+  protection blocks the merge. No baseline yet → warns and passes, never jails
+  a fresh repo. See `docs/github-action.md`, including the self-regenerating
+  `PITSTOP_BADGE.svg` badge-loop workflow.
+- **`pitstop install --hooks`.** Installs the git pre-commit gate hook
+  (`.git/hooks/pre-commit`). Every commit is gated before it can land —
+  SUSPICIOUS → blocked (exit 1), CONFIRMED_CHEAT → blocked (exit 2). Never
+  blocks the first commit of a repo, warns (does not jail) repos without a
+  baseline, honors `PITSTOP_CLI`/`PITSTOP_SCORE`, and can be bypassed once
+  with `git commit --no-verify`. Removed with
+  `pitstop install --uninstall --hooks`. Verified end-to-end on Windows
+  (direct hook run, blocked commit, clean commit).
+- **`docs/caught-in-the-wild.md`.** Four real, verbatim, redacted catches with
+  the actual gate output — focused test (SUSPICIOUS, exit 1), deleted test
+  (CONFIRMED_CHEAT, exit 2), assertion edited to match the bug
+  (CONFIRMED_CHEAT, exit 2), baseline edited after signing (Evidence:
+  TAMPERED, exit 1) — plus the pre-commit blocked/clean transcripts and a
+  clean-pass contrast. Screenshot-ready social proof.
+- **Demo recording mode.** `scripts/cheat-demo.cjs --fast --no-pitch` reuses
+  the cached `node_modules` from `demo-repo-integrity` (skips `npm install`)
+  and ends the arc on the CONFIRMED_CHEAT gate box — no pitch, no dead air,
+  for the 90-second re-record.
+
 ## [1.0.0] - 2026-08-14
 
 The launch release. OpenPitStop is the agent referee, renamed and rebranded from
