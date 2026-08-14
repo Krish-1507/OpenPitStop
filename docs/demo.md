@@ -1,4 +1,4 @@
-# Guardian — the 2-minute demo (judge's script)
+# OpenPitStop — the 2-minute demo (judge's script)
 
 This is the story: **your AI agent finally has a referee it can't cheat.**
 Every command below is real, deterministic output — nothing is pre-recorded.
@@ -13,8 +13,8 @@ This is the part people screenshot — a lazy agent getting caught **twice**:
 
 ```bash
 node scripts/cheat-demo.cjs   # from the repo checkout; also ships in the npm package
-                              # (node_modules/cli-guardian/scripts/cheat-demo.cjs)
-# GUARDIAN_CLI="node /path/to/dist/cli.js" → run it against a local build
+                              # (node_modules/openpitstop/scripts/cheat-demo.cjs)
+# PITSTOP_CLI="node /path/to/dist/cli.js" → run it against a local build
 ```
 
 A fully scripted, deterministic arc against a real repo with a real failing
@@ -33,10 +33,10 @@ continue to Act 1.
 ## Act 1 — a broken repo, scored honestly (0:00–0:40)
 
 ```bash
-npx cli-guardian demo
+npx openpitstop demo
 ```
 
-Guardian copies an intentionally-broken app into a temp dir and scans it
+OpenPitStop copies an intentionally-broken app into a temp dir and scans it
 immediately. You get the boxed report: circular dependency, known-CVE
 dependency, failing tests, a hardcoded secret — each with its own finding id.
 
@@ -44,7 +44,7 @@ Then point it at a repo that matters:
 
 ```bash
 cd <your-project>
-npx cli-guardian scan
+npx openpitstop scan
 ```
 
 Exit code **0 = clean, 1 = issues found, 2 = suspicious**. That contract is
@@ -54,7 +54,7 @@ talked into looking better.
 ## Act 2 — the real penetration test (0:40–1:20)
 
 ```bash
-npx cli-guardian pen --fix
+npx openpitstop pen --fix
 ```
 
 `pen` boots your app's own `start` script inside a sandbox and fires attack
@@ -76,40 +76,40 @@ For each route it records *proof* — the exact request and the app's response.
 ## Act 3 — the agent fixes it, and we verify it didn't fake it (1:20–2:00)
 
 ```bash
-npx cli-guardian repro <finding-id>   # FAILS first — the bug is real
-npx cli-guardian drive <finding-id>   # hands it to YOUR agent (claude/codex/...)
+npx openpitstop repro <finding-id>   # FAILS first — the bug is real
+npx openpitstop drive <finding-id>   # hands it to YOUR agent (claude/codex/...)
 ```
 
 `drive` writes the mission prompt itself: *run the repro, it must FAIL, fix
-the root cause, re-run it, it must PASS, don't break anything.* Then Guardian
+the root cause, re-run it, it must PASS, don't break anything.* Then OpenPitStop
 verifies the result — not the agent's claims:
 
 - the **repro test** must flip FAIL → PASS;
-- `guardian verify` diffs the change against the signed baseline and flags
+- `pitstop verify` diffs the change against the signed baseline and flags
   deleted tests, swallowed errors, hardcoded-to-pass values — the classic
   agent-cheat patterns.
 
 ```bash
-npx cli-guardian verify   # VERIFIED / NOT VERIFIED — no grey
+npx openpitstop verify   # VERIFIED / NOT VERIFIED — no grey
 ```
 
 ## The one-liner pitch
 
 > Agents fix code; they don't know when to stop, and they'll tell you they're
-> done regardless. Guardian is the honest referee: deterministic scans,
+> done regardless. OpenPitStop is the honest referee: deterministic scans,
 > tamper-evident baselines, runtime penetration tests with failing-first
 > regression contracts, and a verification gate that catches the agent lying.
 > The CLI measures; the agent edits; the numbers can't be cheated.
 
 ## If they want depth
 
-- `npx cli-guardian install` — registers the `/guardian` slash command in
+- `npx openpitstop install` — registers the `/pitstop` slash command in
   Claude Code, Cursor, OpenCode, Codex CLI, Gemini CLI.
-- `npx cli-guardian honesty` — the evidence report: every number traced to a
+- `npx openpitstop honesty` — the evidence report: every number traced to a
   sealed file.
-- `guardian gate` / `guardian ci` — the same contract as a CI gate.
+- `pitstop gate` / `pitstop ci` — the same contract as a CI gate.
 - `node scripts/cheat-demo.cjs` — **Act 0** above: the 90-second cheat-catch arc.
-- `npx cli-guardian watch` / `ready-check` / `budget` — the token economy
+- `npx openpitstop watch` / `ready-check` / `budget` — the token economy
   that keeps the agent loop cheap (reuse sealed baselines, skip waste).
 - `docs/` — this repo's CI runs the patch-validity + evidence regression
   suites on Linux and Windows on every push.

@@ -29,10 +29,10 @@ function git(cwd, args) {
 }
 
 function mkRepo(name) {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), `guardian-alit-${name}-`));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), `pitstop-alit-${name}-`));
   git(dir, ["init", "-q"]);
-  git(dir, ["config", "user.email", "fixture@guardian.local"]);
-  git(dir, ["config", "user.name", "Guardian Fixture"]);
+  git(dir, ["config", "user.email", "fixture@pitstop.local"]);
+  git(dir, ["config", "user.name", "OpenPitStop Fixture"]);
   git(dir, ["config", "core.autocrlf", "true"]);
   return dir;
 }
@@ -59,7 +59,7 @@ function integrityResult(dir) {
   } catch (e) {
     exit = e.status ?? -1;
   }
-  const reportsDir = path.join(dir, ".guardian");
+  const reportsDir = path.join(dir, ".pitstop");
   let report = null;
   if (fs.existsSync(reportsDir)) {
     const files = fs

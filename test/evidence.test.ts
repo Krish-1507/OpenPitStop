@@ -17,7 +17,7 @@ import assert from "node:assert/strict";
 import { canonicalize, digestOf, seal, checkEvidence } from "../src/evidence.js";
 
 function roundTrip(doc: object): object {
-  return JSON.parse(JSON.stringify(seal(doc, "guardian scan result for /tmp/repo")));
+  return JSON.parse(JSON.stringify(seal(doc, "pitstop scan result for /tmp/repo")));
 }
 
 test("seal -> JSON round-trip -> checkEvidence is verified", () => {

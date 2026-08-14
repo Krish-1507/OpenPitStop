@@ -19,7 +19,7 @@ export async function analyzeSecurity(repo: string): Promise<SecurityResult> {
     // case inside one fix loop) makes the audit network call disappear.
     const stdout = await npmAudit(repo);
     if (stdout) {
-      const auditFile = path.join(repo, ".guardian", "npm-audit.json");
+      const auditFile = path.join(repo, ".pitstop", "npm-audit.json");
       fs.mkdirSync(path.dirname(auditFile), { recursive: true });
       fs.writeFileSync(auditFile, stdout);
       issues.push(...parseNpmAudit(stdout));
@@ -41,7 +41,7 @@ export async function analyzeSecurity(repo: string): Promise<SecurityResult> {
   }
 
   if (commandExists("gitleaks")) {
-    const tmp = path.join(repo, ".guardian", `gitleaks-${Date.now()}.json`);
+    const tmp = path.join(repo, ".pitstop", `gitleaks-${Date.now()}.json`);
     fs.mkdirSync(path.dirname(tmp), { recursive: true });
     const r = await safeExecAsync(
       "gitleaks",
@@ -93,7 +93,7 @@ async function npmAudit(repo: string): Promise<string | null> {
     .digest("hex")
     .slice(0, 12);
 
-  const cacheDir = path.join(repo, ".guardian", "cache");
+  const cacheDir = path.join(repo, ".pitstop", "cache");
   fs.mkdirSync(cacheDir, { recursive: true });
   const cachePath = path.join(cacheDir, `npm-audit-${hash}.json`);
   if (fs.existsSync(cachePath)) {
@@ -164,7 +164,7 @@ async function osvScan(repo: string): Promise<ScanIssue[]> {
     .join("|");
   const hash = crypto.createHash("sha1").update(lockKey || "dir").digest("hex").slice(0, 12);
 
-  const cacheDir = path.join(repo, ".guardian", "cache");
+  const cacheDir = path.join(repo, ".pitstop", "cache");
   fs.mkdirSync(cacheDir, { recursive: true });
   const cachePath = path.join(cacheDir, `osv-${hash}.json`);
   if (fs.existsSync(cachePath)) {

@@ -6,7 +6,7 @@ import fs from "node:fs";
 import { commandExists, safeExec } from "../analyzers/util.js";
 
 /**
- * `guardian doctor` — why is a category "skipped"? One command answers it.
+ * `pitstop doctor` — why is a category "skipped"? One command answers it.
  * Checks the toolchain (node, git, jscpd, gitleaks, semgrep, pa11y/axe) and
  * prints install hints for everything missing.
  */
@@ -31,7 +31,7 @@ export const doctor = new Command("doctor")
     rows.push([
       "Node.js",
       major >= 22,
-      `v${process.versions.node}${major >= 22 ? "" : " — Guardian needs v22+ (npm install node@latest)"}`,
+      `v${process.versions.node}${major >= 22 ? "" : " — OpenPitStop needs v22+ (npm install node@latest)"}`,
     ]);
 
     const git = hasCommand("git");
@@ -78,11 +78,11 @@ export const doctor = new Command("doctor")
     }
     rows.push(["test framework", testFrameworks !== "none detected", testFrameworks]);
 
-    const guardianDir = path.join(repo, ".guardian");
+    const pitstopDir = path.join(repo, ".pitstop");
     rows.push([
-      ".guardian history",
-      fs.existsSync(guardianDir),
-      fs.existsSync(guardianDir) ? "scans recorded" : "no scans yet — run `guardian scan` to start the history",
+      ".pitstop history",
+      fs.existsSync(pitstopDir),
+      fs.existsSync(pitstopDir) ? "scans recorded" : "no scans yet — run `pitstop scan` to start the history",
     ]);
 
     const lines = rows.map(([name, ok, note]) => {
@@ -99,14 +99,14 @@ export const doctor = new Command("doctor")
     );
     const verdict =
       critical.length > 0
-        ? chalk.red(`${critical.length} critical missing — install those before relying on Guardian`)
+        ? chalk.red(`${critical.length} critical missing — install those before relying on OpenPitStop`)
         : missing.length === 0
-          ? chalk.green("everything Guardian needs is installed — the full scan should run with no `skipped` categories")
+          ? chalk.green("everything OpenPitStop needs is installed — the full scan should run with no `skipped` categories")
           : chalk.yellow(`${missing.length} optional tool(s) missing — those scan categories will print "skipped" (install hints above)`);
 
     console.log(
       boxen([...lines, "", `  ${chalk.bold("Verdict:")} ${verdict}`].join("\n"), {
-        title: " GUARDIAN — Doctor ",
+        title: " PITSTOP — Doctor ",
         titleAlignment: "center",
         borderStyle: "double",
         padding: 1,

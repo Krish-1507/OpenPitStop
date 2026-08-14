@@ -19,7 +19,7 @@ export interface PenOptions {
 }
 
 /**
- * `guardian pen` — the headline act. Static pass first (zero setup, no
+ * `pitstop pen` — the headline act. Static pass first (zero setup, no
  * network), then — unless `--static` — a LIVE dynamic pass: the app is booted
  * under the pen sandbox and attacked. Everything is recorded, everything is
  * sealed, and `--fix` turns every replayable finding into a regression test.
@@ -109,8 +109,8 @@ export const pen = new Command("pen")
   )
   .argument("[repo]", "path to the repo to pen-test (default: current dir)", ".")
   .option("--static", "static pass only — do NOT boot the app (the dynamic phase is opt-out, not opt-in)")
-  .option("--fix", "write repro tests + deterministic patches + GUARDIAN_PEN_FIXES.md")
-  .option("--html", "also write GUARDIAN_PEN_REPORT.html")
+  .option("--fix", "write repro tests + deterministic patches + PITSTOP_PEN_FIXES.md")
+  .option("--html", "also write PITSTOP_PEN_REPORT.html")
   .option("--json", "print the raw pen result as JSON")
   .action(async (repoArg: string, options: { static?: boolean; fix?: boolean; html?: boolean; json?: boolean }) => {
     const repo = path.resolve(repoArg);
@@ -147,9 +147,9 @@ export const pen = new Command("pen")
     const { file } = persistPen(repo, result);
 
     const md = renderPenMarkdown(result);
-    fs.writeFileSync(path.join(repo, "GUARDIAN_PEN_REPORT.md"), md, "utf8");
+    fs.writeFileSync(path.join(repo, "PITSTOP_PEN_REPORT.md"), md, "utf8");
     if (options.html) {
-      fs.writeFileSync(path.join(repo, "GUARDIAN_PEN_REPORT.html"), renderPenHtml(result), "utf8");
+      fs.writeFileSync(path.join(repo, "PITSTOP_PEN_REPORT.html"), renderPenHtml(result), "utf8");
     }
 
     if (options.json) {
@@ -161,15 +161,15 @@ export const pen = new Command("pen")
     console.log(
       chalk.dim(
         `\nEvidence sealed to ${file}\n` +
-          `Report: ${path.join(repo, "GUARDIAN_PEN_REPORT.md")}` +
-          (options.html ? ` · ${path.join(repo, "GUARDIAN_PEN_REPORT.html")}` : "") +
+          `Report: ${path.join(repo, "PITSTOP_PEN_REPORT.md")}` +
+          (options.html ? ` · ${path.join(repo, "PITSTOP_PEN_REPORT.html")}` : "") +
           "\n",
       ),
     );
 
     if (options.fix) {
       const outcome = runFixes(repo, result, result.packages);
-      fs.writeFileSync(path.join(repo, "GUARDIAN_PEN_FIXES.md"), outcome.fixesMd, "utf8");
+      fs.writeFileSync(path.join(repo, "PITSTOP_PEN_FIXES.md"), outcome.fixesMd, "utf8");
       console.log(chalk.green(`\n--fix: wrote ${outcome.repros.length} repro test(s), ${outcome.patches.length} patch(es)`));
       for (const r of outcome.repros) {
         console.log(chalk.dim(`  repro: ${r.file} (fails now → passes after the fix)`));
@@ -177,7 +177,7 @@ export const pen = new Command("pen")
       for (const p of outcome.patches) {
         console.log(chalk.dim(`  patch: git apply ${p.diffPath} — ${p.note}`));
       }
-      console.log(chalk.dim(`  plan: ${path.join(repo, "GUARDIAN_PEN_FIXES.md")}`));
+      console.log(chalk.dim(`  plan: ${path.join(repo, "PITSTOP_PEN_FIXES.md")}`));
     }
 
     // Exit contract: 0 = no high/critical findings, 1 = high/critical present,

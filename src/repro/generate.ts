@@ -31,7 +31,7 @@ function writeTest(
   content: string,
 ): string {
   const ext = reproExtension(framework);
-  const fileName = `guardian-repro-${slug}${ext}`;
+  const fileName = `pitstop-repro-${slug}${ext}`;
   // cargo integration tests must be in tests/, flutter tests in test/.
   const dir = reproDir(framework);
   const abs = dir ? path.join(repo, dir, fileName) : path.join(repo, fileName);
@@ -118,23 +118,23 @@ function ledgerRepro(
   const slug = reproSlug(finding);
 
   const header = [
-    `// Guardian permanent repro test — finding ${finding.id}`,
-    `// Linked from .guardian/scan-latest.json (issue / cluster finding id ${finding.id}).`,
+    `// OpenPitStop permanent repro test — finding ${finding.id}`,
+    `// Linked from .pitstop/scan-latest.json (issue / cluster finding id ${finding.id}).`,
     `//`,
     `// Scenario: ${ev.scenario} on ${ev.endpoint}`,
     `//   order ${ev.orderId} · idempotency key ${ev.idempotencyKey}`,
     `//   Gateway contract: exactly ONE charge for key "${expectedKey}"`,
     `//   (observed now: ${ev.chargeCalls.length} charges — the bug this test exists to guard).`,
     `//`,
-    `// Run via: npx cli-guardian repro ${finding.id}`,
-    `// The app is booted under Guardian's nock sandbox, so no request can ever reach`,
+    `// Run via: npx openpitstop repro ${finding.id}`,
+    `// The app is booted under OpenPitStop's nock sandbox, so no request can ever reach`,
     `// a real payment gateway; the "gateway" is a local mock that records every call.`,
     `// This test MUST FAIL on the buggy code and MUST PASS only after the fix.`,
   ].join("\n");
 
   const body = [
     `const REPO = process.cwd();`,
-    `const PRELOAD = process.env.GUARDIAN_LEDGER_PRELOAD;`,
+    `const PRELOAD = process.env.PITSTOP_LEDGER_PRELOAD;`,
     `const GATEWAY_HOST = ${J(gatewayHost)};`,
     `const ENDPOINT = ${J(ev.endpoint)};`,
     `const SCENARIO = ${J(ev.scenario)};`,
@@ -213,11 +213,11 @@ function ledgerRepro(
     `  return out;`,
     `}`,
     ``,
-    `test("guardian repro ${finding.id}: exactly one gateway charge for key '" + EXPECTED_KEY + "'", async () => {`,
-    `  assert.ok(PRELOAD, "GUARDIAN_LEDGER_PRELOAD not set — run this via \`npx cli-guardian repro ${finding.id}\`");`,
+    `test("pitstop repro ${finding.id}: exactly one gateway charge for key '" + EXPECTED_KEY + "'", async () => {`,
+    `  assert.ok(PRELOAD, "PITSTOP_LEDGER_PRELOAD not set — run this via \`npx openpitstop repro ${finding.id}\`");`,
     ``,
     `  const start = resolveStart();`,
-    `  const runDir = path.join(REPO, ".guardian", "repro", new Date().toISOString().replace(/[:.]/g, "-"));`,
+    `  const runDir = path.join(REPO, ".pitstop", "repro", new Date().toISOString().replace(/[:.]/g, "-"));`,
     `  mkdirSync(runDir, { recursive: true });`,
     `  const controlPath = path.join(runDir, "control.jsonl");`,
     `  const gatewayLogPath = path.join(runDir, "gateway.log.jsonl");`,
@@ -228,12 +228,12 @@ function ledgerRepro(
     `    ...process.env,`,
     `    NODE_OPTIONS: [process.env.NODE_OPTIONS, "--require=" + PRELOAD].filter(Boolean).join(" "),`,
     `    PORT: String(port),`,
-    `    GUARDIAN_LEDGER_CONTROL: controlPath,`,
-    `    GUARDIAN_LEDGER_GATEWAY_LOG: gatewayLogPath,`,
-    `    GUARDIAN_LEDGER_GATEWAY_HOSTS: GATEWAY_HOST,`,
-    `    RAZORPAY_KEY_ID: process.env.RAZORPAY_KEY_ID || "rzp_test_guardian000000",`,
-    `    RAZORPAY_KEY_SECRET: process.env.RAZORPAY_KEY_SECRET || "guardian_fake_secret",`,
-    `    STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY || "sk_test_guardian_fake",`,
+    `    PITSTOP_LEDGER_CONTROL: controlPath,`,
+    `    PITSTOP_LEDGER_GATEWAY_LOG: gatewayLogPath,`,
+    `    PITSTOP_LEDGER_GATEWAY_HOSTS: GATEWAY_HOST,`,
+    `    RAZORPAY_KEY_ID: process.env.RAZORPAY_KEY_ID || "rzp_test_pitstop000000",`,
+    `    RAZORPAY_KEY_SECRET: process.env.RAZORPAY_KEY_SECRET || "pitstop_fake_secret",`,
+    `    STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY || "sk_test_pitstop_fake",`,
     `    NODE_ENV: process.env.NODE_ENV || "test",`,
     `  };`,
     `  const child = spawn(start.cmd, start.args, { cwd: REPO, env, stdio: ["ignore", "ignore", "inherit"] });`,
@@ -244,7 +244,7 @@ function ledgerRepro(
     `      if (child.exitCode !== null) break;`,
     `      if (controlHas(controlPath, '"event":"armed"')) {`,
     `        try {`,
-    `          await fetch(baseUrl + "/__guardian_ledger_probe__");`,
+    `          await fetch(baseUrl + "/__pitstop_ledger_probe__");`,
     `          up = true;`,
     `          break;`,
     `        } catch {}`,
@@ -304,7 +304,7 @@ function ledgerRepro(
  * Verified exploit recipes, keyed by the npm package name parsed from the
  * audit finding. A recipe is only added once its PoC has been confirmed to
  * (a) actually execute on the vulnerable version and (b) be blocked on the
- * patched version. No recipe means `guardian repro` refuses rather than emit
+ * patched version. No recipe means `pitstop repro` refuses rather than emit
  * a test that cannot genuinely fail.
  */
 const SECURITY_RECIPES: Record<
@@ -319,8 +319,8 @@ const SECURITY_RECIPES: Record<
       return [
         req,
         ``,
-        `test("guardian repro: lodash must reject the command-injection payload (CVE-2021-23337)", () => {`,
-        `  const MARKER = "GUARDIAN-PWN-" + Date.now() + "-" + Math.floor(Math.random() * 1e6);`,
+        `test("pitstop repro: lodash must reject the command-injection payload (CVE-2021-23337)", () => {`,
+        `  const MARKER = "PITSTOP-PWN-" + Date.now() + "-" + Math.floor(Math.random() * 1e6);`,
         `  let markerHit = false;`,
         `  let threw = false;`,
         `  const origLog = console.log;`,
@@ -363,16 +363,16 @@ function securityRepro(
     return {
       ok: false,
       reason:
-        `no verified exploit recipe for package "${name || finding.description}" — Guardian refuses to ` +
+        `no verified exploit recipe for package "${name || finding.description}" — OpenPitStop refuses to ` +
         "emit a repro test that cannot genuinely fail. Add a confirmed PoC to src/repro/generate.ts " +
         "(it must actually execute on the vulnerable version and be blocked on the patched one) or " +
-        "write the exploit test by hand and commit it as guardian-repro-*.test.*.",
+        "write the exploit test by hand and commit it as pitstop-repro-*.test.*.",
     };
   }
   const slug = reproSlug(finding);
   const header = [
-    `// Guardian permanent repro test — finding ${finding.id}`,
-    `// Linked from .guardian/scan-latest.json (issue / cluster finding id ${finding.id}).`,
+    `// OpenPitStop permanent repro test — finding ${finding.id}`,
+    `// Linked from .pitstop/scan-latest.json (issue / cluster finding id ${finding.id}).`,
     `//`,
     `// Attempts the real ${recipe.name} exploit (${recipe.titleKeywords.join(", ")}) and asserts it`,
     `// is rejected. This test MUST FAIL while the vulnerable version is installed and MUST PASS`,
@@ -409,8 +409,8 @@ function raceRepro(
   const moduleTarget = rel;
   const slug = reproSlug(finding);
   const header = [
-    `// Guardian repro test — finding ${finding.id}`,
-    `// Linked from .guardian/scan-latest.json.`,
+    `// OpenPitStop repro test — finding ${finding.id}`,
+    `// Linked from .pitstop/scan-latest.json.`,
     `//`,
     `// PARALLEL STRESS PROBE (heuristic): the scan flagged module-level mutable`,
     `// state in ${rel} near async code. This test pounds the module's exports with`,
@@ -421,7 +421,7 @@ function raceRepro(
   ].join("\n");
 
   const body = [
-    `test("guardian repro ${finding.id}: ${moduleTarget} stays consistent under concurrent load", async () => {`,
+    `test("pitstop repro ${finding.id}: ${moduleTarget} stays consistent under concurrent load", async () => {`,
     `  const mod = await import(${JSON.stringify("./" + moduleTarget)});`,
     `  const fns = Object.values(mod).filter((v) => typeof v === "function");`,
     `  assert.ok(fns.length > 0, "no exported functions to stress");`,
@@ -470,15 +470,15 @@ function perfRepro(
   // stays under the Phase-1 baseline.
   if (framework === "go") {
     const header = [
-      `// Guardian perf repro test — finding ${finding.id}`,
-      `// Linked from .guardian/scan-latest.json (perf baseline: build ${perf.buildTimeMs}ms).`,
+      `// OpenPitStop perf repro test — finding ${finding.id}`,
+      `// Linked from .pitstop/scan-latest.json (perf baseline: build ${perf.buildTimeMs}ms).`,
       `//`,
       `// Regression guard: the build must stay under the Phase-1 baseline threshold.`,
       `// Note: go test runs with cwd = this package dir, so the build is run with an`,
       `// explicit Dir set to the repo root captured at generation time.`,
     ].join("\n");
     const body = [
-      `package guardianrepro`,
+      `package pitstoprepro`,
       ``,
       `import (`,
       `	"os/exec"`,
@@ -505,8 +505,8 @@ function perfRepro(
   }
   if (framework === "cargo") {
     const header = [
-      `// Guardian perf repro test — finding ${finding.id}`,
-      `// Linked from .guardian/scan-latest.json (perf baseline: build ${perf.buildTimeMs}ms).`,
+      `// OpenPitStop perf repro test — finding ${finding.id}`,
+      `// Linked from .pitstop/scan-latest.json (perf baseline: build ${perf.buildTimeMs}ms).`,
       `//`,
       `// Regression guard: the build must stay under the Phase-1 baseline threshold.`,
     ].join("\n");
@@ -536,8 +536,8 @@ function perfRepro(
   }
   if (framework === "flutter") {
     const header = [
-      `// Guardian perf repro test — finding ${finding.id}`,
-      `// Linked from .guardian/scan-latest.json (perf baseline: build ${perf.buildTimeMs}ms).`,
+      `// OpenPitStop perf repro test — finding ${finding.id}`,
+      `// Linked from .pitstop/scan-latest.json (perf baseline: build ${perf.buildTimeMs}ms).`,
       `//`,
       `// Regression guard: the build must stay under the Phase-1 baseline threshold.`,
     ].join("\n");
@@ -568,15 +568,15 @@ function perfRepro(
       reason:
         `a ${framework} perf guard must live inside an existing test project (there is no ` +
         "project-agnostic location for a standalone test file); add a build-duration assertion " +
-        "to your test project manually and commit it as a guardian-repro guard.",
+        "to your test project manually and commit it as a pitstop-repro guard.",
     };
   }
 
   const bundleLimit =
     perf.bundleSizeBytes != null ? Math.max(1, Math.ceil(perf.bundleSizeBytes * 1.1)) : null;
   const header = [
-    `// Guardian perf repro test — finding ${finding.id}`,
-    `// Linked from .guardian/scan-latest.json (perf baseline: build ${perf.buildTimeMs}ms` +
+    `// OpenPitStop perf repro test — finding ${finding.id}`,
+    `// Linked from .pitstop/scan-latest.json (perf baseline: build ${perf.buildTimeMs}ms` +
       (bundleLimit != null ? `, bundle ${perf.bundleSizeBytes}B` : "") + `).`,
     `//`,
     `// Regression guard: the build must stay under the Phase-1 baseline threshold.`,
@@ -598,7 +598,7 @@ function perfRepro(
   }
   body.push(
     ``,
-    `test("guardian repro ${finding.id}: build stays under ${limitMs}ms", () => {`,
+    `test("pitstop repro ${finding.id}: build stays under ${limitMs}ms", () => {`,
     `  const t0 = Date.now();`,
     `  execSync("npm run build", { cwd: process.cwd(), stdio: ["ignore", "pipe", "pipe"], timeout: 120000 });`,
     `  const took = Date.now() - t0;`,
@@ -658,8 +658,8 @@ function a11yRepro(
   const rel = path.relative(repo, finding.file);
   const slug = reproSlug(finding);
   const header = [
-    `// Guardian a11y repro test — finding ${finding.id}`,
-    `// Linked from .guardian/scan-latest.json.`,
+    `// OpenPitStop a11y repro test — finding ${finding.id}`,
+    `// Linked from .pitstop/scan-latest.json.`,
     `// Axe-core assertion against ${rel}.`,
   ].join("\n");
   const axeReq = requireLine(framework, "axe-core", "axeCore");
@@ -671,7 +671,7 @@ function a11yRepro(
     jsdomReq,
     fsReq,
     ``,
-    `test("guardian repro ${finding.id}: axe reports no violations for ${rel}", async () => {`,
+    `test("pitstop repro ${finding.id}: axe reports no violations for ${rel}", async () => {`,
     `  const html = nodefs.readFileSync(${JSON.stringify(rel)}, "utf8");`,
     `  const dom = new jsdom.JSDOM(html, { runScripts: "outside-only" });`,
     `  const { window } = dom;`,
@@ -717,8 +717,8 @@ function graphRepro(
     .join(" → ");
   const slug = reproSlug(finding);
   const header = [
-    `// Guardian repro test — finding ${finding.id}`,
-    `// Linked from .guardian/scan-latest.json.`,
+    `// OpenPitStop repro test — finding ${finding.id}`,
+    `// Linked from .pitstop/scan-latest.json.`,
     `//`,
     `// CIRCULAR LOAD PROBE: the scan flagged a module cycle:`,
     `//   ${cycleLabel}`,
@@ -743,7 +743,7 @@ function graphRepro(
     });
     body.push(
       ``,
-      `test("guardian repro ${finding.id}: every member of the cycle initializes cleanly", () => {`,
+      `test("pitstop repro ${finding.id}: every member of the cycle initializes cleanly", () => {`,
       `  const MODS = [${vars.join(", ")}];`,
       `  MODS.forEach((mod, i) => {`,
       `    for (const [k, v] of Object.entries(mod)) {`,
@@ -758,7 +758,7 @@ function graphRepro(
     body.push(
       `const MODS = await Promise.all(${JSON.stringify(rels)}.map((m) => import(m)));`,
       ``,
-      `test("guardian repro ${finding.id}: every member of the cycle initializes cleanly", async () => {`,
+      `test("pitstop repro ${finding.id}: every member of the cycle initializes cleanly", async () => {`,
       `  MODS.forEach((mod, i) => {`,
       `    for (const [k, v] of Object.entries(mod)) {`,
       `      if (k === "default") continue;`,

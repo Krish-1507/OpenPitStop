@@ -60,7 +60,7 @@ async function waitForServer(
     }
     if ((await armed()) && baseUrl) {
       try {
-        const res = await fetch(`${baseUrl}/__guardian_ledger_probe__`);
+        const res = await fetch(`${baseUrl}/__pitstop_ledger_probe__`);
         if (res) return { up: true, aborted: false };
       } catch {
         /* not up yet */
@@ -110,7 +110,7 @@ export async function startHarness(
     };
   }
 
-  const workDir = path.join(repo, ".guardian", "ledger");
+  const workDir = path.join(repo, ".pitstop", "ledger");
   fs.mkdirSync(workDir, { recursive: true });
   const ts = new Date().toISOString().replace(/[:.]/g, "-");
   const runDir = path.join(workDir, `run-${ts}`);
@@ -151,8 +151,8 @@ export async function startHarness(
       harness: null,
       aborted: false,
       abortReason:
-        `could not determine a start command for a ${lang} repo — set GUARDIAN_START ` +
-        `(e.g. "GUARDIAN_START=uvicorn app.main:app") and re-run`,
+        `could not determine a start command for a ${lang} repo — set PITSTOP_START ` +
+        `(e.g. "PITSTOP_START=uvicorn app.main:app") and re-run`,
     };
   }
 
@@ -166,7 +166,7 @@ export async function startHarness(
         controlPath,
         gatewayLogPath,
         gatewayHosts,
-        canarySuffix: "guardian.invalid",
+        canarySuffix: "pitstop.invalid",
       });
     } catch (e) {
       return {
@@ -186,13 +186,13 @@ export async function startHarness(
   const baseEnv: NodeJS.ProcessEnv = {
     ...process.env,
     PORT: String(port),
-    GUARDIAN_LEDGER_CONTROL: controlPath,
-    GUARDIAN_LEDGER_GATEWAY_LOG: gatewayLogPath,
-    GUARDIAN_LEDGER_GATEWAY_HOSTS: gatewayHosts.join(","),
+    PITSTOP_LEDGER_CONTROL: controlPath,
+    PITSTOP_LEDGER_GATEWAY_LOG: gatewayLogPath,
+    PITSTOP_LEDGER_GATEWAY_HOSTS: gatewayHosts.join(","),
     // Fake credentials — requests are intercepted before they reach a real gateway.
-    RAZORPAY_KEY_ID: process.env.RAZORPAY_KEY_ID || "rzp_test_guardian000000",
-    RAZORPAY_KEY_SECRET: process.env.RAZORPAY_KEY_SECRET || "guardian_fake_secret",
-    STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY || "sk_test_guardian_fake",
+    RAZORPAY_KEY_ID: process.env.RAZORPAY_KEY_ID || "rzp_test_pitstop000000",
+    RAZORPAY_KEY_SECRET: process.env.RAZORPAY_KEY_SECRET || "pitstop_fake_secret",
+    STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY || "sk_test_pitstop_fake",
     NODE_ENV: process.env.NODE_ENV || "test",
   };
   const env: NodeJS.ProcessEnv = nodeMode
@@ -279,7 +279,7 @@ export async function startHarness(
 }
 
 export function newEvidencePath(repo: string, ts: string): string {
-  return path.join(repo, ".guardian", `ledger-evidence-${ts}.json`);
+  return path.join(repo, ".pitstop", `ledger-evidence-${ts}.json`);
 }
 
 export function readAbortReason(controlPath: string): string | null {

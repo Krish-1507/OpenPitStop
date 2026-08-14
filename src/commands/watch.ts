@@ -10,7 +10,7 @@ import { correlate } from "../graph/correlate.js";
 import { computeScore } from "../report/score.js";
 
 /**
- * `guardian watch` — the live shield.
+ * `pitstop watch` — the live shield.
  *
  * Polls the working tree; the moment a file changes it runs the fast static
  * pass and prints the score delta + any new security issues. A dev server's

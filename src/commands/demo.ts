@@ -9,12 +9,12 @@ import { runScan, renderBox } from "./scan.js";
 import { createSpinner } from "../ui/spinner.js";
 
 /**
- * `guardian demo` — the first-touch wow, kept self-contained on purpose:
+ * `pitstop demo` — the first-touch wow, kept self-contained on purpose:
  *
  * - NO writes outside the OS temp dir (+ a node_modules cache under
- *   ~/.guardian/cache so repeat demos skip the registry entirely). It never
+ *   ~/.pitstop/cache so repeat demos skip the registry entirely). It never
  *   installs slash commands into the user's tool configs — that stays an
- *   explicit, user-invoked `guardian install` — so a demo cannot surprise you
+ *   explicit, user-invoked `pitstop install` — so a demo cannot surprise you
  *   with files in ~/.claude etc.
  * - NO npm install in the hot path. node_modules is linked from (1) the
  *   fixture's own checkout, (2) the user-level cache, and only as a last
@@ -50,7 +50,7 @@ function linkModules(candidate: string, destPath: string): boolean {
 
 /** Resolve node_modules for the temp demo: cache → fixture → one-time cached install. */
 async function ensureDeps(demoName: string, src: string, tmp: string): Promise<boolean> {
-  const cacheRoot = path.join(os.homedir(), ".guardian", "cache", demoName);
+  const cacheRoot = path.join(os.homedir(), ".pitstop", "cache", demoName);
   const cacheModules = path.join(cacheRoot, "node_modules");
   const target = path.join(tmp, "node_modules");
 
@@ -82,7 +82,7 @@ async function ensureDeps(demoName: string, src: string, tmp: string): Promise<b
 
 export const demo = new Command("demo")
   .description(
-    "Recreate an intentionally-broken Guardian demo repo in a fresh temp dir (default: " +
+    "Recreate an intentionally-broken OpenPitStop demo repo in a fresh temp dir (default: " +
       "demo-repo, or pass demo-repo-integrity / demo-repo-fintech / demo-repo-generators), " +
       "initialize git, and scan it RIGHT NOW so you see the boxed report without any setup. " +
       "Self-contained: nothing is written outside the OS temp dir (slash-command install is " +
@@ -98,18 +98,18 @@ export const demo = new Command("demo")
       return;
     }
 
-    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "guardian-demo-"));
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "pitstop-demo-"));
     fs.cpSync(src, tmp, { recursive: true, filter: (p) => !/node_modules$/.test(p) });
 
-    // A fixture's checked-in .guardian records a previous repo path and stale
+    // A fixture's checked-in .pitstop records a previous repo path and stale
     // baselines — wipe those so the temp repo starts clean, but KEEP the cache
     // dir (npm-audit JSON + jest cache) so the first demo scan is fast.
-    const guardianDir = path.join(tmp, ".guardian");
-    if (fs.existsSync(guardianDir)) {
-      for (const f of fs.readdirSync(guardianDir)) {
+    const pitstopDir = path.join(tmp, ".pitstop");
+    if (fs.existsSync(pitstopDir)) {
+      for (const f of fs.readdirSync(pitstopDir)) {
         if (f === "cache") continue;
         try {
-          fs.rmSync(path.join(guardianDir, f), { recursive: true, force: true });
+          fs.rmSync(path.join(pitstopDir, f), { recursive: true, force: true });
         } catch {
           /* best-effort */
         }
@@ -138,8 +138,8 @@ export const demo = new Command("demo")
     if (init.code !== 0) {
       console.log(chalk.yellow("git init failed — the integrity gate will not be able to diff fixes."));
     } else {
-      safeExec("git", ["config", "user.email", "guardian@demo.local"], tmp);
-      safeExec("git", ["config", "user.name", "Guardian Demo"], tmp);
+      safeExec("git", ["config", "user.email", "pitstop@demo.local"], tmp);
+      safeExec("git", ["config", "user.name", "OpenPitStop Demo"], tmp);
       const add = safeExec("git", ["add", "-A"], tmp);
       if (add.code !== 0) {
         console.log(chalk.yellow("git add failed — baseline commit skipped."));
@@ -168,9 +168,9 @@ export const demo = new Command("demo")
     }
 
     console.log(
-      `\n${chalk.bold("Next:")} cd ${tmp}, open it in Claude Code/Cursor/OpenCode, type /guardian, hit enter.\n` +
+      `\n${chalk.bold("Next:")} cd ${tmp}, open it in Claude Code/Cursor/OpenCode, type /pitstop, hit enter.\n` +
         `The agent will fix the findings above, cluster by cluster, and loop until the score is clean.` +
-        `\n(To register the /guardian slash command in your tools, run \`guardian install\` in that repo — ` +
+        `\n(To register the /pitstop slash command in your tools, run \`pitstop install\` in that repo — ` +
         `it writes into your tool configs, so it is never done silently by the demo.)`,
     );
   });

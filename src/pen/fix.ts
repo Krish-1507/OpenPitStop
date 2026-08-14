@@ -1,5 +1,5 @@
 /**
- * pen/fix.ts — `guardian pen --fix`.
+ * pen/fix.ts — `pitstop pen --fix`.
  *
  * What --fix actually does (and what it refuses to do):
  *   1. Writes a permanent repro test for every finding that has a replayable
@@ -9,9 +9,9 @@
  *      provably safe to suggest as `git apply`-able diffs:
  *        - `app.disable("x-powered-by")` (no behavior change)
  *        - `helmet()` middleware, only when helmet is already installed
- *      Everything else gets a precise manual fix note in GUARDIAN_PEN_FIXES.md.
+ *      Everything else gets a precise manual fix note in PITSTOP_PEN_FIXES.md.
  *   3. NEVER modifies the user's source. Patches are written to
- *      .guardian/pen-patches/ and the user (or their agent) applies them.
+ *      .pitstop/pen-patches/ and the user (or their agent) applies them.
  */
 
 import fs from "node:fs";
@@ -27,7 +27,7 @@ export interface PenFixOutcome {
 
 /* ------------------------------------------------------------------ */
 /* unified-diff builder: pure-insertion hunks in git's canonical form. */
-/* Guardian's deterministic fixes NEVER delete user lines — they only  */
+/* OpenPitStop's deterministic fixes NEVER delete user lines — they only  */
 /* insert. In the hunk, every ` ` (context) line counts toward BOTH    */
 /* sides and appears ONCE, with `+` lines interleaved at their         */
 /* positions — exactly the shape `git diff` emits, which `git apply`   */
@@ -83,7 +83,7 @@ function findExpressAppFile(repo: string): { file: string; line: number; lineTex
     for (const e of entries) {
       const p = path.join(dir, e.name);
       if (e.isDirectory()) {
-        if (e.name === "node_modules" || e.name === ".git" || e.name === ".guardian" || e.name === "dist" || e.name === "build") continue;
+        if (e.name === "node_modules" || e.name === ".git" || e.name === ".pitstop" || e.name === "dist" || e.name === "build") continue;
         stack.push(p);
       } else if (e.isFile() && /\.(js|mjs|cjs|ts)$/i.test(e.name)) {
         try {
@@ -116,7 +116,7 @@ const noBom = (l: string) => l.replace(/^\uFEFF/, "");
 export function runFixes(repo: string, result: PenResult, packages: string[]): PenFixOutcome {
   const repros: PenFixOutcome["repros"] = [];
   const patches: PenFixOutcome["patches"] = [];
-  const patchDir = path.join(repo, ".guardian", "pen-patches");
+  const patchDir = path.join(repo, ".pitstop", "pen-patches");
   fs.mkdirSync(patchDir, { recursive: true });
 
   for (const f of result.findings) {
@@ -220,15 +220,15 @@ function buildFixesMd(
   const patchBy = new Map<string, PenFixOutcome["patches"][number]>();
   for (const p of patches) for (const id of p.findingIds) patchBy.set(id, p);
   const L: string[] = [];
-  L.push(`# Guardian Pen Test — Fix Plan`);
+  L.push(`# OpenPitStop Pen Test — Fix Plan`);
   L.push("");
   L.push(`_${result.timestamp}_ — ${result.repo}`);
   L.push("");
   L.push(`How to use this file:`);
   L.push(`1. Every replayable finding now has a **repro test** that FAILS while the bug is live.`);
   L.push(`2. Apply deterministic patches with \`git apply\`, or hand the finding id to your agent:`);
-  L.push(`   \`guardian drive <id>\` or tell your agent \`guardian repro <id>\` → fix → \`guardian verify\`.`);
-  L.push(`3. When the repro test PASSES and \`guardian pen\` reports the finding gone, it is fixed — not vibes.`);
+  L.push(`   \`pitstop drive <id>\` or tell your agent \`pitstop repro <id>\` → fix → \`pitstop verify\`.`);
+  L.push(`3. When the repro test PASSES and \`pitstop pen\` reports the finding gone, it is fixed — not vibes.`);
   L.push("");
   for (const f of result.findings) {
     L.push(`## ${f.severity.toUpperCase()} — ${f.title} \`${f.id}\``);
@@ -245,12 +245,12 @@ function buildFixesMd(
     L.push("");
     const reproFile = reproBy.get(f.id);
     if (reproFile) {
-      L.push(`- **Repro test**: \`${reproFile}\` — run with \`npx cli-guardian repro ${f.id}\`. It FAILS now; make it PASS.`);
+      L.push(`- **Repro test**: \`${reproFile}\` — run with \`npx openpitstop repro ${f.id}\`. It FAILS now; make it PASS.`);
     }
     const patch = patchBy.get(f.id);
     if (patch) {
       L.push(`- **Deterministic patch**: \`git apply ${patch.diffPath}\` — ${patch.note}.`);
-      L.push(`  Verify with \`npx cli-guardian repro ${f.id}\` + \`npx cli-guardian verify\`.`);
+      L.push(`  Verify with \`npx openpitstop repro ${f.id}\` + \`npx openpitstop verify\`.`);
     }
     if (f.fix) {
       L.push(`- **Fix guidance**: ${f.fix}`);
@@ -258,7 +258,7 @@ function buildFixesMd(
     L.push("");
   }
   L.push(`---`);
-  L.push(`Guardian can't promise "never hacked" — it CAN promise this: every demonstrable attack here`);
+  L.push(`OpenPitStop can't promise "never hacked" — it CAN promise this: every demonstrable attack here`);
   L.push(`has a regression test that fails on the bug and passes on the fix. Ship with those tests green.`);
   L.push("");
   return L.join("\n");

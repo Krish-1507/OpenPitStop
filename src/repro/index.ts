@@ -8,9 +8,9 @@ import { runRepro, type ReproRunResult } from "./run.js";
 import { loadPenLatest, resolvePenFinding } from "../pen/store.js";
 
 /**
- * repro/index.ts — `guardian repro <finding-id>`:
+ * repro/index.ts — `pitstop repro <finding-id>`:
  *
- *   1. load `.guardian/scan-latest.json`,
+ *   1. load `.pitstop/scan-latest.json`,
  *   2. resolve the finding id to a real finding,
  *   3. generate a committed repro test that genuinely attempts to reproduce the bug,
  *   4. run it through the repo's own test framework and report PASS/FAIL.
@@ -28,7 +28,7 @@ export interface ReproResult {
 }
 
 export function loadScan(repo: string): ScanResult | null {
-  const p = path.join(repo, ".guardian", "scan-latest.json");
+  const p = path.join(repo, ".pitstop", "scan-latest.json");
   if (!fs.existsSync(p)) return null;
   try {
     return JSON.parse(fs.readFileSync(p, "utf8")) as ScanResult;
@@ -47,7 +47,7 @@ export async function repro(
   if (!scan && !pen) {
     return {
       status: "no-scan",
-      reason: "no .guardian/scan-latest.json or pen-latest.json — run `guardian scan` or `guardian pen` first",
+      reason: "no .pitstop/scan-latest.json or pen-latest.json — run `pitstop scan` or `pitstop pen` first",
     };
   }
 

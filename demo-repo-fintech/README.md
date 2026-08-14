@@ -1,7 +1,7 @@
-# guardian-demo-fintech
+# pitstop-demo-fintech
 
-> **This is Guardian's intentionally-broken *fintech* demo repository.** It is the
-> companion fixture for `guardian scan --ledger`, whose job is to prove a **real
+> **This is OpenPitStop's intentionally-broken *fintech* demo repository.** It is the
+> companion fixture for `pitstop scan --ledger`, whose job is to prove a **real
 > double-charge** exists (not a simulated one).
 
 ## What's broken (on purpose)
@@ -16,7 +16,7 @@
 
 ## Safety
 
-`guardian scan --ledger` runs this app under a `nock` sandbox that intercepts
+`pitstop scan --ledger` runs this app under a `nock` sandbox that intercepts
 *every* outbound HTTP request before it leaves the process. The `razorpay`
 requests land on a local mock and **never** reach a real payment gateway.
 

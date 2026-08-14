@@ -1,8 +1,8 @@
 {
-  "name": "guardian-demo-api",
+  "name": "pitstop-demo-api",
   "version": "0.0.0",
   "private": true,
-  "description": "Guardian's intentionally-broken demo API",
+  "description": "OpenPitStop's intentionally-broken demo API",
   "scripts": {
     "start": "node src/server.js",
     "test": "jest"

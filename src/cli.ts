@@ -39,8 +39,8 @@ function readVersion(): string {
 const program = new Command();
 
 program
-  .name("guardian")
-  .description("Guardian CLI")
+  .name("pitstop")
+  .description("OpenPitStop CLI")
   .version(readVersion());
 
 program.addCommand(install);

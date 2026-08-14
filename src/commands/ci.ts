@@ -15,28 +15,28 @@ import { classifyRisk, deltasOf, metricsOf } from "../verify/metrics.js";
 import type { ScanResult } from "../analyzers/types.js";
 
 /**
- * `guardian ci` — CI-mode, diagnostic-only analysis.
+ * `pitstop ci` — CI-mode, diagnostic-only analysis.
  *
- * Runs the same scan pipeline as `guardian scan`, then (inside a PR, detected
+ * Runs the same scan pipeline as `pitstop scan`, then (inside a PR, detected
  * via GITHUB_BASE_REF) diffs the current branch's metrics against the base
  * branch's snapshot, and prints ONE GitHub-flavored markdown block meant to be
  * posted as a PR comment.
  *
  * It is deliberately READ-ONLY: it never commits, never creates branches, never
- * edits files. Autonomous fixing only ever happens through the /guardian slash
+ * edits files. Autonomous fixing only ever happens through the /pitstop slash
  * command in an interactive coding agent, never here.
  */
 export const ci = new Command("ci")
   .description(
     "CI-mode scan: run scan + verify vs the base branch (PR) and print a markdown report for PR comments. " +
-      "guardian ci is diagnostic-only; use the /guardian slash command locally for autonomous fixes.",
+      "pitstop ci is diagnostic-only; use the /pitstop slash command locally for autonomous fixes.",
   )
   .argument("[repo]", "path to the repo to analyze (defaults to cwd)", ".")
   .action(async (repoArg: string) => {
     const repo = path.resolve(repoArg);
     const baseRef = process.env.GITHUB_BASE_REF?.trim() || "";
 
-    console.error(`[guardian ci] scanning ${repo}${baseRef ? ` vs base \`${baseRef}\`` : ""}`);
+    console.error(`[pitstop ci] scanning ${repo}${baseRef ? ` vs base \`${baseRef}\`` : ""}`);
 
     let headResult: ScanResult;
     let baseResult: ScanResult | null = null;
@@ -46,7 +46,7 @@ export const ci = new Command("ci")
       const run = await runScan(repo);
       headResult = run.result;
     } catch (err: any) {
-      console.error(`[guardian ci] scan failed: ${err?.message ?? err}`);
+      console.error(`[pitstop ci] scan failed: ${err?.message ?? err}`);
       process.exitCode = 1;
       return;
     }
@@ -58,7 +58,7 @@ export const ci = new Command("ci")
         try {
           baseResult = await analyzeDir(baseSnapshot);
         } catch (err: any) {
-          console.error(`[guardian ci] base-branch analysis failed: ${err?.message ?? err}`);
+          console.error(`[pitstop ci] base-branch analysis failed: ${err?.message ?? err}`);
           baseResult = null;
         } finally {
           try {
@@ -135,18 +135,18 @@ async function analyzeDir(dir: string): Promise<ScanResult> {
  * a scan-only report.
  */
 function fetchBaseSnapshot(repo: string, baseRef: string): string | null {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "guardian-ci-base-"));
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "pitstop-ci-base-"));
   const fetch = safeExec("git", ["fetch", "--depth=1", "origin", baseRef], repo, 180000);
   if (fetch.code !== 0) {
     console.error(
-      `[guardian ci] could not fetch origin/${baseRef}: ${fetch.stderr.trim() || fetch.stdout.trim()}`,
+      `[pitstop ci] could not fetch origin/${baseRef}: ${fetch.stderr.trim() || fetch.stdout.trim()}`,
     );
     return null;
   }
   const rev = safeExec("git", ["rev-parse", `origin/${baseRef}`], repo, 30000);
   const commit = rev.stdout.trim();
   if (!commit) {
-    console.error(`[guardian ci] could not resolve origin/${baseRef}`);
+    console.error(`[pitstop ci] could not resolve origin/${baseRef}`);
     return null;
   }
   const init = safeExec("git", ["init", "-q"], tmp, 30000);
@@ -156,13 +156,13 @@ function fetchBaseSnapshot(repo: string, baseRef: string): string | null {
   const pull = safeExec("git", ["fetch", "--depth=1", repo, commit], tmp, 180000);
   if (pull.code !== 0) {
     console.error(
-      `[guardian ci] could not extract base snapshot: ${pull.stderr.trim() || pull.stdout.trim()}`,
+      `[pitstop ci] could not extract base snapshot: ${pull.stderr.trim() || pull.stdout.trim()}`,
     );
     return null;
   }
   const co = safeExec("git", ["checkout", "-q", "FETCH_HEAD"], tmp, 60000);
   if (co.code !== 0) {
-    console.error(`[guardian ci] could not check out base snapshot: ${co.stderr.trim()}`);
+    console.error(`[pitstop ci] could not check out base snapshot: ${co.stderr.trim()}`);
     return null;
   }
   return tmp;

@@ -17,7 +17,7 @@ export type TestFramework =
 
 /**
  * framework.ts — figure out how the target repo runs tests, and run a single
- * repro test file through that runner. Guardian never invents a test setup; it
+ * repro test file through that runner. OpenPitStop never invents a test setup; it
  * uses whatever the repo already has (jest/vitest/pytest), falling back to
  * Node's built-in `node --test` for JS repos with no framework (zero deps).
  * For non-Node stacks the native runner is used: `go test` for a standalone
@@ -102,7 +102,7 @@ export function reproExtension(framework: TestFramework): string {
 export function reproDir(framework: TestFramework): string {
   if (framework === "cargo") return "tests";
   if (framework === "flutter") return "test";
-  if (framework === "go") return "guardianrepro";
+  if (framework === "go") return "pitstoprepro";
   return "";
 }
 

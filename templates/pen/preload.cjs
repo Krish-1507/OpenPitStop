@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * Guardian `pen` HTTP sandbox (CommonJS preload).
+ * OpenPitStop `pen` HTTP sandbox (CommonJS preload).
  *
  * Loaded into the app-under-test via `NODE_OPTIONS=--require=<this file>`,
  * BEFORE the app's own modules, so the "penetration test" can fire attack
@@ -9,11 +9,11 @@
  *
  *   1. NOTHING reaches the real network. Every outbound HTTP/HTTPS request is
  *      intercepted (nock catch-all + fetch wrapper) and recorded into
- *      `GUARDIAN_PEN_OUTBOUND`; raw sockets and UDP are blocked outright.
+ *      `PITSTOP_PEN_OUTBOUND`; raw sockets and UDP are blocked outright.
  *      An SSRF is therefore not an exfiltration — it is a recorded log line.
  *   2. Everything the app tries to reach out to is evidence: outbound HTTP is
  *      logged as `{kind:"http", host, method, path}`, child-process spawns as
- *      `{kind:"spawn", cmd}`. A `guardian` canary marker inside a logged line
+ *      `{kind:"spawn", cmd}`. A `pitstop` canary marker inside a logged line
  *      is PROOF of command injection / SSRF without a single real byte leaving
  *      the machine.
  *
@@ -22,19 +22,19 @@
  *     (dev servers, migrators), and this is the user's own start script.
  *     The attacker payload canary still shows up in the spawn log, which is the
  *     proof we need. A truly hostile repo is no more dangerous than running
- *     `npm start` yourself — which is exactly what `guardian pen` asks you to do.
+ *     `npm start` yourself — which is exactly what `pitstop pen` asks you to do.
  *   - raw sockets (net/tls) and UDP are BLOCKED: those bypass interception
  *     entirely, so the "nothing reaches the real network" guarantee cannot be
  *     kept with them enabled.
  *
- * Control stream (`GUARDIAN_PEN_CONTROL`): JSONL events `armed` / `probe`,
+ * Control stream (`PITSTOP_PEN_CONTROL`): JSONL events `armed` / `probe`,
  * plus every `outbound` / `spawn` / `blocked` line mirrored for the harness.
  */
 
 const fs = require('fs');
 
-const CONTROL = process.env.GUARDIAN_PEN_CONTROL || null;
-const OUTBOUND = process.env.GUARDIAN_PEN_OUTBOUND || null;
+const CONTROL = process.env.PITSTOP_PEN_CONTROL || null;
+const OUTBOUND = process.env.PITSTOP_PEN_OUTBOUND || null;
 
 let seq = 0;
 
@@ -102,7 +102,7 @@ const armMethod = (method) => {
     // A bland 200 JSON reply: the app keeps working, we keep the receipt.
     return [
       200,
-      { ok: true, intercepted: true, note: 'guardian pen sandbox — this call never reached the real network' },
+      { ok: true, intercepted: true, note: 'pitstop pen sandbox — this call never reached the real network' },
     ];
   });
 };
@@ -127,7 +127,7 @@ if (typeof globalThis.fetch === 'function') {
         via: 'fetch',
       });
       return new Response(
-        JSON.stringify({ ok: true, intercepted: true, note: 'guardian pen sandbox' }),
+        JSON.stringify({ ok: true, intercepted: true, note: 'pitstop pen sandbox' }),
         { status: 200, headers: { 'Content-Type': 'application/json' } },
       );
     }
@@ -166,8 +166,8 @@ const net = require('net');
 const tls = require('tls');
 const block = (what, detail) => {
   emit({ kind: 'blocked', what, detail: trunc(detail || '', 200) });
-  const err = new Error('[guardian-pen] blocked raw ' + what + ' — it would bypass interception');
-  err.code = 'GUARDIAN_PEN_BLOCKED_CONNECT';
+  const err = new Error('[pitstop-pen] blocked raw ' + what + ' — it would bypass interception');
+  err.code = 'PITSTOP_PEN_BLOCKED_CONNECT';
   throw err;
 };
 net.connect = function (...a) {
@@ -192,5 +192,5 @@ try {
   /* dgram absent */
 }
 
-emit({ event: 'armed', note: 'guardian pen sandbox armed — outbound HTTP intercepted, raw sockets blocked' });
-console.error('[guardian-pen] sandbox armed — all outbound HTTP is intercepted and recorded; raw sockets are blocked');
+emit({ event: 'armed', note: 'pitstop pen sandbox armed — outbound HTTP intercepted, raw sockets blocked' });
+console.error('[pitstop-pen] sandbox armed — all outbound HTTP is intercepted and recorded; raw sockets are blocked');

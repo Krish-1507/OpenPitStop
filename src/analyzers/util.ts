@@ -129,7 +129,7 @@ const IGNORE_DIRS = new Set([
   "dist",
   "build",
   ".git",
-  ".guardian",
+  ".pitstop",
   "coverage",
   ".next",
   ".venv",

@@ -13,7 +13,7 @@ export function analyzeDuplication(repo: string): DuplicationResult {
     };
   }
 
-  const outDir = path.join(repo, ".guardian", "jscpd");
+  const outDir = path.join(repo, ".pitstop", "jscpd");
   fs.mkdirSync(outDir, { recursive: true });
   const r = safeExec(
     "jscpd",

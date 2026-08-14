@@ -1,10 +1,10 @@
-# guardian-demo-api
+# pitstop-demo-api
 
-> **This is Guardian's intentionally-broken demo repository.** Do not use it as a
+> **This is OpenPitStop's intentionally-broken demo repository.** Do not use it as a
 > real application. It is seeded with genuine, detectable problems so you can watch
-> `guardian` scan, pause for confirmation, then autonomously fix and verify in a loop.
+> `pitstop` scan, pause for confirmation, then autonomously fix and verify in a loop.
 
-Seeded problems (so you can check the numbers in `GUARDIAN_REPORT.md`):
+Seeded problems (so you can check the numbers in `PITSTOP_REPORT.md`):
 
 - **Circular dependencies** between `userRepo` ↔ `userService` ↔ `userController` (a real
   3-module import cycle).
@@ -20,5 +20,5 @@ Seeded problems (so you can check the numbers in `GUARDIAN_REPORT.md`):
   loops users and queries posts per-user). Phase 2's clustering groups these three files into
   one root-cause cluster.
 
-Run it: `guardian demo` copies this into a temp dir, installs the slash command, and tells you
+Run it: `pitstop demo` copies this into a temp dir, installs the slash command, and tells you
 where to open it.

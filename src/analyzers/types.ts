@@ -6,7 +6,7 @@ export interface ScanIssue {
   file?: string;
   line?: number;
   description: string;
-  /** Stable, deterministic finding id (used by `guardian repro`). */
+  /** Stable, deterministic finding id (used by `pitstop repro`). */
   id?: string;
 }
 
@@ -51,7 +51,7 @@ export interface PerfResult {
   bundleSizeBytes?: number;
   /** Captured when the build script fails, to aid diagnosis. */
   stderr?: string;
-  /** Stable id for the perf baseline finding (used by `guardian repro`). */
+  /** Stable id for the perf baseline finding (used by `pitstop repro`). */
   id?: string;
 }
 
@@ -117,12 +117,12 @@ export interface ClusterFinding {
   type: string;
   description: string;
   files: string[];
-  /** Stable finding id — links a cluster back to scan-latest.json and `guardian repro`. */
+  /** Stable finding id — links a cluster back to scan-latest.json and `pitstop repro`. */
   id?: string;
 }
 
 /* ------------------------------------------------------------------ */
-/* Ledger mode (`guardian scan --ledger`)                               */
+/* Ledger mode (`pitstop scan --ledger`)                               */
 /* ------------------------------------------------------------------ */
 
 /** A money-moving endpoint discovered by the static scan. */
@@ -180,7 +180,7 @@ export interface LedgerEvidence {
   /** One-line human summary, e.g. "order ord_test_1 charged twice via webhook replay, 340ms apart". */
   summary: string;
   evidenceFile?: string;
-  /** Stable finding id (used by `guardian repro`). */
+  /** Stable finding id (used by `pitstop repro`). */
   id?: string;
 }
 
@@ -193,7 +193,7 @@ export interface LedgerResult {
   evidence: LedgerEvidence[];
   /** Where the mocked gateway recorded what it received. */
   gatewayLogPath?: string;
-  /** Absolute path of the written evidence file (`.guardian/ledger-evidence-<ts>.json`). */
+  /** Absolute path of the written evidence file (`.pitstop/ledger-evidence-<ts>.json`). */
   evidenceFile?: string;
 }
 
@@ -207,7 +207,7 @@ export interface Cluster {
 export interface ScanResult {
   timestamp: string;
   repo: string;
-  /** `try` was produced by the quick `guardian try` pass (tests/perf/reliability intentionally skipped). */
+  /** `try` was produced by the quick `pitstop try` pass (tests/perf/reliability intentionally skipped). */
   mode?: "full" | "try";
   language: Language;
   dependencyGraph: DependencyGraphResult;

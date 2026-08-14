@@ -14,7 +14,7 @@ const MAX_RUNTIME_FILES = 10;
  * HONEST CAVEATS (read before trusting these numbers):
  *
  * - Real runtime a11y testing (pa11y / axe-core) needs a LIVE page — a URL or a
- *   served build. A plain `guardian scan` must not boot a long-lived dev server,
+ *   served build. A plain `pitstop scan` must not boot a long-lived dev server,
  *   so we only run runtime tools against static HTML files that already exist in
  *   the repo. If the app needs a build+serve step (Vite, webpack, etc.), runtime
  *   testing here is NOT attempted, and we say so in the note.

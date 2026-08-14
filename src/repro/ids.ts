@@ -12,7 +12,7 @@ import type {
  * ids.ts — stable, deterministic finding ids.
  *
  * A finding id exists so that a committed repro test can link back to the exact
- * finding in `.guardian/scan-latest.json` and survive re-scans: the same bug in
+ * finding in `.pitstop/scan-latest.json` and survive re-scans: the same bug in
  * the same file produces the same id every time. This is the glue that lets the
  * autonomous loop demand "prove it fails first, prove it passes after".
  */
@@ -76,7 +76,7 @@ export function stampFindings(r: ScanResult): void {
   }
 }
 
-/** A normalized, addressable finding record for `guardian repro`. */
+/** A normalized, addressable finding record for `pitstop repro`. */
 export interface ReproFinding {
   id: string;
   source: string;
@@ -108,7 +108,7 @@ function pushIssues(
   }
 }
 
-/** Enumerate every finding `guardian repro` can address. */
+/** Enumerate every finding `pitstop repro` can address. */
 export function enumerateFindings(r: ScanResult): ReproFinding[] {
   const out: ReproFinding[] = [];
   pushIssues(out, r.security.issues, "security");

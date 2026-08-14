@@ -1,14 +1,14 @@
 // ==============================================================================
-// Guardian permanent repro test — finding ledger-46f2bb8e
-// Linked from .guardian/scan-latest.json (issue / cluster finding id ledger-46f2bb8e).
+// OpenPitStop permanent repro test — finding ledger-18f7bcc7
+// Linked from .pitstop/scan-latest.json (issue / cluster finding id ledger-18f7bcc7).
 //
-// Scenario: delayed-retry on /api/orders/:id/charge
-//   order ord_retry_2 · idempotency key idem_retry_2
-//   Gateway contract: exactly ONE charge for key "pay_idem_retry_2"
+// Scenario: concurrent-double-submit on /api/orders/:id/charge
+//   order ord_conc_1 · idempotency key idem_conc_1
+//   Gateway contract: exactly ONE charge for key "pay_idem_conc_1"
 //   (observed now: 2 charges — the bug this test exists to guard).
 //
-// Run via: npx cli-guardian repro ledger-46f2bb8e
-// The app is booted under Guardian's nock sandbox, so no request can ever reach
+// Run via: npx openpitstop repro ledger-18f7bcc7
+// The app is booted under OpenPitStop's nock sandbox, so no request can ever reach
 // a real payment gateway; the "gateway" is a local mock that records every call.
 // This test MUST FAIL on the buggy code and MUST PASS only after the fix.
 // ==============================================================================
@@ -17,13 +17,13 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 const REPO = process.cwd();
-const PRELOAD = process.env.GUARDIAN_LEDGER_PRELOAD;
+const PRELOAD = process.env.PITSTOP_LEDGER_PRELOAD;
 const GATEWAY_HOST = "https://api.razorpay.com";
 const ENDPOINT = "/api/orders/:id/charge";
-const SCENARIO = "delayed-retry";
-const ORDER_ID = "ord_retry_2";
-const IDEM_KEY = "idem_retry_2";
-const EXPECTED_KEY = "pay_idem_retry_2";
+const SCENARIO = "concurrent-double-submit";
+const ORDER_ID = "ord_conc_1";
+const IDEM_KEY = "idem_conc_1";
+const EXPECTED_KEY = "pay_idem_conc_1";
 const AMOUNT = 1000;
 const CURRENCY = "INR";
 const NODE_BASED = new Set(["node","node.exe","nodejs","npm","npm.cmd","npx","npx.cmd","yarn","yarn.cmd","pnpm","pnpm.cmd","tsx","ts-node","babel-node","ojs","vitest","jest"]);
@@ -96,11 +96,11 @@ function countCharges(gatewayLogPath) {
   return out;
 }
 
-test("guardian repro ledger-46f2bb8e: exactly one gateway charge for key '" + EXPECTED_KEY + "'", async () => {
-  assert.ok(PRELOAD, "GUARDIAN_LEDGER_PRELOAD not set — run this via `npx cli-guardian repro ledger-46f2bb8e`");
+test("pitstop repro ledger-18f7bcc7: exactly one gateway charge for key '" + EXPECTED_KEY + "'", async () => {
+  assert.ok(PRELOAD, "PITSTOP_LEDGER_PRELOAD not set — run this via `npx openpitstop repro ledger-18f7bcc7`");
 
   const start = resolveStart();
-  const runDir = path.join(REPO, ".guardian", "repro", new Date().toISOString().replace(/[:.]/g, "-"));
+  const runDir = path.join(REPO, ".pitstop", "repro", new Date().toISOString().replace(/[:.]/g, "-"));
   mkdirSync(runDir, { recursive: true });
   const controlPath = path.join(runDir, "control.jsonl");
   const gatewayLogPath = path.join(runDir, "gateway.log.jsonl");
@@ -111,12 +111,12 @@ test("guardian repro ledger-46f2bb8e: exactly one gateway charge for key '" + EX
     ...process.env,
     NODE_OPTIONS: [process.env.NODE_OPTIONS, "--require=" + PRELOAD].filter(Boolean).join(" "),
     PORT: String(port),
-    GUARDIAN_LEDGER_CONTROL: controlPath,
-    GUARDIAN_LEDGER_GATEWAY_LOG: gatewayLogPath,
-    GUARDIAN_LEDGER_GATEWAY_HOSTS: GATEWAY_HOST,
-    RAZORPAY_KEY_ID: process.env.RAZORPAY_KEY_ID || "rzp_test_guardian000000",
-    RAZORPAY_KEY_SECRET: process.env.RAZORPAY_KEY_SECRET || "guardian_fake_secret",
-    STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY || "sk_test_guardian_fake",
+    PITSTOP_LEDGER_CONTROL: controlPath,
+    PITSTOP_LEDGER_GATEWAY_LOG: gatewayLogPath,
+    PITSTOP_LEDGER_GATEWAY_HOSTS: GATEWAY_HOST,
+    RAZORPAY_KEY_ID: process.env.RAZORPAY_KEY_ID || "rzp_test_pitstop000000",
+    RAZORPAY_KEY_SECRET: process.env.RAZORPAY_KEY_SECRET || "pitstop_fake_secret",
+    STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY || "sk_test_pitstop_fake",
     NODE_ENV: process.env.NODE_ENV || "test",
   };
   const child = spawn(start.cmd, start.args, { cwd: REPO, env, stdio: ["ignore", "ignore", "inherit"] });
@@ -127,7 +127,7 @@ test("guardian repro ledger-46f2bb8e: exactly one gateway charge for key '" + EX
       if (child.exitCode !== null) break;
       if (controlHas(controlPath, '"event":"armed"')) {
         try {
-          await fetch(baseUrl + "/__guardian_ledger_probe__");
+          await fetch(baseUrl + "/__pitstop_ledger_probe__");
           up = true;
           break;
         } catch {}

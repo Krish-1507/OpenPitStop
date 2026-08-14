@@ -12,7 +12,7 @@ import type { ScanResult } from "../analyzers/types.js";
 const SEV_ORDER: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3, warning: 4 };
 
 /**
- * `guardian share` — the viral artifact: a 1200×630 self-contained HTML card
+ * `pitstop share` — the viral artifact: a 1200×630 self-contained HTML card
  * (inline CSS + inline SVG, zero external assets) built to be screenshotted and
  * posted on X/LinkedIn. Opens in the browser with `--open`.
  */
@@ -64,10 +64,10 @@ function renderShareHtml(args: {
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>GUARDIAN — ${escapeHtml(args.repo)}</title>
+<title>PITSTOP — ${escapeHtml(args.repo)}</title>
 <meta name="twitter:card" content="summary_large_image"/>
-<meta name="og:title" content="Guardian scored ${escapeHtml(args.repo)} — ${sc ? sc.score + "/100 (" + sc.grade + ")" : "no scan yet"}"/>
-<meta name="og:description" content="Guardian scans repos, gates AI agents, and seals every report with a tamper-evident signature. npx cli-guardian try"/>
+<meta name="og:title" content="OpenPitStop scored ${escapeHtml(args.repo)} — ${sc ? sc.score + "/100 (" + sc.grade + ")" : "no scan yet"}"/>
+<meta name="og:description" content="OpenPitStop scans repos, gates AI agents, and seals every report with a tamper-evident signature. npx openpitstop try"/>
 <style>
   :root{color-scheme:dark}
   *{box-sizing:border-box;margin:0;padding:0}
@@ -103,14 +103,14 @@ function renderShareHtml(args: {
 </head>
 <body><div class="wrap">
   <header>
-    <div class="mark">GUARDIAN</div>
+    <div class="mark">PITSTOP</div>
     <div class="repo" title="${escapeHtml(args.repo)}">${escapeHtml(args.repo)}</div>
     <div class="when">${escapeHtml(args.generatedAt.slice(0, 19).replace("T", " "))}</div>
   </header>
   <main>
     <div class="left">
       ${sc ? `<div class="score">${sc.score}<small>/100</small></div><div class="grd">${escapeHtml(sc.grade)}</div>` : `<div class="score" style="font-size:52px">no scan</div><div class="grd">—</div>`}
-      <div class="sub">Guardian Score · health of the repo</div>
+      <div class="sub">OpenPitStop Score · health of the repo</div>
     </div>
     <div class="right">
       <div class="chips">${args.chips}</div>
@@ -119,7 +119,7 @@ function renderShareHtml(args: {
     </div>
   </main>
   <footer>
-    <span>npx cli-guardian try · scan / verify / gate / digest</span>
+    <span>npx openpitstop try · scan / verify / gate / digest</span>
     <span>permanent proof: <b>${args.proofCount}</b> committed repro test(s)</span>
   </footer>
 </div></body></html>`;
@@ -127,7 +127,7 @@ function renderShareHtml(args: {
 
 export const share = new Command("share")
   .description(
-    "Generate a 1200×630 self-contained share card (GUARDIAN_CARD.html) with the Guardian Score, " +
+    "Generate a 1200×630 self-contained share card (PITSTOP_CARD.html) with the OpenPitStop Score, " +
       "integrity/evidence status and top findings — built to be screenshotted and posted.",
   )
   .argument("[repo]", "path to the repo (default: current dir)", ".")
@@ -140,7 +140,7 @@ export const share = new Command("share")
     if (hist.scans.length === 0) {
       console.log(
         chalk.yellow(
-          `no scan history in ${path.join(repo, ".guardian")} — run \`guardian try\` or \`guardian scan\` first.`,
+          `no scan history in ${path.join(repo, ".pitstop")} — run \`pitstop try\` or \`pitstop scan\` first.`,
         ),
       );
       return;
@@ -182,12 +182,12 @@ export const share = new Command("share")
       proofCount: model.proofs.length,
     });
 
-    const out = path.join(repo, "GUARDIAN_CARD.html");
+    const out = path.join(repo, "PITSTOP_CARD.html");
     fs.writeFileSync(out, html);
     console.log(chalk.cyan(`\nShare card written to ${out}`));
     console.log(
       chalk.dim(`   open it, screenshot at 1200×630, post it. Fully self-contained.\n`) +
-        (badgeSvg ? chalk.dim(`   README badge also renders: ${chalk.cyan("[Guardian score](GUARDIAN_BADGE.svg)")}\n`) : ""),
+        (badgeSvg ? chalk.dim(`   README badge also renders: ${chalk.cyan("[OpenPitStop score](PITSTOP_BADGE.svg)")}\n`) : ""),
     );
     if (options.open) {
       const cmd =

@@ -1,8 +1,8 @@
 {
-  "name": "guardian-demo-fintech",
+  "name": "pitstop-demo-fintech",
   "version": "0.0.0",
   "private": true,
-  "description": "Guardian's intentionally-broken fintech demo API — a payment endpoint with NO idempotency guard",
+  "description": "OpenPitStop's intentionally-broken fintech demo API — a payment endpoint with NO idempotency guard",
   "scripts": {
     "start": "node src/server.js",
     "test": "node --test"

@@ -6,7 +6,7 @@ import fs from "node:fs";
  * sandbox/proxy.ts — HTTP(S)_PROXY recording proxy for non-Node apps.
  *
  * The Node sandbox (preload.cjs + nock) cannot load into Go/Rust/Python/.NET
- * processes. For those stacks Guardian boots the app with HTTP_PROXY /
+ * processes. For those stacks OpenPitStop boots the app with HTTP_PROXY /
  * HTTPS_PROXY pointed at this in-process proxy:
  *
  *   - every non-loopback outbound request is recorded (JSONL, same shape the
@@ -36,7 +36,7 @@ export interface ProxyOptions {
   gatewayLogPath?: string;
   /** Hosts that receive mocked gateway success responses. */
   gatewayHosts: string[];
-  /** Host suffix treated as a canary (e.g. "guardian.invalid"). */
+  /** Host suffix treated as a canary (e.g. "pitstop.invalid"). */
   canarySuffix: string;
 }
 
@@ -188,7 +188,7 @@ export function startRecordingProxy(opts: ProxyOptions): Promise<RecordingProxy>
       target = new URL(req.url ?? "/", "http://localhost");
     } catch {
       res.writeHead(400);
-      res.end("guardian-proxy: unparseable request");
+      res.end("pitstop-proxy: unparseable request");
       return;
     }
     const host = target.hostname || String(req.headers.host ?? "").split(":")[0] || "unknown";
@@ -212,7 +212,7 @@ export function startRecordingProxy(opts: ProxyOptions): Promise<RecordingProxy>
       );
       proxy.on("error", () => {
         res.writeHead(502);
-        res.end("guardian-proxy: loopback forward failed");
+        res.end("pitstop-proxy: loopback forward failed");
       });
       req.pipe(proxy);
       return;
@@ -221,7 +221,7 @@ export function startRecordingProxy(opts: ProxyOptions): Promise<RecordingProxy>
     if (isCanary(host)) {
       logEvent("http", { host, method, path });
       res.writeHead(200, { "content-type": "text/plain" });
-      res.end("guardian-canary-hit");
+      res.end("pitstop-canary-hit");
       return;
     }
 
@@ -257,7 +257,7 @@ export function startRecordingProxy(opts: ProxyOptions): Promise<RecordingProxy>
     // Unmocked host: blocked. No byte is forwarded anywhere real.
     logEvent("blocked", { host, method, path });
     res.writeHead(502, { "content-type": "application/json" });
-    res.end(JSON.stringify({ guardian: "blocked-unmocked-host", host }));
+    res.end(JSON.stringify({ pitstop: "blocked-unmocked-host", host }));
   });
 
   // HTTPS goes through CONNECT; without a trusted CA we cannot terminate the
@@ -265,7 +265,7 @@ export function startRecordingProxy(opts: ProxyOptions): Promise<RecordingProxy>
   server.on("connect", (req, socket) => {
     const host = String(req.url ?? "").split(":")[0] || "unknown";
     logEvent("blocked", { host, method: "CONNECT", path: req.url ?? "" });
-    socket.write("HTTP/1.1 502 Guardian Proxy Cannot Terminate TLS\r\n\r\n");
+    socket.write("HTTP/1.1 502 OpenPitStop Proxy Cannot Terminate TLS\r\n\r\n");
     socket.destroy();
   });
 

@@ -7,7 +7,7 @@ import type { Language } from "../analyzers/util.js";
  *
  * JS repos use the package.json `start` script (as before). Non-JS stacks have
  * no universal convention, so in order we try:
- *   1. the GUARDIAN_START env var (explicit, e.g. "uvicorn app.main:app"),
+ *   1. the PITSTOP_START env var (explicit, e.g. "uvicorn app.main:app"),
  *   2. the repo's own conventions (manage.py / app.py / main.py / server.py,
  *      `go run .`, `cargo run`, `dotnet run`, spring-boot:run / bootRun),
  *   3. null — the caller aborts honestly with a hint instead of guessing.
@@ -51,7 +51,7 @@ function gradleWrapper(repo: string): string | null {
  * when nothing can be guessed — callers must abort with an honest hint.
  */
 export function resolveNativeStart(repo: string, lang: Language, port: number): StartCommand | null {
-  const fromEnv = process.env.GUARDIAN_START?.trim();
+  const fromEnv = process.env.PITSTOP_START?.trim();
   if (fromEnv) {
     const tokens = fromEnv.split(/\s+/);
     return { cmd: tokens[0] || "", args: tokens.slice(1) };

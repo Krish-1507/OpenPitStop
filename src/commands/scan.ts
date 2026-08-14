@@ -44,7 +44,7 @@ function scorePaint(s: ScoreResult): ChalkInstance {
 
 /**
  * One-line fix for a category that printed "skipped" because a dependency was
- * missing. Doubles as `guardian doctor`-lite, right inside the box, so a fresh
+ * missing. Doubles as `pitstop doctor`-lite, right inside the box, so a fresh
  * machine's first scan never looks like the product is half-missing.
  */
 const SKIPPED_HINTS: [RegExp, string][] = [
@@ -74,7 +74,7 @@ export function renderBox(r: ScanResult): string {
   const skippedHint =
     sc.analyzed < sc.total ? chalk.dim(` · ${sc.total - sc.analyzed} skipped`) : "";
   lines.push(
-    `${label("Guardian Score")}: ${paint.bold(`${sc.score}/100 (${sc.grade})`)}${skippedHint}`,
+    `${label("OpenPitStop Score")}: ${paint.bold(`${sc.score}/100 (${sc.grade})`)}${skippedHint}`,
   );
   lines.push("");
 
@@ -282,7 +282,7 @@ export function renderBox(r: ScanResult): string {
     chalk.bold("Awaiting confirmation to begin autonomous fixing.");
 
   return boxen(content, {
-    title: " GUARDIAN — Repository Scan Complete ",
+    title: " PITSTOP — Repository Scan Complete ",
     titleAlignment: "center",
     borderStyle: "double",
     padding: 1,
@@ -302,7 +302,7 @@ export interface RunScanOptions {
  * (with its evidence chain intact) is returned.
  */
 export function reuseScan(repo: string): ScanResult | null {
-  const latestPath = path.join(repo, ".guardian", "scan-latest.json");
+  const latestPath = path.join(repo, ".pitstop", "scan-latest.json");
   if (!fs.existsSync(latestPath)) return null;
   let latest: ScanResult;
   try {
@@ -319,14 +319,14 @@ export function reuseScan(repo: string): ScanResult | null {
 }
 
 /**
- * Persist a scan result into .guardian: the timestamped history file plus the
- * live scan-latest.json, both sealed with the evidence signature (`guardian
+ * Persist a scan result into .pitstop: the timestamped history file plus the
+ * live scan-latest.json, both sealed with the evidence signature (`pitstop
  * verify`/`gate` check it and flag any post-write editing as tampering).
  */
 export function persistScan(repo: string, result: ScanResult): { file: string } {
-  const sealed = seal(result, `guardian scan result for ${repo}`);
+  const sealed = seal(result, `pitstop scan result for ${repo}`);
 
-  const outDir = path.join(repo, ".guardian");
+  const outDir = path.join(repo, ".pitstop");
   fs.mkdirSync(outDir, { recursive: true });
   const ts = new Date().toISOString().replace(/[:.]/g, "-");
   const file = path.join(outDir, `scan-${ts}.json`);
@@ -348,7 +348,7 @@ export async function runScan(
     result.ledger = await runLedgerAnalyzer(repo);
   }
   // Stable finding ids first, so clusters and scan-latest.json carry the ids
-  // that `guardian repro <id>` (and committed repro tests) reference.
+  // that `pitstop repro <id>` (and committed repro tests) reference.
   stampFindings(result);
 
   const { clusters } = correlate(repo, result);

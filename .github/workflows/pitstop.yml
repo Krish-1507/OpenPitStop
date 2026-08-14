@@ -1,4 +1,4 @@
-name: Guardian CI
+name: OpenPitStop CI
 
 on:
   pull_request:
@@ -7,14 +7,14 @@ permissions:
   contents: read
   pull-requests: write
 
-# Only one Guardian run per PR at a time; a newer push cancels the older run so
+# Only one OpenPitStop run per PR at a time; a newer push cancels the older run so
 # we never race two comment updates against each other.
 concurrency:
-  group: guardian-ci-${{ github.event.pull_request.number }}
+  group: pitstop-ci-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
 jobs:
-  guardian:
+  pitstop:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -30,26 +30,26 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build cli-guardian
+      - name: Build openpitstop
         run: npm run build
 
-      # guardian ci is diagnostic-only and prints a single markdown block to stdout.
+      # pitstop ci is diagnostic-only and prints a single markdown block to stdout.
       # This repo dogfoods its own build (node dist/cli.js ci); published consumers
-      # run the equivalent `npx cli-guardian ci`.
-      - name: Run guardian ci (diagnostic-only, read-only)
-        run: node dist/cli.js ci > guardian-ci.md
+      # run the equivalent `npx openpitstop ci`.
+      - name: Run pitstop ci (diagnostic-only, read-only)
+        run: node dist/cli.js ci > pitstop-ci.md
 
-      - name: Post / update Guardian CI comment
+      - name: Post / update OpenPitStop CI comment
         uses: actions/github-script@v7
         with:
           script: |
             const fs = require('fs');
-            const marker = '<!-- guardian-ci-report -->';
+            const marker = '<!-- pitstop-ci-report -->';
             let body;
             try {
-              body = fs.readFileSync('guardian-ci.md', 'utf8').trimEnd();
+              body = fs.readFileSync('pitstop-ci.md', 'utf8').trimEnd();
             } catch {
-              body = '_Guardian CI produced no report._';
+              body = '_OpenPitStop CI produced no report._';
             }
             const pr = context.payload.pull_request.number;
             const { owner, repo } = context.repo;

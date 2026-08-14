@@ -14,7 +14,7 @@ import {
 } from "./evidence.js";
 
 /**
- * ledger.ts — orchestrates `guardian scan --ledger`.
+ * ledger.ts — orchestrates `pitstop scan --ledger`.
  *
  * This is invasive (it boots the app and fires live traffic at it), so it is
  * ONLY ever invoked from the CLI when the user explicitly passes `--ledger`.

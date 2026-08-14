@@ -7,7 +7,7 @@ All notable changes to this project are documented here.
 ### Changed
 
 - **Docs aligned with 0.9.0.** README scan section now lists pip-audit/osv-scanner and
-  the native test suites (Go, Rust, Flutter/Dart, .NET, Java); the `/guardian --ledger`
+  the native test suites (Go, Rust, Flutter/Dart, .NET, Java); the `/pitstop --ledger`
   prompt description now names both sandboxes (nock preload for Node/JS, recording
   HTTP(S)_PROXY server for other stacks); CONTRIBUTING directory map includes
   `suiteRunner.ts`, `routes.ts` and `src/sandbox/`. Removed the deleted
@@ -17,34 +17,34 @@ All notable changes to this project are documented here.
 
 ### Added
 
-- **README demo GIF + video.** `docs/media/guardian-demo.gif` (780px, ~34 s)
-  and `docs/media/guardian-demo.mp4` (1080p, ~34 s) — the cheat-catch demo
+- **README demo GIF + video.** `docs/media/pitstop-demo.gif` (780px, ~34 s)
+  and `docs/media/pitstop-demo.mp4` (1080p, ~34 s) — the cheat-catch demo
   captured from the tool's real output (npm-install dead time trimmed), now
   embedded in the README's "See it in 90 seconds" section.
 - **README feature tour.** Eleven per-feature GIFs
-  (`docs/media/guardian-{scan,verify,trends,inspect,repro,pen,report,share,honesty,try,watch}.gif`)
+  (`docs/media/pitstop-{scan,verify,trends,inspect,repro,pen,report,share,honesty,try,watch}.gif`)
   captured from real command output, each embedded in its own "Feature tour"
   section with a one-line caption.
 - **Cross-stack support (Go, Rust, Dart, .NET, Java).** `detectLanguage` now recognizes
   go.mod / Cargo.toml / pubspec.yaml / .csproj / pom.xml / build.gradle repos, and every
   analyzer that was Node/Python-only now has a real path for the new stacks:
-  - **`guardian scan` runs native test suites** through a new shared runner
+  - **`pitstop scan` runs native test suites** through a new shared runner
     (`src/analyzers/suiteRunner.ts`) that parses each toolchain's real output — `go test
     -json`, `cargo test --format json` (Rust ≥1.70), `flutter test --machine`, dotnet
     test summaries, Maven surefire and Gradle test-result XML. Missing toolchains report
     `skipped` with an honest note; unparseable output is an error, never a guess.
-  - **`guardian scan --security`** falls back to **osv-scanner** (cached per lockfile-set
-    in `.guardian/cache/`) when the tool isn't pip-audit or Node's audit — one
+  - **`pitstop scan --security`** falls back to **osv-scanner** (cached per lockfile-set
+    in `.pitstop/cache/`) when the tool isn't pip-audit or Node's audit — one
     vulnerability path for every language.
-  - **Reliability runs and perf guard** (`.guardian/cache/reliability-*.json`) work for
+  - **Reliability runs and perf guard** (`.pitstop/cache/reliability-*.json`) work for
     the new stacks: builds via `go build ./...`, `cargo build`, `flutter build web`,
     `dotnet build`, `mvn package -DskipTests` / `gradle assemble`.
-  - **`guardian repro`** knows the new frameworks (`go`, `cargo`, `flutter`, `dotnet`,
+  - **`pitstop repro`** knows the new frameworks (`go`, `cargo`, `flutter`, `dotnet`,
     `maven`, `gradle`), places tests in the right directory per stack
     (`_test.go`, `test/`, `tests/`), and **refuses honestly** to generate non-perf
     repros for stacks without a proven native recipe (the old behavior silently produced
     un-runnable Node tests).
-- **`guardian pen` + `--ledger` proxy sandbox for non-Node apps.** A recording
+- **`pitstop pen` + `--ledger` proxy sandbox for non-Node apps.** A recording
   `HTTP_PROXY` (`src/sandbox/proxy.ts`) replaces the nock preload for Go/Python/Rust/.NET
   apps: known payment-gateway hosts get mocked success receipts written to the same
   gateway JSONL contract (evidence stays sealed and unchanged), SSRF canaries answer
@@ -52,11 +52,11 @@ All notable changes to this project are documented here.
   machine. HTTPS is refused (502 CONNECT) with an honest `indicated` ceiling, and
   command-injection in proxy mode is reported `indicated` (the proxy cannot observe
   spawns). Java/Dart are refused for ledger (their clients ignore `HTTP_PROXY`).
-  `GUARDIAN_START` overrides native start-command guessing (`manage.py`, `go run .`,
+  `PITSTOP_START` overrides native start-command guessing (`manage.py`, `go run .`,
   `cargo run`, `dotnet run`, `mvn spring-boot:run`, gradle `bootRun`).
 - **Multi-language route discovery.** `src/analyzers/routes.ts` finds routes in JS,
   Python, Go (gin/echo/chi/gorilla/net-http), Rust (axum/actix), Java (Spring), C#
-  (ASP.NET) and Dart (shelf), now shared by `guardian pen`'s static/dynamic phases and
+  (ASP.NET) and Dart (shelf), now shared by `pitstop pen`'s static/dynamic phases and
   ledger mode's endpoint discovery.
 - **Unit tests for the new modules** (`test/proxy.test.ts`, `test/routes.test.ts`):
   canary/blocked/gateway/loopback/CONNECT proxy behaviour over real sockets, and the
@@ -65,11 +65,11 @@ All notable changes to this project are documented here.
 ### Changed
 
 - **README voice.** The README now opens with **"Why I built this"** — a
-  first-person story framing Guardian as the author's own daily-driver
+  first-person story framing OpenPitStop as the author's own daily-driver
   workflow tool (no invented user base), plus a zero-setup **`npx
-  cli-guardian try .`** call-to-action ("two seconds, your repo, your score")
-  and explicit dogfooding claims (CI scans a real repo with Guardian on every
-  push; the evidence-chain regression tests came from Guardian catching a bug
+  openpitstop try .`** call-to-action ("two seconds, your repo, your score")
+  and explicit dogfooding claims (CI scans a real repo with OpenPitStop on every
+  push; the evidence-chain regression tests came from OpenPitStop catching a bug
   in itself).
 
 ## [0.8.4] - 2026-08-06
@@ -110,9 +110,9 @@ All notable changes to this project are documented here.
   ACT 2 a lazy "agent" focuses the suite on the passing tests — gate blocks
   with `SUSPICIOUS` (exit 1) — ACT 3 it deletes the failing test — gate blocks
   with `CONFIRMED_CHEAT` (exit 2). The tamper-evident baseline verifies on
-  every run. Point `GUARDIAN_CLI` at a build (`node D:/Guardian-cli/dist/cli.js`)
-  or use `npx cli-guardian`.
-- **Runtime-proof verdicts for static pen findings** (`guardian pen`): every
+  every run. Point `PITSTOP_CLI` at a build (`node D:/OpenPitStop-cli/dist/cli.js`)
+  or use `npx openpitstop`.
+- **Runtime-proof verdicts for static pen findings** (`pitstop pen`): every
   static finding now carries a live verdict — `proven` (its proving dynamic
   attack fired and the canary came back), `indicated` (static rule fired but
   the dynamic phase couldn't confirm), `unproven` (dynamic phase ran and found
@@ -120,7 +120,7 @@ All notable changes to this project are documented here.
   HTML report all render a per-finding runtime note plus a summary line
   ("Static findings verified live: 1 proven · 1 indicated · 3 unproven").
   Proven static findings also get replayable repro tests via `--fix`, and
-  `guardian repro <id>` asserts the proving dynamic class (fails first, then
+  `pitstop repro <id>` asserts the proving dynamic class (fails first, then
   passes once fixed).
 
 ## [0.8.2] - 2026-08-06
@@ -151,7 +151,7 @@ All notable changes to this project are documented here.
 - **UTF-8 BOM tolerance:** `package.json` / start-script parsing in the pen
   static and dynamic phases no longer crashes on BOM'd files (seen in the
   wild from Windows editors).
-- **`guardian drive` verdicts for runtime findings:** pen findings are now
+- **`pitstop drive` verdicts for runtime findings:** pen findings are now
   verified by the repro test (must FAIL first, then PASS after the agent's
   fix) instead of the static score, which has no baseline in pen-only repos.
   Static `verify` is still shown as context.
@@ -167,7 +167,7 @@ All notable changes to this project are documented here.
 
 ### Added (the pen-test release)
 
-- **`guardian pen` — a real penetration test, honestly delivered.** Two phases:
+- **`pitstop pen` — a real penetration test, honestly delivered.** Two phases:
   a static heuristic pass (secrets with entropy checks, route discovery for
   JS+Python, and rule sets for SQL injection, command injection, path
   traversal, SSRF, XSS sinks, prototype pollution, weak CORS, missing security
@@ -181,40 +181,40 @@ All notable changes to this project are documented here.
   - The sandbox intercepts and records every outbound HTTP (nock + fetch
     wrapper) so nothing reaches the real network; raw sockets and UDP are
     blocked; child processes are recorded, never blocked (it is your own start
-    script). Every proof line is sealed into `.guardian/pen-*.json`.
+    script). Every proof line is sealed into `.pitstop/pen-*.json`.
   - `--fix` writes one failing-then-passing repro test per fixable finding
     plus deterministic `.diff` patches (e.g. `app.disable("x-powered-by")`,
-    helmet) that you apply with `git apply` — Guardian never edits your source.
+    helmet) that you apply with `git apply` — OpenPitStop never edits your source.
   - Exit contract: `0` = no high/critical, `1` = high/critical present,
     `2` = dynamic aborted with nothing found.
-- **`guardian ready-check` — the "is it worth scanning again?" gate.** Compares
+- **`pitstop ready-check` — the "is it worth scanning again?" gate.** Compares
   the newest modified file against the sealed baseline timestamp: `0` = the
   tree is unchanged, reuse the baseline; `1` = re-scan needed. `--json` for
   scripts.
-- **`guardian budget` — the token-economy bill.** Counts every scan, verify,
+- **`pitstop budget` — the token-economy bill.** Counts every scan, verify,
   pen run, repro test and ledger operation from the evidence history and
-  estimates compute seconds per reliability run — Guardian's honest wall-clock
+  estimates compute seconds per reliability run — OpenPitStop's honest wall-clock
   proxy for model-token spend, plus reuse advice.
-- **`guardian scan --reuse`** — returns the sealed baseline (score, findings,
+- **`pitstop scan --reuse`** — returns the sealed baseline (score, findings,
   everything) without re-running anything when the source tree is unchanged.
   The loop that reads this: `ready-check` → `scan --reuse` → work → verify.
-- **`guardian watch`** — the live shield. Polls the tree (default 10s, min 2s)
+- **`pitstop watch`** — the live shield. Polls the tree (default 10s, min 2s)
   and re-runs the fast static pass the moment a file changes, printing the
   score delta and new security issues.
-- **`guardian drive <finding-id>`** — hands one finding to *your own agent*
-  (via `GUARDIAN_AGENT` env or `--agent` with a `{prompt}` placeholder),
+- **`pitstop drive <finding-id>`** — hands one finding to *your own agent*
+  (via `PITSTOP_AGENT` env or `--agent` with a `{prompt}` placeholder),
   instructing it to make the repro test fail first, then pass, then verify.
-  Guardian verifies the result itself and never edits your code.
+  OpenPitStop verifies the result itself and never edits your code.
 
 ### Changed
 
-- `guardian repro` now also understands pen findings (`pen-latest.json`):
-  `guardian repro pen-xxxx` records the exploit as a failing-then-passing
+- `pitstop repro` now also understands pen findings (`pen-latest.json`):
+  `pitstop repro pen-xxxx` records the exploit as a failing-then-passing
   regression test that boots the app under the pen sandbox itself.
-- `guardian inspect` deep-dives pen findings: the exact attack fired, the
+- `pitstop inspect` deep-dives pen findings: the exact attack fired, the
   observed response, the sandbox evidence lines, the suggested fix and the
   repro command.
-- `templates/guardian.prompt.md`: new `--pen` mode block (run the pen, print
+- `templates/pitstop.prompt.md`: new `--pen` mode block (run the pen, print
   the box, inspect, fix one finding at a time through the repro FAIL→PASS
   loop, re-check) and the **k2 token economy** step (ready-check before every
   re-scan, `scan --reuse` in the loop, verify during iteration with full
@@ -227,23 +227,23 @@ All notable changes to this project are documented here.
 
 ### Added (the viral release)
 
-- **`guardian share` — the share card.** One command renders a 1200×630 fully
-  self-contained HTML card (`GUARDIAN_CARD.html`): the big Guardian Score,
+- **`pitstop share` — the share card.** One command renders a 1200×630 fully
+  self-contained HTML card (`PITSTOP_CARD.html`): the big OpenPitStop Score,
   score-per-scan sparkline, integrity/evidence chips, and the top findings.
   Built to be screenshotted and posted on X/LinkedIn; `--open` launches it in
   your browser. No external assets, `og:title`/`twitter:card` meta baked in.
-- **`guardian digest [--days N] [--md]`** — the human progress story. Reads the
-  `.guardian` history and answers "what happened to this repo?": score movement,
+- **`pitstop digest [--days N] [--md]`** — the human progress story. Reads the
+  `.pitstop` history and answers "what happened to this repo?": score movement,
   what got fixed vs regressed, gate results, integrity catches and
   self-corrections, the flakiest tests, and what's still open. `--md` writes a
-  shareable `GUARDIAN_DIGEST.md`.
-- **`guardian honesty [--html]`** — the AI-honesty proof. One verdict distilled
+  shareable `PITSTOP_DIGEST.md`.
+- **`pitstop honesty [--html]`** — the AI-honesty proof. One verdict distilled
   from the evidence chain, the integrity-gate history (cheat catches +
   self-corrections), the verify delta, and the committed repro tests — the
   artifact that says "this AI agent's work is provably not cheating".
-  `--html` writes a self-contained `GUARDIAN_HONESTY.html` certificate.
-- **`guardian report --badge-json`** — writes `GUARDIAN_BADGE.json` in the
-  shields.io `endpoint` schema, so the Guardian Score badge can be hosted and
+  `--html` writes a self-contained `PITSTOP_HONESTY.html` certificate.
+- **`pitstop report --badge-json`** — writes `PITSTOP_BADGE.json` in the
+  shields.io `endpoint` schema, so the OpenPitStop Score badge can be hosted and
   embedded as `https://img.shields.io/endpoint?url=<hosted.json>`.
 
 ### Changed
@@ -257,13 +257,13 @@ All notable changes to this project are documented here.
 
 ### Added
 
-- **`guardian try` — the 2-second wow, on any repo.** Static-analyze an existing
+- **`pitstop try` — the 2-second wow, on any repo.** Static-analyze an existing
   project with zero setup (no install, no tool config, no curated fixture) and
-  get its Guardian Score in ~1–2s. Runs the cheap analyzers (dependency graph,
+  get its OpenPitStop Score in ~1–2s. Runs the cheap analyzers (dependency graph,
   npm audit with its cache, duplication, accessibility, DevEx) and honestly
-  notes that tests/build/flaky are a `guardian scan` detail. The result is
+  notes that tests/build/flaky are a `pitstop scan` detail. The result is
   persisted as a sealed baseline, so verify/gate pick up where it left off.
-- **`guardian gate [--score 60]` — the agentless commit gate.** One command
+- **`pitstop gate [--score 60]` — the agentless commit gate.** One command
   answers "is this safe to commit?" with a plain exit code, no AI tool needed:
   checks the score against a threshold, the regression risk, the integrity diff
   since HEAD, and the baseline evidence signature. `0` = PASS (safe to commit),
@@ -271,24 +271,24 @@ All notable changes to this project are documented here.
   emits a machine-readable verdict for CI. Drop it in as a pre-commit hook or
   the last line of a CI job.
 - **Tamper-evident evidence chain.** Every scan, verify and integrity document
-  Guardian writes is sealed with a `sha256` digest computed over its own
-  canonical content (`guardian-sha256-canonical-v1`, deterministic key-sorted
+  OpenPitStop writes is sealed with a `sha256` digest computed over its own
+  canonical content (`pitstop-sha256-canonical-v1`, deterministic key-sorted
   JSON). Editing the JSON after the fact — inflating a score, deleting a
-  finding — breaks the digest. `guardian verify` and `gate` recompute it on
+  finding — breaks the digest. `pitstop verify` and `gate` recompute it on
   read: baselines that carried a pre-0.6.0 unsigned write are reported as
   "untracked", ones with a broken digest are flagged `TAMPERED` (and block the
   gate). Verify reports carry their own signature too.
 
 ### Changed
 
-- **`guardian verify` shows the evidence line.** The box now prints
+- **`pitstop verify` shows the evidence line.** The box now prints
   `evidence: ✓ signed <digest>` / `✗ TAMPERED`, and the verify JSON records the
   check result.
 - **Duplicate-function detector is ~12× faster.** The devex clone pass no
   longer re-tokenizes every function body for every pair; bodies and bigram
   counts are computed once and pairs are pre-filtered by length balance. Scan
-  of Guardian's own repo: devex 5.7s → 0.5s, `guardian try` 11s → 1.7s.
-- **UTF-8 BOM tolerance.** `.guardian/*.json` documents written by PowerShell
+  of OpenPitStop's own repo: devex 5.7s → 0.5s, `pitstop try` 11s → 1.7s.
+- **UTF-8 BOM tolerance.** `.pitstop/*.json` documents written by PowerShell
   or editors with a BOM (which `JSON.parse` rejects) are now read correctly.
 
 ## [0.5.0] - 2026-08-05
@@ -299,81 +299,81 @@ All notable changes to this project are documented here.
   tests, perf build, reliability suite runs) now run **in parallel**; flaky detection defaults to
   **2 sequential suite runs** (was 3 — 2 is the minimum that can detect a changed outcome);
   `npm audit` results are **cached** keyed on the lockfile hash (24h TTL) so repeated scans inside
-  one fix loop stop hitting the registry; jest now caches into `.guardian/cache/jest` so repeat
-  scans skip jest's cold start. `guardian scan --reliability-runs <n>` tunes the flaky-detector
+  one fix loop stop hitting the registry; jest now caches into `.pitstop/cache/jest` so repeat
+  scans skip jest's cold start. `pitstop scan --reliability-runs <n>` tunes the flaky-detector
   cost (1 disables flaky detection, with an honest note).
-- **`guardian demo` is now self-contained.** It no longer runs `npm install` in the hot path and
+- **`pitstop demo` is now self-contained.** It no longer runs `npm install` in the hot path and
   never writes slash commands into the user's tool configs (`~/.claude` etc. stay untouched — that
-  remains an explicit `guardian install`). Demo node_modules is linked (directory junction on
-  Windows, symlink elsewhere) from the fixture's own checkout or a persistent `~/.guardian/cache`
+  remains an explicit `pitstop install`). Demo node_modules is linked (directory junction on
+  Windows, symlink elsewhere) from the fixture's own checkout or a persistent `~/.pitstop/cache`
   — a one-time cached install only happens if neither exists. Demo scans run the suite once, so
-  the wow lands in seconds, and stale `.guardian` baselines are wiped from the temp copy while
+  the wow lands in seconds, and stale `.pitstop` baselines are wiped from the temp copy while
   caches are kept.
 - **Skipped categories now carry install hints.** When a scan category prints `skipped` because a
   tool is missing (`jscpd`, `pa11y`, `gitleaks`/`semgrep`), the box line includes the one-liner to
-  fix it — `guardian doctor`-lite right inside the report.
+  fix it — `pitstop doctor`-lite right inside the report.
 - **Spinner fixes.** Spinners now render on stdout instead of stderr (PowerShell 5.1 painted every
   frame as a red error record — the first `scan` on Windows looked broken), and non-TTY/CI runs
   print plain `✓/✗` lines instead of a frozen spinner glyph.
 
 ### Added
 
-- **`guardian repro` for circular dependencies.** A circular group can now be captured as a
+- **`pitstop repro` for circular dependencies.** A circular group can now be captured as a
   permanent repro test: the test loads every member of the cycle and asserts it initializes
   cleanly (import() under node:test, require under jest/vitest — dynamic import is refused by
   jest's VM and a repro that fails for an environmental reason would be a lie). ESM cycles throw
   at load time (TDZ) and genuinely FAIL; CJS cycles may load lazily and PASS, which is honestly
   reported as "hypothesis unproven".
-- **Verify baseline staleness warning.** `guardian verify` now detects files changed after the
+- **Verify baseline staleness warning.** `pitstop verify` now detects files changed after the
   baseline scan and prints a prominent ⚠ warning (also recorded as `stale: true` in the verify
   report JSON) instead of silently presenting a delta against an outdated snapshot.
 
 ### Fixed
 
-- `guardian trends` verify-history lines rendered a chalk function as `(...arguments_) => …`; the
+- `pitstop trends` verify-history lines rendered a chalk function as `(...arguments_) => …`; the
   score cell is now colored and formatted correctly.
-- Published tarball cleanup: stale `demo-repo-fintech/GUARDIAN_REPORT.md`, `GUARDIAN_BADGE.svg`
+- Published tarball cleanup: stale `demo-repo-fintech/PITSTOP_REPORT.md`, `PITSTOP_BADGE.svg`
   and leftover `.gitkeep` placeholders no longer ship (`.npmignore` added; fixtures cleaned).
 
 ## [0.4.0] - 2026-08-05
 
 ### Added (the WOW release)
 
-- **Guardian Score.** Every scan box now opens with a single 0–100 health score + A–F grade,
+- **OpenPitStop Score.** Every scan box now opens with a single 0–100 health score + A–F grade,
   weighted across the categories that actually ran (skipped categories are excluded and weights
-  renormalized, so a missing `jscpd` never silently tanks the number). `guardian verify` gained a
-  "Guardian score" Δ row: the baseline/current comparison only patches categories that measured
+  renormalized, so a missing `jscpd` never silently tanks the number). `pitstop verify` gained a
+  "OpenPitStop score" Δ row: the baseline/current comparison only patches categories that measured
   in both runs, so the score only moves when the code does — never when a tool is missing.
-- **`guardian inspect <finding-id>`** — deep dive on any finding id from a scan box: severity,
+- **`pitstop inspect <finding-id>`** — deep dive on any finding id from a scan box: severity,
   exact location, ±6-line code snippet with the target line highlighted, root-cause cluster
-  context (root cause vs symptom), whether a permanent repro test is committed, and Guardian's
+  context (root cause vs symptom), whether a permanent repro test is committed, and OpenPitStop's
   memory of the files. Ledger/perf findings get their evidence details too.
-- **`guardian trends`** — per-category sparklines + a score trend across the
-  `.guardian/scan-*.json` history, plus a verify timeline with risk and integrity verdicts.
-- **`guardian report --html`** — self-contained single-file HTML report: score hero with inline
+- **`pitstop trends`** — per-category sparklines + a score trend across the
+  `.pitstop/scan-*.json` history, plus a verify timeline with risk and integrity verdicts.
+- **`pitstop report --html`** — self-contained single-file HTML report: score hero with inline
   badge, summary table, root-cause clusters, before/after, inline-SVG trend charts, integrity-gate
-  timeline, zero external assets. Every `guardian report` also writes `GUARDIAN_BADGE.svg`, a
-  README-ready shield badge (`![Guardian score](GUARDIAN_BADGE.svg)`), and the markdown report
+  timeline, zero external assets. Every `pitstop report` also writes `PITSTOP_BADGE.svg`, a
+  README-ready shield badge (`![OpenPitStop score](PITSTOP_BADGE.svg)`), and the markdown report
   embeds it.
-- **`guardian doctor`** — toolchain health check: Node/git/npm plus jscpd, gitleaks, semgrep,
+- **`pitstop doctor`** — toolchain health check: Node/git/npm plus jscpd, gitleaks, semgrep,
   pa11y with copy-paste install hints — one command explains exactly why categories print
   "skipped".
-- **`guardian prompt [--args …]`** — prints the exact rendered `/guardian` prompt (with the
+- **`pitstop prompt [--args …]`** — prints the exact rendered `/pitstop` prompt (with the
   invocation arguments substituted) so users can preview what their AI tool will send, in every
   supported tool, regardless of how the tool's UI renders slash commands.
-- **Prompt Step 0 (mandatory transparency).** `/guardian` now makes the agent open its first
+- **Prompt Step 0 (mandatory transparency).** `/pitstop` now makes the agent open its first
   message by printing the exact instructions it received (mode, sequence, guardrails) — the user
   sees the prompt in their own window in every supported tool.
-- **`guardian scan --json`** — raw scan result as clean JSON for pipelines (no banner/spinner
+- **`pitstop scan --json`** — raw scan result as clean JSON for pipelines (no banner/spinner
   pollution); **live spinners** (ora, previously an unused dependency) on `scan` and `demo`.
-- **`guardian demo` wow moment** — the demo command now scans the seeded-broken demo repo and
+- **`pitstop demo` wow moment** — the demo command now scans the seeded-broken demo repo and
   prints the full boxed report immediately, so first-time users see the product without needing
   an AI tool, a browser tab, or any setup.
 
 ### Fixed
 
-- **`guardian --version` returned a hardcoded `0.1.0`.** It now reads the real version from
-  `package.json` (was out of sync since the package was renamed to `cli-guardian`).
+- **`pitstop --version` returned a hardcoded `0.1.0`.** It now reads the real version from
+  `package.json` (was out of sync since the package was renamed to `openpitstop`).
 
 ## [0.3.1] - 2026-08-05
 
@@ -381,26 +381,26 @@ All notable changes to this project are documented here.
 
 - **CI was red on `master` (all jobs): `TypeError: TEXT_ENCODINGS.union is not a function`.**
   The CLI depends on execa 10, which requires Node ≥ 22 (`Set.prototype.union`, ES2024);
-  both workflows pinned Node 20, where that method does not exist. CI (`ci.yml`, `guardian.yml`)
+  both workflows pinned Node 20, where that method does not exist. CI (`ci.yml`, `pitstop.yml`)
   now uses Node 22 and the `package.json` engines field is corrected from `>=18` to `>=22`
   (the published `0.3.0` engines metadata was misleading). The smoke test (`node dist/cli.js
   scan demo-repo`) was verified green locally on Node 22 — same version CI now uses.
 
 ## [0.3.0] - 2026-08-05
 
-**Published to npm as `cli-guardian@0.3.0`.**
+**Published to npm as `openpitstop@0.3.0`.**
 
 ### Added (one-command install & use)
 
-- **True one-command install**: `npx cli-guardian@latest install` writes `/guardian` into every
+- **True one-command install**: `npx openpitstop@latest install` writes `/pitstop` into every
   supported tool in one shot — project-level into the current repo, user-level so it works in any
-  repo. Runs idempotently with `-y`/`--force` (`npx cli-guardian@latest install -y` re-runs cleanly
+  repo. Runs idempotently with `-y`/`--force` (`npx openpitstop@latest install -y` re-runs cleanly
   after updates).
-- **Gemini CLI support** — first non-Markdown target. `install` now writes `.gemini/commands/guardian.toml`
-  (project) and `~/.gemini/commands/guardian.toml` (user) via a new `gemini` transform that converts the
+- **Gemini CLI support** — first non-Markdown target. `install` now writes `.gemini/commands/pitstop.toml`
+  (project) and `~/.gemini/commands/pitstop.toml` (user) via a new `gemini` transform that converts the
   prompt template to `{ description = "...", prompt = """ ... """ }`. Verified to load and route (model
   quota blocked a full live run on test day, parse OK).
-- **Antigravity user/global targets** — `~/.agent/workflows/guardian.md` + `~/.agents/workflows/guardian.md`
+- **Antigravity user/global targets** — `~/.agent/workflows/pitstop.md` + `~/.agents/workflows/pitstop.md`
   (already had the project-level pair).
 - **Correct OpenCode user-level path** — global commands now also go to `~/.config/opencode/commands/`
   (the current documented location; the older `~/.opencode/commands/` layout is kept as legacy). Verified
@@ -410,12 +410,12 @@ All notable changes to this project are documented here.
 
 ### Changed
 
-- **Published package renamed `guardian-cli` → `cli-guardian`.** The npm name
-  `guardian-cli` is already taken by an unrelated maintainer, so `npx guardian-cli`
+- **Published package renamed `pitstop-cli` → `openpitstop`.** The npm name
+  `pitstop-cli` is already taken by an unrelated maintainer, so `npx pitstop-cli`
   could never resolve to this project. The package is now published as
-  `cli-guardian` (verified free on npm at rename time); both the existing `guardian`
-  bin and a new `cli-guardian` bin are shipped, and every docs/prompt/generated-repro
-  reference (`npx cli-guardian scan`, `!npx cli-guardian repro …`, …) was updated to
+  `openpitstop` (verified free on npm at rename time); both the existing `pitstop`
+  bin and a new `openpitstop` bin are shipped, and every docs/prompt/generated-repro
+  reference (`npx openpitstop scan`, `!npx openpitstop repro …`, …) was updated to
   match.
 
 ### Fixed (found during the release audit)
@@ -433,16 +433,16 @@ All notable changes to this project are documented here.
 - **`src/repro/framework.ts` — jest/vitest repros could report a false `FAIL — bug reproduced`.**
   `runTestFile` passed the absolute test-file path to jest/vitest. When the repo path contained a Windows
   8.3 short path segment (e.g. `C:\Users\KRISH_~1\...` vs the long `krish_b9e9r0w`), jest could not match
-  the file against `rootDir`, exiting with `No tests found` — which `guardian repro` surfaced as a `FAIL`
+  the file against `rootDir`, exiting with `No tests found` — which `pitstop repro` surfaced as a `FAIL`
   even though the exploit/assertions never ran. The runner now passes a repo-relative path to jest/vitest
   (node-test/pytest continue to use the absolute path). Re-verified on two finding types (ledger, security):
   the generated tests now genuinely FAIL with the bug present and genuinely PASS after the fix.
 
 ## [0.2.0] - 2026-08-05
 
-**Published to npm as `cli-guardian@0.2.0`** (verified live: `npx cli-guardian@latest install`
-and `npx cli-guardian@latest demo demo-repo` work from a clean dir against the registry package).
-The npm name `guardian-cli` is owned by an unrelated package and cannot be used.
+**Published to npm as `openpitstop@0.2.0`** (verified live: `npx openpitstop@latest install`
+and `npx openpitstop@latest demo demo-repo` work from a clean dir against the registry package).
+The npm name `pitstop-cli` is owned by an unrelated package and cannot be used.
 
 ### Added
 
@@ -465,12 +465,12 @@ The npm name `guardian-cli` is owned by an unrelated package and cannot be used.
   summary prints that OpenAI hasn't shipped custom slash commands there (manual copy of the prompt is the
   only option). The install table now reports honest per-tool statuses (✅ Installed / ⚠️ Manual copy needed).
 
-- **Bare `/guardian` now shows a mode menu (Part C).** `templates/guardian.prompt.md` opens with a mandatory
+- **Bare `/pitstop` now shows a mode menu (Part C).** `templates/pitstop.prompt.md` opens with a mandatory
   mode-selection block: when invoked without arguments (or when the placeholder wasn't substituted) the agent
   prints a menu (full loop / `--scan-only` / `--demo` / `--ledger` / `--integrity-only`) and waits; when a
   flag is present in the invocation arguments it skips the menu and enters that mode directly. The
   `$ARGUMENTS` placeholder appears exactly once in the template so tool-side substitution can't corrupt the
-  branch conditions (verified live in OpenCode: bare `/guardian` → menu + wait; substituted flag → straight
+  branch conditions (verified live in OpenCode: bare `/pitstop` → menu + wait; substituted flag → straight
   into the mode).
 
 ### Changed
@@ -484,7 +484,7 @@ The npm name `guardian-cli` is owned by an unrelated package and cannot be used.
 
 - **`src/commands/ci.ts` snapshot now pure-git.** The unix-only `git archive | tar` pipeline was replaced with
   `fetchBaseSnapshot()`: it fetches the base SHA into a temp repo (`git fetch --depth=1 <repo> <sha>`) and
-  detached-checkouts `FETCH_HEAD`, so `guardian ci` works on Windows without a `tar` unpacker.
+  detached-checkouts `FETCH_HEAD`, so `pitstop ci` works on Windows without a `tar` unpacker.
 
 - **CRLF normalization in `src/analyzers/integrity/git.ts`.** Blob/working-tree contents read for `integrity`
   diffing are normalized to `\n` before parsing, so an uncommitted CRLF working-tree edit no longer mangles
@@ -494,7 +494,7 @@ The npm name `guardian-cli` is owned by an unrelated package and cannot be used.
 
 Both previously documented bugs were re-run on a real Windows host (Node 22, PowerShell, git for Windows,
 `%TEMP%` on an 8.3 short path) and are fixed: the npx `node_modules/.bin` jest shim now fails loudly with the
-true `2 failed / 2` suite instead of `jest produced no JSON`, and a `guardian repro` in an 8.3-path temp repo
+true `2 failed / 2` suite instead of `jest produced no JSON`, and a `pitstop repro` in an 8.3-path temp repo
 genuinely `FAIL — bug reproduced` before the fix and `PASS — bug not reproduced` after. The full
-`guardian demo → /guardian` loop, `guardian ci` (base-branch snapshot report), and a `guardian/*` branch
+`pitstop demo → /pitstop` loop, `pitstop ci` (base-branch snapshot report), and a `pitstop/*` branch
 round-trip were also exercised on Windows.

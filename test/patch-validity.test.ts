@@ -33,7 +33,7 @@ const ORIGINAL = [
 let tmp: string;
 
 beforeEach(() => {
-  tmp = fs.mkdtempSync(path.join(os.tmpdir(), "guardian-patch-test-"));
+  tmp = fs.mkdtempSync(path.join(os.tmpdir(), "pitstop-patch-test-"));
   git(["init"]);
   git(["config", "user.email", "t@t"]);
   git(["config", "user.name", "t"]);

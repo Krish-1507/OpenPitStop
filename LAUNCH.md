@@ -1,9 +1,9 @@
-# Show HN: Guardian — a `/guardian` slash-command that turns your coding agent into an autonomous fixer
+# Show HN: OpenPitStop — a `/pitstop` slash-command that turns your coding agent into an autonomous fixer
 
 > The first thing you see is the box. That box is the whole product thesis.
 
 ```
-╔══════════════════  GUARDIAN — Repository Scan Complete  ══════════════════╗
+╔══════════════════  PITSTOP — Repository Scan Complete  ══════════════════╗
 ║   Dependency Graph : 2 circular — src/userService.js → src/userRepo.js →  ║
 ║   src/userService.js                                                      ║
 ║   Security         : 1 issues — high dependency: lodash: Command Injection ║
@@ -20,14 +20,14 @@ One command installs it everywhere — project-level in the repo you're in, user
 works in any repo:
 
 ```bash
-npx cli-guardian install
+npx openpitstop install
 ```
 
 Re-run it after updates with `-y` to refresh without prompts:
-`npx cli-guardian install -y`. Then `/guardian` just works in Claude Code, Cursor, OpenCode,
+`npx openpitstop install -y`. Then `/pitstop` just works in Claude Code, Cursor, OpenCode,
 Antigravity, Kilo Code, Codex CLI, and Gemini CLI.
 
-Guardian is two pieces glued together: a **deterministic CLI** that scans your repo and
+OpenPitStop is two pieces glued together: a **deterministic CLI** that scans your repo and
 produces numbers, and **your existing coding agent's reasoning** — the CLI does the
 measuring, your agent does the editing, and a prompt template makes them loop until the repo
 is actually clean.
@@ -35,20 +35,20 @@ is actually clean.
 ## Why this exists
 
 Your agent is great at fixing code. It's terrible at *knowing when to stop* — it fixes the
-one thing it noticed and declares victory. Guardian gives it an honest feedback loop:
+one thing it noticed and declares victory. OpenPitStop gives it an honest feedback loop:
 
-1. **Scan** → `cli-guardian` runs real tools (`npm audit`, `jest`, a dependency-graph pass,
+1. **Scan** → `openpitstop` runs real tools (`npm audit`, `jest`, a dependency-graph pass,
    a structural duplicate-function detector) and prints a **boxed root-cause summary** —
    circular deps, security issues, broken tests, copy-paste, flaky tests, unused exports.
 2. **Confirm** → the agent prints *"Found N root-cause clusters covering M issues. Reply
    with anything to start."* and **stops**. One pause, never skipped. Nothing is edited until
    you approve.
-3. **Loop** → the agent branches to `guardian/*`, states a hypothesis, makes the *smallest*
-   fix, runs `guardian verify` (re-runs tests and diffs against the baseline → **Regression
+3. **Loop** → the agent branches to `pitstop/*`, states a hypothesis, makes the *smallest*
+   fix, runs `pitstop verify` (re-runs tests and diffs against the baseline → **Regression
    Risk**, gated by the **integrity gate** that scans the diff for AI-agent-cheat patterns),
    commits, and re-scans.
 4. **Stop** → a fresh scan showing **zero actionable clusters** ends it:
-   `nothing left to fix, nothing broken.` Then `guardian report` writes `GUARDIAN_REPORT.md`.
+   `nothing left to fix, nothing broken.` Then `pitstop report` writes `PITSTOP_REPORT.md`.
 
 ## What's honest about it
 
@@ -63,7 +63,7 @@ one thing it noticed and declares victory. Guardian gives it an honest feedback 
   values, and forced exits. SUSPICIOUS reverts and retries the same cluster once with a stricter
   "solve the root cause" instruction; CONFIRMED_CHEAT goes straight to a human.
 - **Hard safety rules** are baked into the prompt: no force-pushes, no `.env`, no deleting
-  files with incoming references, everything on a `guardian/*` branch.
+  files with incoming references, everything on a `pitstop/*` branch.
 - **Memory.** Every fix it makes is recorded and recalled on later scans, so the loop gets
   smarter on your actual codebase over time.
 
@@ -74,12 +74,12 @@ project seeded with a circular dependency, a hardcoded secret, a known-CVE depen
 duplicated code, and failing tests.
 
 ```bash
-npx cli-guardian demo
+npx openpitstop demo
 ```
 
-That copies the demo into a temp dir, wires up `/guardian`, and prints where to open it.
+That copies the demo into a temp dir, wires up `/pitstop`, and prints where to open it.
 Open it in Claude Code / Cursor / OpenCode / Kilo Code / Antigravity / Codex CLI / Gemini
-CLI, type `/guardian`, hit enter, and watch the whole loop: scan box → confirm → fix →
+CLI, type `/pitstop`, hit enter, and watch the whole loop: scan box → confirm → fix →
 verify → re-scan → report. Type it bare and it asks which mode you want (`--scan-only`,
 `--demo`, `--ledger`, `--integrity-only`, or the full loop).
 
@@ -99,13 +99,13 @@ in the code before you watch it get fixed.
 - **Cheat-catch (90 s):** the scripted moment where a lazy agent tries to fake a green
   suite — and the gate catches it with exit 1, then exit 2. Run
   `node scripts/cheat-demo.cjs` (or point it at a local build with
-  `GUARDIAN_CLI="node /path/to/dist/cli.js"`). Deterministic, live-room safe.
-- **Demo (2 min):** the box above is real output — or run `npx cli-guardian demo` locally.
-- **Report sample:** a full `GUARDIAN_REPORT.md` is generated after every loop.
-- **CI:** guardian runs in CI too — `guardian ci` diffs a PR against its base branch and
+  `PITSTOP_CLI="node /path/to/dist/cli.js"`). Deterministic, live-room safe.
+- **Demo (2 min):** the box above is real output — or run `npx openpitstop demo` locally.
+- **Report sample:** a full `PITSTOP_REPORT.md` is generated after every loop.
+- **CI:** pitstop runs in CI too — `pitstop ci` diffs a PR against its base branch and
   posts one comment (`build-and-smoke` status in the badge below).
 
-[![CI](https://github.com/Krish-1507/Guardian/actions/workflows/ci.yml/badge.svg)](https://github.com/Krish-1507/Guardian/actions/workflows/ci.yml)
+[![CI](https://github.com/Krish-1507/OpenPitStop/actions/workflows/ci.yml/badge.svg)](https://github.com/Krish-1507/OpenPitStop/actions/workflows/ci.yml)
 
 ## How we prioritized
 
@@ -147,7 +147,7 @@ was built and deleted.
 
 **Deliberately not built** (and why): no cloud/dashboard (the numbers are
 local and auditable — that's the point), no plugin marketplace (the
-`/guardian` command installs from one template), no auth/teams (this is a
+`/pitstop` command installs from one template), no auth/teams (this is a
 quality gate, not a SaaS), and no "AI score" that mixes model output into
 the measurement (the referee must be deterministic to be a referee). Each
 was sketched, found to dilute the thesis, and cut.
@@ -165,5 +165,5 @@ feedback that matters.
 
 ---
 
-*Guardian is MIT licensed. Found it useful, or found a way it breaks? Open an issue, or come
+*OpenPitStop is MIT licensed. Found it useful, or found a way it breaks? Open an issue, or come
 extend it — `CONTRIBUTING.md` walks through adding a whole new analyzer in ~10 minutes.*

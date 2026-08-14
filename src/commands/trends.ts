@@ -7,7 +7,7 @@ import { computeScore, gradeColor } from "../report/score.js";
 import type { ScanResult } from "../analyzers/types.js";
 
 /**
- * `guardian trends` — turn the .guardian/scan-*.json history into sparklines.
+ * `pitstop trends` — turn the .pitstop/scan-*.json history into sparklines.
  * Every scan is persisted, so this shows the loop actually improving things.
  */
 
@@ -51,7 +51,7 @@ export const trends = new Command("trends")
 
     if (scans.length === 0) {
       console.log(
-        chalk.yellow(`no scan history found in ${path.join(repo, ".guardian")} — run \`guardian scan\` a few times first.`),
+        chalk.yellow(`no scan history found in ${path.join(repo, ".pitstop")} — run \`pitstop scan\` a few times first.`),
       );
       return;
     }
@@ -80,7 +80,7 @@ export const trends = new Command("trends")
 
     const lines: string[] = [];
     lines.push(
-      `${chalk.bold("Guardian Score".padEnd(24))}: ${gradeColorFn(last.grade)(
+      `${chalk.bold("OpenPitStop Score".padEnd(24))}: ${gradeColorFn(last.grade)(
         chalk.bold(`${last.score}/100 (${last.grade})`),
       )} ${first.score !== last.score ? chalk.dim(`(was ${first.score}/100 ${first.grade})`) : ""}${scores.length > 1 ? " " + sparkline(scores.map((s) => s.score)) : ""}`,
     );
@@ -116,7 +116,7 @@ export const trends = new Command("trends")
 
     console.log(
       boxen(lines.join("\n"), {
-        title: " GUARDIAN — Trends ",
+        title: " PITSTOP — Trends ",
         titleAlignment: "center",
         borderStyle: "double",
         padding: 1,

@@ -173,7 +173,7 @@ async function runJest(repo: string): Promise<RunResult | null> {
     return null;
   }
   const start = performance.now();
-  const cacheDir = path.join(repo, ".guardian", "cache", "jest");
+  const cacheDir = path.join(repo, ".pitstop", "cache", "jest");
   fs.mkdirSync(cacheDir, { recursive: true });
   const r = await safeExecAsync(cmd, [...args, "--json", "--cacheDirectory", cacheDir], repo, 180000);
   const durationMs = Math.round(performance.now() - start);
@@ -216,7 +216,7 @@ async function runVitest(repo: string): Promise<RunResult | null> {
   } else {
     return null;
   }
-  const tmp = path.join(repo, ".guardian", "vitest-reliability.json");
+  const tmp = path.join(repo, ".pitstop", "vitest-reliability.json");
   fs.mkdirSync(path.dirname(tmp), { recursive: true });
   const start = performance.now();
   await safeExecAsync(cmd, [...args, "run", "--reporter=json", "--outputFile", tmp], repo, 180000);

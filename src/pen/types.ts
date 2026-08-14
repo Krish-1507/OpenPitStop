@@ -1,5 +1,5 @@
 /**
- * pen/types.ts — shared types for `guardian pen`.
+ * pen/types.ts — shared types for `pitstop pen`.
  *
  * A pen finding carries its proof with it: the exact attack that was fired
  * (or the static pattern that was matched), the observed response, and any

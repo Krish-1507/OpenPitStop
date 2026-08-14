@@ -7,7 +7,7 @@ import chalk from "chalk";
  * - TTY               → ora spinner rendered on STDOUT. Overriding the default
  *                       stderr stream avoids PowerShell 5.1 painting every
  *                       spinner frame as a red "RemoteException" error record,
- *                       which made the very first `guardian scan` look broken.
+ *                       which made the very first `pitstop scan` look broken.
  * - non-TTY (CI/pipe) → ora is a no-op there; instead we print a plain "text…"
  *                       line at start and a plain ✓/✗ line at the end, so CI
  *                       logs still read as a coherent step instead of a terse

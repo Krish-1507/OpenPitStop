@@ -31,9 +31,9 @@ export interface VerifyReport {
   };
   baseline: VerifyMetrics;
   current: VerifyMetrics;
-  /** Guardian score at verify time (baseline vs patched current). */
+  /** OpenPitStop score at verify time (baseline vs patched current). */
   score?: { baseline: number; current: number; delta: number; grade: string };
-  /** Phase 16 integrity gate result captured by `guardian verify`. */
+  /** Phase 16 integrity gate result captured by `pitstop verify`. */
   integrity?: {
     verdict: Verdict;
     findings: IntegrityFinding[];
@@ -48,7 +48,7 @@ export interface History {
 }
 
 export function loadHistory(repo: string): History {
-  const dir = path.join(repo, ".guardian");
+  const dir = path.join(repo, ".pitstop");
   const read = (prefix: string): any[] => {
     if (!fs.existsSync(dir)) return [];
     return fs
@@ -72,10 +72,10 @@ export function loadHistory(repo: string): History {
 
 /**
  * Gather every Phase 16 integrity verdict recorded by the loop (from verify-*.json
- * and integrity-*.json in `.guardian/`) and summarize catches vs self-corrections.
+ * and integrity-*.json in `.pitstop/`) and summarize catches vs self-corrections.
  */
 export function collectIntegrity(repo: string): ReportModel["integrity"] | undefined {
-  const dir = path.join(repo, ".guardian");
+  const dir = path.join(repo, ".pitstop");
   if (!fs.existsSync(dir)) return undefined;
   const events: { timestamp: string; verdict: Verdict; findings: IntegrityFinding[] }[] = [];
   for (const f of fs.readdirSync(dir)) {
@@ -107,20 +107,20 @@ export interface MetricLine {
 
 /** A committed repro test that permanently proves a fix. */
 export interface ReproProof {
-  /** Relative path of the guardian-repro-*.test.* file. */
+  /** Relative path of the pitstop-repro-*.test.* file. */
   file: string;
   /** The finding id (from scan-latest.json) its header links back to. */
   findingId?: string;
 }
 
-const REPRO_TEST_RE = /^guardian-repro-.+\.test\.(mjs|js|ts|py)$/;
-const REPRO_ID_RE = /\b(?:guardian repro|finding)[^\w-]*([A-Za-z][A-Za-z0-9]*-[0-9a-f]{6,})/i;
+const REPRO_TEST_RE = /^pitstop-repro-.+\.test\.(mjs|js|ts|py)$/;
+const REPRO_ID_RE = /\b(?:pitstop repro|finding)[^\w-]*([A-Za-z][A-Za-z0-9]*-[0-9a-f]{6,})/i;
 
 /** Scan the repo for committed permanent proof files. */
 export function loadProofs(repo: string): ReproProof[] {
   const out: ReproProof[] = [];
   const stack: string[] = [repo];
-  const ignore = new Set(["node_modules", ".git", ".guardian", "dist", "coverage", ".next"]);
+  const ignore = new Set(["node_modules", ".git", ".pitstop", "dist", "coverage", ".next"]);
   while (stack.length) {
     const dir = stack.pop() as string;
     let entries: fs.Dirent[];
@@ -163,8 +163,8 @@ export interface ReportModel {
   /** Committed repro tests that permanently prove each fix. */
   proofs: ReproProof[];
   /**
-   * Aggregated Phase 16 integrity evidence from every `guardian verify` (and
-   * `guardian integrity`) run in `.guardian/`. A "catch" is any non-CLEAN
+   * Aggregated Phase 16 integrity evidence from every `pitstop verify` (and
+   * `pitstop integrity`) run in `.pitstop/`. A "catch" is any non-CLEAN
    * verdict; a catch followed by a later CLEAN check is a self-correction the
    * loop performed on its own. Frame these as a positive — the gate working.
    */
@@ -195,15 +195,15 @@ export function buildModel(repo: string): ReportModel {
 
   const lines: MetricLine[] = [];
 
-  // Guardian Score — the headline number, computed from the latest scan.
+  // OpenPitStop Score — the headline number, computed from the latest scan.
   if (!latestScan) {
-    lines.push({ label: "Guardian Score", value: NOT_SCANNED, color: "dim" });
+    lines.push({ label: "OpenPitStop Score", value: NOT_SCANNED, color: "dim" });
   } else {
     const sc = computeScore(latestScan);
     const analyzed =
       sc.analyzed < sc.total ? ` — ${sc.analyzed}/${sc.total} categories` : "";
     lines.push({
-      label: "Guardian Score",
+      label: "OpenPitStop Score",
       value: `${sc.score}/100 (${sc.grade})${analyzed}`,
       color: gradeColor(sc.grade),
     });
@@ -370,9 +370,9 @@ export function buildModel(repo: string): ReportModel {
 export function renderTerminal(model: ReportModel): string {
   if (model.scansCount === 0) {
     return boxen(
-      chalk.yellow("No scan history found.\nRun `guardian scan` to generate a report."),
+      chalk.yellow("No scan history found.\nRun `pitstop scan` to generate a report."),
       {
-        title: " GUARDIAN — Repository Analysis Complete ",
+        title: " PITSTOP — Repository Analysis Complete ",
         titleAlignment: "center",
         borderStyle: "double",
         padding: 1,
@@ -396,7 +396,7 @@ export function renderTerminal(model: ReportModel): string {
   const proofLine =
     model.proofs.length > 0
       ? `  ${chalk.bold("Permanent proof".padEnd(24))}: ${chalk.green(`${model.proofs.length} repro test(s) shipped with fixes`)}`
-      : `  ${chalk.bold("Permanent proof".padEnd(24))}: ${chalk.yellow("none — no guardian-repro-*.test.* committed")}`;
+      : `  ${chalk.bold("Permanent proof".padEnd(24))}: ${chalk.yellow("none — no pitstop-repro-*.test.* committed")}`;
 
   const header = `${chalk.dim(`repo: ${model.repo}`)}  ·  ${chalk.dim(`${model.scansCount} scan(s), ${model.verifiesCount} verify(ies)`)}`;
   const contentParts = [header, "", ...lines, proofLine];
@@ -405,7 +405,7 @@ export function renderTerminal(model: ReportModel): string {
   const content = contentParts.join("\n");
 
   return boxen(content, {
-    title: " GUARDIAN — Repository Analysis Complete ",
+    title: " PITSTOP — Repository Analysis Complete ",
     titleAlignment: "center",
     borderStyle: "double",
     padding: 1,
@@ -469,7 +469,7 @@ function beforeAfterSection(model: ReportModel): string[] {
   out.push(`## Before / After`);
   out.push("");
   if (!model.hasVerify || !model.latestVerify) {
-    out.push(`No verify history — run \`guardian verify\` (or \`guardian ci\` in a PR) to populate the before/after diff.`);
+    out.push(`No verify history — run \`pitstop verify\` (or \`pitstop ci\` in a PR) to populate the before/after diff.`);
     out.push("");
     return out;
   }
@@ -536,7 +536,7 @@ function proofSection(proofs: ReproProof[]): string[] {
   out.push(`## Fixes shipped with permanent proof`);
   out.push("");
   if (proofs.length === 0) {
-    out.push(`No \`guardian-repro-*.test.*\` files are committed. Every fix in the loop is`);
+    out.push(`No \`pitstop-repro-*.test.*\` files are committed. Every fix in the loop is`);
     out.push(`supposed to ship with a permanent repro test that proves it — their absence is a`);
     out.push(`red flag that fixes went out without a captured failing-then-passing proof.`);
     out.push("");
@@ -576,7 +576,7 @@ function integritySection(model: ReportModel): string[] {
   const out: string[] = ["## Integrity gate", ""];
   const integ = model.integrity;
   if (!integ || integ.checks === 0) {
-    out.push("No integrity checks recorded by the loop. Run `guardian verify` (or `guardian integrity`) to populate.");
+    out.push("No integrity checks recorded by the loop. Run `pitstop verify` (or `pitstop integrity`) to populate.");
     out.push("");
     return out;
   }
@@ -588,11 +588,11 @@ function integritySection(model: ReportModel): string[] {
     return out;
   }
   out.push(
-    `Guardian's integrity gate caught **${integ.catches}** cheating attempt(s) across ${integ.checks} check(s).`,
+    `OpenPitStop's integrity gate caught **${integ.catches}** cheating attempt(s) across ${integ.checks} check(s).`,
   );
   if (integ.selfCorrected > 0) {
     out.push(
-      `Guardian caught ${integ.selfCorrected} attempted cheat(s), reverted them, retried the same cluster with the real fix, and proceeded. A catch that ends in a clean verify is the gate working — this is the single most credible line in this report.`,
+      `OpenPitStop caught ${integ.selfCorrected} attempted cheat(s), reverted them, retried the same cluster with the real fix, and proceeded. A catch that ends in a clean verify is the gate working — this is the single most credible line in this report.`,
     );
   }
   if (integ.catches - integ.selfCorrected > 0) {
@@ -618,9 +618,9 @@ function notesSection(): string[] {
   return [
     `## Notes`,
     ``,
-    `- Every figure above is read directly from \`.guardian/scan-*.json\` and \`.guardian/verify-*.json\`.`,
+    `- Every figure above is read directly from \`.pitstop/scan-*.json\` and \`.pitstop/verify-*.json\`.`,
     `- Categories marked **${NOT_SCANNED}** could not be analyzed for this repo (see the scan's per-category notes for why).`,
-    `- Categories marked **${NOT_ASSESSED}** depend on a \`guardian verify\` run that has not happened.`,
+    `- Categories marked **${NOT_ASSESSED}** depend on a \`pitstop verify\` run that has not happened.`,
     `- Accessibility can only run a live page test with pa11y/axe; otherwise it falls back to static JSX linting.`,
     `- Reliability and race-condition findings are heuristics — confirm each before acting.`,
     ``,
@@ -629,14 +629,14 @@ function notesSection(): string[] {
 
 export function renderMarkdown(model: ReportModel, opts: MarkdownOptions = {}): string {
   const out: string[] = [];
-  out.push(`# GUARDIAN — ${opts.title ?? "Repository Analysis Complete"}`);
+  out.push(`# PITSTOP — ${opts.title ?? "Repository Analysis Complete"}`);
   out.push("");
   out.push(`_Generated ${model.generatedAt}_  `);
   out.push(`_Repo: \`${model.repo}\` · ${model.scansCount} scan(s), ${model.verifiesCount} verify(ies)_`);
   if (opts.headerNote) out.push(`_${opts.headerNote}_`);
   if (model.latestScan) {
     out.push("");
-    out.push(`![Guardian score](GUARDIAN_BADGE.svg)`);
+    out.push(`![OpenPitStop score](PITSTOP_BADGE.svg)`);
   }
   out.push("");
 
@@ -742,7 +742,7 @@ export function renderHtml(model: ReportModel): string {
 
   const beforeAfter = (() => {
     const v = model.latestVerify;
-    if (!v) return `<p class="muted">No verify history — run \`guardian verify\` to populate the before/after diff.</p>`;
+    if (!v) return `<p class="muted">No verify history — run \`pitstop verify\` to populate the before/after diff.</p>`;
     const b = v.baseline;
     const cur = v.current;
     const d = v.deltas;
@@ -762,7 +762,7 @@ export function renderHtml(model: ReportModel): string {
   <div class="card">
     <h3>Before / After <span class="chip">risk: <b style="color:${v.risk === "High" ? "#f85149" : v.risk === "Medium" ? "#d29922" : "#3fb950"}">${v.risk}</b></span></h3>
     <table><thead><tr><th>Metric</th><th>Baseline</th><th>Current</th><th>Δ</th></tr></thead><tbody>
-      ${r("Guardian score", `${v.score?.baseline ?? "—"}/100 (${v.score ? gradeOf(v.score.current) : ""})`, `${v.score?.current ?? "—"}/100`, cell(v.score?.delta ?? 0, "", true))}
+      ${r("OpenPitStop score", `${v.score?.baseline ?? "—"}/100 (${v.score ? gradeOf(v.score.current) : ""})`, `${v.score?.current ?? "—"}/100`, cell(v.score?.delta ?? 0, "", true))}
       ${r("Tests passed", String(b.tests.passed), String(cur.tests.passed), cell(d.passed, "", true))}
       ${r("Tests failed", String(b.tests.failed), String(cur.tests.failed), cell(d.failed, "", false))}
       ${r("Duration", ms(b.tests.durationMs), ms(cur.tests.durationMs), cell(d.durationMs, "ms", false))}
@@ -780,7 +780,7 @@ export function renderHtml(model: ReportModel): string {
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>GUARDIAN — ${escapeHtml(model.repo)}</title>
+<title>PITSTOP — ${escapeHtml(model.repo)}</title>
 <style>
   :root{color-scheme:dark}
   *{box-sizing:border-box}
@@ -814,13 +814,13 @@ export function renderHtml(model: ReportModel): string {
 </style>
 </head>
 <body><div class="wrap">
-  <h1>GUARDIAN — Repository Analysis</h1>
+  <h1>PITSTOP — Repository Analysis</h1>
   <p class="sub">${escapeHtml(model.repo)} · generated ${time} · ${model.scansCount} scan(s), ${model.verifiesCount} verify(ies)</p>
 
   <div class="hero">
     ${sc ? `<div><div class="score">${sc.score}<span style="font-size:20px">/100</span></div><div class="grd">${sc.grade}</div></div>` : `<div class="score" style="font-size:24px">no scan yet</div>`}
     ${badge}
-    <p class="muted" style="flex-basis:100%;margin:0">${sc ? `${sc.analyzed}/${sc.total} categories analyzed. A higher number is healthier.` : "Run <code>guardian scan</code> to score this repo."}</p>
+    <p class="muted" style="flex-basis:100%;margin:0">${sc ? `${sc.analyzed}/${sc.total} categories analyzed. A higher number is healthier.` : "Run <code>pitstop scan</code> to score this repo."}</p>
   </div>
 
   <h2>Summary</h2>
@@ -840,7 +840,7 @@ export function renderHtml(model: ReportModel): string {
       { label: "Duplication clones", color: "#d29922", get: (s: ScanResult) => (s.duplication.status === "ok" ? s.duplication.cloneCount : null) },
       { label: "Failed tests", color: "#f85149", get: (s: ScanResult) => (s.tests.status === "ok" ? s.tests.failed : null) },
       { label: "Test coverage %", color: "#3fb950", get: (s: ScanResult) => (s.tests.status === "ok" ? s.tests.coverage ?? null : null) },
-      { label: "Guardian score", color: "#58a6ff", get: (s: ScanResult) => computeScore(s).score },
+      { label: "OpenPitStop score", color: "#58a6ff", get: (s: ScanResult) => computeScore(s).score },
     ]
       .map((m) => `<div class="card"><h3>${m.label}</h3><div>${svgTrend(scans.map(m.get), m.color)}</div></div>`)
       .join("\n")}
@@ -859,9 +859,9 @@ export function renderHtml(model: ReportModel): string {
 
   <h2>Fixes shipped with permanent proof</h2>
   <div class="card">
-    ${model.proofs.length === 0 ? `<p class="muted">No guardian-repro-*.test.* files are committed.</p>` : `<table><thead><tr><th>Finding</th><th>Proved by</th></tr></thead><tbody>${model.proofs.map((p) => `<tr><td><code>${escapeHtml(p.findingId ?? "?")}</code></td><td><code>${escapeHtml(p.file)}</code></td></tr>`).join("")}</tbody></table>`}
+    ${model.proofs.length === 0 ? `<p class="muted">No pitstop-repro-*.test.* files are committed.</p>` : `<table><thead><tr><th>Finding</th><th>Proved by</th></tr></thead><tbody>${model.proofs.map((p) => `<tr><td><code>${escapeHtml(p.findingId ?? "?")}</code></td><td><code>${escapeHtml(p.file)}</code></td></tr>`).join("")}</tbody></table>`}
   </div>
 
-  <div class="footer">Generated by cli-guardian · every figure read from .guardian/scan-*.json and .guardian/verify-*.json</div>
+  <div class="footer">Generated by openpitstop · every figure read from .pitstop/scan-*.json and .pitstop/verify-*.json</div>
 </div></body></html>`;
 }

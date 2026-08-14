@@ -1,6 +1,6 @@
-# Contributing to Guardian
+# Contributing to OpenPitStop
 
-Guardian is a small, dependency-light TypeScript CLI. The most valuable thing you can add is
+OpenPitStop is a small, dependency-light TypeScript CLI. The most valuable thing you can add is
 a **new analyzer** — a new dimension of the scan. This guide is written around that path,
 but it also covers setup, conventions, and how to open a PR.
 
@@ -28,7 +28,7 @@ src/analyzers/        one file per analyzer (the Phase-1 scan dimension)
   routes.ts           language-aware route discovery (shared by pen and ledger)
 src/analyzers/integrity/  diff-scoped AI-agent-cheat detectors (testTamper, exceptionSwallow,
   suppressionCreep, hardcodedMatch, mockOverreach, exitCheat, assertionLiteralTamper) —
-  wired into `guardian verify`
+  wired into `pitstop verify`
 src/sandbox/          non-Node sandboxing (recording HTTP(S)_PROXY server + start-command resolvers)
 src/installer/         slash-command install targets (Claude, Cursor, OpenCode, Antigravity,
   Kilo Code, Gemini CLI, Codex) + the template transforms (skill / workflow frontmatter
@@ -36,9 +36,9 @@ src/installer/         slash-command install targets (Claude, Cursor, OpenCode, 
 src/graph/correlate.ts   flattens findings into ClusterFinding[] and clusters them
 src/graph/integrity.ts   combines detector output into one verdict (CLEAN/SUSPICIOUS/CONFIRMED_CHEAT)
 src/commands/         the CLI surface (scan, verify, integrity, report, memory, demo, ci, install)
-src/report/format.ts  GUARDIAN_REPORT.md + boxed renderers
+src/report/format.ts  PITSTOP_REPORT.md + boxed renderers
 src/verify/metrics.ts verify metrics + Regression Risk classification
-templates/guardian.prompt.md  the /guardian slash-command that drives the agent
+templates/pitstop.prompt.md  the /pitstop slash-command that drives the agent
 ```
 
 Data flows: **analyzer → `ScanResult` → `collectFindings` (correlate) → clusters → scan box
@@ -161,7 +161,7 @@ into clusters, and the highest-scoring finding becomes the root cause.
 
 ### 6. (Optional but nice) Surface it in `src/report/format.ts`
 
-The report box shows one summary line per dimension. Add a matching line so `guardian report`
+The report box shows one summary line per dimension. Add a matching line so `pitstop report`
 aggregates your dimension too.
 
 ### 7. (Optional) Make it verifiable in `src/verify/metrics.ts`
@@ -171,7 +171,7 @@ If your analyzer produces a number that matters (issue count, duration), wire it
 measure "is this getting better or worse?"
 
 You do **not** need to touch `src/commands/ci.ts` — it reuses `runScan`, so your analyzer is
-present in `guardian ci` and the GitHub Action comment automatically.
+present in `pitstop ci` and the GitHub Action comment automatically.
 
 ## Conventions (read these — they're the review criteria)
 
@@ -185,7 +185,7 @@ present in `guardian ci` and the GitHub Action comment automatically.
   present a heuristic as ground truth.
 - **Caps and timeouts.** Use `safeExec(..., timeoutMs)` for subprocesses and cap file sweeps
   (see `MAX_RUNTIME_FILES`, `MAX_DUP_FINDINGS`, `MAX_SUITE_MS`). Scans must stay fast.
-- **Use `util.ts`.** `walkFiles` already ignores `node_modules`, `dist`, `.git`, `.guardian`,
+- **Use `util.ts`.** `walkFiles` already ignores `node_modules`, `dist`, `.git`, `.pitstop`,
   `demo-repo`, etc. Do not hand-roll traversal.
 - **Severity vocabulary.** `critical / high / medium / low / info` — `correlate.ts`'s
   `SEVERITY_RANK` scores clusters by severity + graph centrality. Unknown severities are
@@ -209,7 +209,7 @@ node fixtures/assertion-literal-tamper/verify.mjs  # integrity detector fixture 
 For a full-loop test: run `node dist/cli.js demo`, `cd` into the printed temp dir, then walk
 the slash-command steps by hand — `scan` → confirm → fix → `verify` → `memory add` →
 `scan` → `report`. The loop must reach `nothing left to fix, nothing broken.` with a
-`GUARDIAN_REPORT.md` written.
+`PITSTOP_REPORT.md` written.
 
 ## Opening a pull request
 

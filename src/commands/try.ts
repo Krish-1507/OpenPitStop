@@ -34,19 +34,19 @@ function gradePaint(g: string) {
 }
 
 /**
- * `guardian try` — the instant wow. It runs only the cheap analyzers against
+ * `pitstop try` — the instant wow. It runs only the cheap analyzers against
  * ANY existing repo (tests/build/flaky detection are intentionally skipped,
- * honest in the note text) so a Guardian Score lands in a couple of seconds
+ * honest in the note text) so a OpenPitStop Score lands in a couple of seconds
  * with zero setup: no install, no tool config, no curated fixture. The result
- * is persisted as a sealed baseline so `guardian scan`/`verify`/`gate` pick up
+ * is persisted as a sealed baseline so `pitstop scan`/`verify`/`gate` pick up
  * where it left off.
  */
 export async function tryScan(repo: string): Promise<ScanResult> {
   const language = detectLanguage(repo);
   const notesFor = {
-    tests: "try is the 2-second pass — `guardian scan` runs the suite, coverage and build",
-    perf: "try is the 2-second pass — `guardian scan` measures build/bundle timing",
-    reliability: "try is the 2-second pass — `guardian scan` runs flaky-test detection",
+    tests: "try is the 2-second pass — `pitstop scan` runs the suite, coverage and build",
+    perf: "try is the 2-second pass — `pitstop scan` measures build/bundle timing",
+    reliability: "try is the 2-second pass — `pitstop scan` runs flaky-test detection",
   };
 
   // npm audit via analyzeSecurity is the only subprocess; it is cache-backed so
@@ -156,7 +156,7 @@ function renderTryBox(r: ScanResult, elapsedMs: number): string {
   const skippedStr = skipped > 0 ? chalk.dim(` · ${skipped} skipped (tests/perf are a scan-detail)`) : "";
 
   const lines: string[] = [];
-  lines.push(`${label("Guardian Score")}: ${paint.bold(`${sc.score}/100 (${sc.grade})`)}${skippedStr}`);
+  lines.push(`${label("OpenPitStop Score")}: ${paint.bold(`${sc.score}/100 (${sc.grade})`)}${skippedStr}`);
   lines.push("");
   lines.push(...categoryLines(r));
 
@@ -168,12 +168,12 @@ function renderTryBox(r: ScanResult, elapsedMs: number): string {
 
   lines.push("");
   lines.push(chalk.cyan("next:"));
-  lines.push(`  guardian scan      full audit (tests, perf, flaky, ledger) — cached 24h audit`);
-  lines.push(`  guardian verify    gate every future fix against this baseline`);
-  lines.push(`  guardian demo      the guided fix-loop tour`);
+  lines.push(`  pitstop scan      full audit (tests, perf, flaky, ledger) — cached 24h audit`);
+  lines.push(`  pitstop verify    gate every future fix against this baseline`);
+  lines.push(`  pitstop demo      the guided fix-loop tour`);
 
   return boxen(lines.join("\n"), {
-    title: " GUARDIAN — Try ",
+    title: " PITSTOP — Try ",
     titleAlignment: "center",
     borderStyle: "single",
     padding: 1,
@@ -184,7 +184,7 @@ function renderTryBox(r: ScanResult, elapsedMs: number): string {
 export const try_ = new Command("try")
   .description(
     "Zero-setup 2-second check: static-analyze ANY existing repo (no install, no tool config) " +
-      "and print its Guardian Score. Persists a real baseline for scan/verify/gate to build on.",
+      "and print its OpenPitStop Score. Persists a real baseline for scan/verify/gate to build on.",
   )
   .argument("[repo]", "path to the repo to try (default: current dir)", ".")
   .option("--json", "print the raw quick-scan result as JSON")
@@ -230,5 +230,5 @@ export const try_ = new Command("try")
     }
 
     console.log(renderTryBox(result, elapsedMs));
-    console.log(chalk.dim(`\nBaseline saved to ${path.join(repo, ".guardian", "scan-latest.json")}\n`));
+    console.log(chalk.dim(`\nBaseline saved to ${path.join(repo, ".pitstop", "scan-latest.json")}\n`));
   });

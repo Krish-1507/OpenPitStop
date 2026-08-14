@@ -55,7 +55,7 @@ app.post("/api/webhooks/razorpay", async (req, res) => {
 
 if (require.main === module) {
   const port = Number(process.env.PORT) || 4000;
-  app.listen(port, () => console.log(`guardian-demo-fintech listening on ${port}`));
+  app.listen(port, () => console.log(`pitstop-demo-fintech listening on ${port}`));
 }
 
 module.exports = app;

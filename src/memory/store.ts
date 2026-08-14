@@ -16,8 +16,8 @@ export interface MemoryEntry {
   relatedFiles: string[];
 }
 
-const GLOBAL_DIR = path.join(os.homedir(), ".guardian", "memory");
-const LOCAL_MIRROR = path.join(".guardian", "memory.jsonl");
+const GLOBAL_DIR = path.join(os.homedir(), ".pitstop", "memory");
+const LOCAL_MIRROR = path.join(".pitstop", "memory.jsonl");
 
 /**
  * Identify "this repo" by hashing the git remote URL (fallback: absolute path).

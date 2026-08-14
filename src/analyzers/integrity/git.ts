@@ -152,7 +152,7 @@ export function getDiff(repo: string, from: string, to?: string): FileChange[] {
     // Untracked files count as additions against the working tree.
     const others = safeExec("git", ["ls-files", "--others", "--exclude-standard"], repo).stdout;
     for (const f of others.split(/\r?\n/).map((s) => s.trim()).filter(Boolean)) {
-      if (f.startsWith("node_modules/") || f.startsWith(".guardian/") || f.startsWith("dist/")) {
+      if (f.startsWith("node_modules/") || f.startsWith(".pitstop/") || f.startsWith("dist/")) {
         continue;
       }
       const content = readWorking(repo, f);

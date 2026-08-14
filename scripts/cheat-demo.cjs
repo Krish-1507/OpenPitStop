@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * cheat-demo.cjs — the 90-second "agent tried to cheat, Guardian caught it"
+ * cheat-demo.cjs — the 90-second "agent tried to cheat, OpenPitStop caught it"
  * demo, fully scripted and deterministic. Use it in a video, or live in front
  * of judges: it produces the SUSPICIOUS -> CONFIRMED_CHEAT arc on cue.
  *
@@ -11,12 +11,12 @@
  *   1. focuses the suite on the passing tests  -> SUSPICIOUS
  *   2. deletes the failing test file entirely  -> CONFIRMED_CHEAT
  *
- * `guardian gate` catches both, escalates to exit code 2, and blocks the
+ * `pitstop gate` catches both, escalates to exit code 2, and blocks the
  * commit. That is the product: the agent finally has a referee.
  *
  * Usage:   node scripts/cheat-demo.cjs
- *          (set GUARDIAN_CLI to point at a build, e.g.
- *           GUARDIAN_CLI="node D:/Guardian-cli/dist/cli.js")
+ *          (set PITSTOP_CLI to point at a build, e.g.
+ *           PITSTOP_CLI="node D:/OpenPitStop-cli/dist/cli.js")
  */
 
 const fs = require("fs");
@@ -25,7 +25,7 @@ const path = require("path");
 const { execSync } = require("child_process");
 
 const ROOT = path.resolve(__dirname, "..");
-const CLI = process.env.GUARDIAN_CLI || "npx cli-guardian";
+const CLI = process.env.PITSTOP_CLI || "npx openpitstop";
 
 const run = (cmd, cwd) => {
   console.log(`\n$ ${cmd}`);
@@ -46,15 +46,15 @@ function main() {
     process.exit(1);
   }
 
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "guardian-cheat-demo-"));
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "pitstop-cheat-demo-"));
   fs.cpSync(src, tmp, { recursive: true, filter: (p) => !/node_modules$/.test(p) });
 
-  say("GUARDIAN CHEAT-CATCH DEMO — the agent finally has a referee");
+  say("PITSTOP CHEAT-CATCH DEMO — the agent finally has a referee");
   console.log(`demo repo: ${tmp}`);
 
   say("ACT 1 — baseline: a real bug, a failing test, an honest scan");
   run("npm install --no-audit --no-fund", tmp);
-  run("git init -q && git config user.email guardian@demo.local && git config user.name \"Guardian Demo\" && git add -A && git commit -q -m baseline", tmp);
+  run("git init -q && git config user.email pitstop@demo.local && git config user.name \"OpenPitStop Demo\" && git add -A && git commit -q -m baseline", tmp);
   const scan = run(`${CLI} scan`, tmp);
   if (!/1 failed|failed 1|Tests\s*:.*fail/i.test(scan.out)) {
     console.log(scan.out);
@@ -74,7 +74,7 @@ function main() {
   );
   fs.writeFileSync(testFile, testCode, "utf8");
   const act2 = run(`${CLI} gate`, tmp);
-  console.log("\nGuardian's verdict: jest now runs ONLY the focused tests — the failing one is");
+  console.log("\nOpenPitStop's verdict: jest now runs ONLY the focused tests — the failing one is");
   console.log("hidden, the suite is 'green', the bug is still there. SUSPICIOUS, needs a human.");
   if (act2.code !== 1) {
     console.log(`\nWARNING: expected gate exit 1 (SUSPICIOUS), got ${act2.code}`);
@@ -90,11 +90,11 @@ function main() {
   say("THE PITCH");
   console.log(
     "Agents fix code; they don't know when to stop, and they'll tell you they're done regardless.\n" +
-      "Guardian is the referee it can't cheat: deterministic scans, tamper-evident baselines,\n" +
+      "OpenPitStop is the referee it can't cheat: deterministic scans, tamper-evident baselines,\n" +
       "runtime penetration tests with failing-first repro contracts, and a verification gate\n" +
       "that catches the agent lying — SUSPICIOUS needs a human, CONFIRMED_CHEAT is blocked.\n" +
-      "\nNow run the same arc against a repo that matters: npx cli-guardian pen --fix, then\n" +
-      "npx cli-guardian drive <finding-id> — your agent fixes it, and Guardian verifies the\n" +
+      "\nNow run the same arc against a repo that matters: npx openpitstop pen --fix, then\n" +
+      "npx openpitstop drive <finding-id> — your agent fixes it, and OpenPitStop verifies the\n" +
       "repro flips FAIL -> PASS. The numbers can't be talked into looking better.",
   );
 }

@@ -1,5 +1,5 @@
 /**
- * pen/dynamic.ts — the dynamic phase of `guardian pen`.
+ * pen/dynamic.ts — the dynamic phase of `pitstop pen`.
  *
  * Boots the app-under-test under the pen sandbox (`templates/pen/preload.cjs`
  * for Node/JS) and fires a battery of live attacks at the discovered routes.
@@ -84,7 +84,7 @@ function waitForServer(
       if (exited()) return { up: false, aborted: controlHas(controlPath, '"event":"abort"') };
       if (controlHas(controlPath, '"event":"armed"')) {
         try {
-          const res = await fetch(`${baseUrl}/__guardian_pen_probe__`, { signal: AbortSignal.timeout(2500) });
+          const res = await fetch(`${baseUrl}/__pitstop_pen_probe__`, { signal: AbortSignal.timeout(2500) });
           if (res) return { up: true, aborted: false };
         } catch {
           /* not up yet */
@@ -307,7 +307,7 @@ export async function runDynamic(repo: string, routes: PenRoute[]): Promise<PenD
     );
   }
 
-  const workDir = path.join(repo, ".guardian", "pen");
+  const workDir = path.join(repo, ".pitstop", "pen");
   fs.mkdirSync(workDir, { recursive: true });
   const ts = new Date().toISOString().replace(/[:.]/g, "-");
   const runDir = path.join(workDir, `run-${ts}`);
@@ -328,8 +328,8 @@ export async function runDynamic(repo: string, routes: PenRoute[]): Promise<PenD
   }
   if (!start) {
     return abortWith(
-      `could not determine a start command for a ${lang} repo — set GUARDIAN_START ` +
-        `(e.g. "GUARDIAN_START=uvicorn app.main:app") and re-run. Static pen still ran — see its findings below.`,
+      `could not determine a start command for a ${lang} repo — set PITSTOP_START ` +
+        `(e.g. "PITSTOP_START=uvicorn app.main:app") and re-run. Static pen still ran — see its findings below.`,
     );
   }
 
@@ -343,7 +343,7 @@ export async function runDynamic(repo: string, routes: PenRoute[]): Promise<PenD
         logPath: outboundPath,
         controlPath,
         gatewayHosts: [],
-        canarySuffix: "guardian.invalid",
+        canarySuffix: "pitstop.invalid",
       });
     } catch (e) {
       return abortWith(`could not start the recording proxy: ${(e as Error).message}`);
@@ -354,11 +354,11 @@ export async function runDynamic(repo: string, routes: PenRoute[]): Promise<PenD
   const baseEnv: NodeJS.ProcessEnv = {
     ...process.env,
     PORT: String(port),
-    GUARDIAN_PEN_CONTROL: controlPath,
-    GUARDIAN_PEN_OUTBOUND: outboundPath,
-    RAZORPAY_KEY_ID: process.env.RAZORPAY_KEY_ID || "rzp_test_guardian000000",
-    RAZORPAY_KEY_SECRET: process.env.RAZORPAY_KEY_SECRET || "guardian_fake_secret",
-    STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY || "sk_test_guardian_fake",
+    PITSTOP_PEN_CONTROL: controlPath,
+    PITSTOP_PEN_OUTBOUND: outboundPath,
+    RAZORPAY_KEY_ID: process.env.RAZORPAY_KEY_ID || "rzp_test_pitstop000000",
+    RAZORPAY_KEY_SECRET: process.env.RAZORPAY_KEY_SECRET || "pitstop_fake_secret",
+    STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY || "sk_test_pitstop_fake",
     NODE_ENV: process.env.NODE_ENV || "test",
   };
   const env: NodeJS.ProcessEnv = nodeMode
@@ -448,7 +448,7 @@ export async function runDynamic(repo: string, routes: PenRoute[]): Promise<PenD
     const probed = routes.slice(0, MAX_ROUTES_PROBED);
     routesProbed = probed.length;
     const marker = `gpn${Math.floor(Math.random() * 1e8)}`;
-    const canaryHost = `ssrf-canary-${marker}.guardian.invalid`;
+    const canaryHost = `ssrf-canary-${marker}.pitstop.invalid`;
     const canaryUrl = `http://${canaryHost}/pen`;
 
     const seen = new Set<string>();
@@ -482,7 +482,7 @@ export async function runDynamic(repo: string, routes: PenRoute[]): Promise<PenD
           method: route.method,
           response: { status: base.status, headers },
           repro: `curl -sI /${urlPath} | grep -i x-powered-by`,
-          fix: 'Disable it: `app.disable("x-powered-by");` (deterministic patch via `guardian pen --fix`).',
+          fix: 'Disable it: `app.disable("x-powered-by");` (deterministic patch via `pitstop pen --fix`).',
         });
       }
       const secHeaders = ["x-frame-options", "content-security-policy", "x-content-type-options", "strict-transport-security"];

@@ -129,19 +129,19 @@ export function generatePenRepro(repo: string, f: PenFinding): ReproOutcome {
       ok: false,
       reason:
         "this pen finding is a static heuristic / config observation — there is no live attack to replay. " +
-        "Fix it and re-run `guardian pen`; the dynamic phase produces replayable repros for live bugs.",
+        "Fix it and re-run `pitstop pen`; the dynamic phase produces replayable repros for live bugs.",
     };
   }
 
   const r = penFindingToRepro(f);
   const slug = reproSlug(r);
-  const file = `guardian-repro-${slug}.test.mjs`;
+  const file = `pitstop-repro-${slug}.test.mjs`;
 
   if (isStaticSecret) {
     const fileRel = path.relative(repo, f.file as string).replace(/\\/g, "/");
     const header = [
-      `// Guardian permanent repro test — finding ${f.id}`,
-      `// Linked from .guardian/pen-latest.json.`,
+      `// OpenPitStop permanent repro test — finding ${f.id}`,
+      `// Linked from .pitstop/pen-latest.json.`,
       `//`,
       `// A committed credential guard: while the secret fragment below is present`,
       `// in the file, this test FAILS. Rotate the secret, remove it, and it PASSES.`,
@@ -157,7 +157,7 @@ export function generatePenRepro(repo: string, f: PenFinding): ReproOutcome {
       `import assert from "node:assert/strict";`,
       `import { readFileSync } from "node:fs";`,
       ``,
-      `test("guardian repro ${f.id}: no committed secret in ${fileRel}", () => {`,
+      `test("pitstop repro ${f.id}: no committed secret in ${fileRel}", () => {`,
       `  ${body.join("\n  ")}`,
       `});`,
       ``,
@@ -193,7 +193,7 @@ export function generatePenRepro(repo: string, f: PenFinding): ReproOutcome {
 
   const prelude = [
     `const REPO = process.cwd();`,
-    `const PRELOAD = process.env.GUARDIAN_PEN_PRELOAD;`,
+    `const PRELOAD = process.env.PITSTOP_PEN_PRELOAD;`,
     `let BASE_URL = null;`,
     `const NODE_BASED = new Set([${NODE_BASED}]);`,
     ``,
@@ -262,11 +262,11 @@ export function generatePenRepro(repo: string, f: PenFinding): ReproOutcome {
     `  }`,
     `}`,
     ``,
-    `test("guardian repro ${f.id}: ${assertFinding.type} blocked on ${attack.path}", async () => {`,
-    `  assert.ok(PRELOAD, "GUARDIAN_PEN_PRELOAD not set — run this via \`npx cli-guardian repro ${f.id}\`");`,
+    `test("pitstop repro ${f.id}: ${assertFinding.type} blocked on ${attack.path}", async () => {`,
+    `  assert.ok(PRELOAD, "PITSTOP_PEN_PRELOAD not set — run this via \`npx openpitstop repro ${f.id}\`");`,
     ``,
     `  const start = resolveStart();`,
-    `  const runDir = path.join(REPO, ".guardian", "repro", new Date().toISOString().replace(/[:.]/g, "-"));`,
+    `  const runDir = path.join(REPO, ".pitstop", "repro", new Date().toISOString().replace(/[:.]/g, "-"));`,
     `  mkdirSync(runDir, { recursive: true });`,
     `  const controlPath = path.join(runDir, "control.jsonl");`,
     `  const outboundPath = path.join(runDir, "outbound.jsonl");`,
@@ -280,11 +280,11 @@ export function generatePenRepro(repo: string, f: PenFinding): ReproOutcome {
     `    ...process.env,`,
     `    NODE_OPTIONS: [process.env.NODE_OPTIONS, "--require=" + PRELOAD].filter(Boolean).join(" "),`,
     `    PORT: String(port),`,
-    `    GUARDIAN_PEN_CONTROL: controlPath,`,
-    `    GUARDIAN_PEN_OUTBOUND: outboundPath,`,
-    `    RAZORPAY_KEY_ID: process.env.RAZORPAY_KEY_ID || "rzp_test_guardian000000",`,
-    `    RAZORPAY_KEY_SECRET: process.env.RAZORPAY_KEY_SECRET || "guardian_fake_secret",`,
-    `    STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY || "sk_test_guardian_fake",`,
+    `    PITSTOP_PEN_CONTROL: controlPath,`,
+    `    PITSTOP_PEN_OUTBOUND: outboundPath,`,
+    `    RAZORPAY_KEY_ID: process.env.RAZORPAY_KEY_ID || "rzp_test_pitstop000000",`,
+    `    RAZORPAY_KEY_SECRET: process.env.RAZORPAY_KEY_SECRET || "pitstop_fake_secret",`,
+    `    STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY || "sk_test_pitstop_fake",`,
     `    NODE_ENV: process.env.NODE_ENV || "test",`,
     `  };`,
     `  const child = spawn(start.cmd, start.args, { cwd: REPO, env, stdio: ["ignore", "ignore", "inherit"] });`,
@@ -295,7 +295,7 @@ export function generatePenRepro(repo: string, f: PenFinding): ReproOutcome {
     `      if (child.exitCode !== null) break;`,
     `      if (controlHas(controlPath, '"event":"armed"')) {`,
     `        try {`,
-    `          await fetch(BASE_URL + "/__guardian_pen_probe__");`,
+    `          await fetch(BASE_URL + "/__pitstop_pen_probe__");`,
     `          up = true;`,
     `          break;`,
     `        } catch {}`,
@@ -324,8 +324,8 @@ export function generatePenRepro(repo: string, f: PenFinding): ReproOutcome {
 
   // header for the test file
   const headerLines = [
-    `// Guardian permanent repro test — finding ${f.id}`,
-    `// Linked from .guardian/pen-latest.json.`,
+    `// OpenPitStop permanent repro test — finding ${f.id}`,
+    `// Linked from .pitstop/pen-latest.json.`,
     `//`,
     `// REPLAYS the exact attack the pen test fired: ${attack.method} ${attack.path}`,
     `// and asserts the SAFE outcome. This test MUST FAIL while the vulnerability`,

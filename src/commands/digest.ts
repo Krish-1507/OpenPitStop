@@ -37,19 +37,19 @@ function windowOf(repo: string, days: number | null): Window {
 }
 
 /**
- * `guardian digest` — the shareable progress story. Reads the `.guardian`
+ * `pitstop digest` — the shareable progress story. Reads the `.pitstop`
  * history and answers "what happened to this repo since <window>?" for humans:
  * score movement, what got fixed, verifies/gates run, cheat attempts caught,
  * flakiest tests, and what's still open.
  */
 export const digest = new Command("digest")
   .description(
-    "Progress digest over the .guardian history: score movement, what got fixed, gate results, " +
+    "Progress digest over the .pitstop history: score movement, what got fixed, gate results, " +
       "cheat catches, flaky tests and open findings. --md writes a shareable markdown file.",
   )
   .argument("[repo]", "path to the repo (default: current dir)", ".")
   .option("--days <n>", "only look at the last n days (default: all history)")
-  .option("-m, --md [file]", "also write a markdown digest (default GUARDIAN_DIGEST.md)")
+  .option("-m, --md [file]", "also write a markdown digest (default PITSTOP_DIGEST.md)")
   .action((repoArg: string, options: { days?: string; md?: string | boolean }) => {
     const repo = path.resolve(repoArg);
     const days = options.days ? Math.max(1, Math.floor(Number(options.days) || 7)) : null;
@@ -58,7 +58,7 @@ export const digest = new Command("digest")
     if (scans.length === 0) {
       console.log(
         chalk.yellow(
-          `no scans ${days ? `in the last ${days} day(s) ` : ""}in ${path.join(repo, ".guardian")} — run \`guardian scan\` (or \`guardian try\`) a few times first.`,
+          `no scans ${days ? `in the last ${days} day(s) ` : ""}in ${path.join(repo, ".pitstop")} — run \`pitstop scan\` (or \`pitstop try\`) a few times first.`,
         ),
       );
       return;
@@ -130,7 +130,7 @@ export const digest = new Command("digest")
 
     const lines: string[] = [];
     lines.push(
-      `${chalk.bold("Guardian Score".padEnd(20))}: ${gradeColorFn(lastScore.grade)(
+      `${chalk.bold("OpenPitStop Score".padEnd(20))}: ${gradeColorFn(lastScore.grade)(
         chalk.bold(`${lastScore.score}/100 (${lastScore.grade})`),
       )} ${delta !== 0 ? chalk.dim(`was ${firstScore.score}/100 (${firstScore.grade}) · ${delta > 0 ? chalk.green(`+${delta}`) : chalk.red(delta)}`) : chalk.dim(`unchanged from ${firstScore.score}/100`)}`,
     );
@@ -177,7 +177,7 @@ export const digest = new Command("digest")
 
     console.log(
       boxen(lines.join("\n"), {
-        title: ` GUARDIAN — Digest `,
+        title: ` PITSTOP — Digest `,
         titleAlignment: "center",
         borderStyle: "double",
         padding: 1,
@@ -189,13 +189,13 @@ export const digest = new Command("digest")
       const mdPath =
         typeof options.md === "string" && options.md.length > 0
           ? path.resolve(options.md)
-          : path.join(repo, "GUARDIAN_DIGEST.md");
+          : path.join(repo, "PITSTOP_DIGEST.md");
       const md = [
-        `# GUARDIAN — Digest`,
+        `# PITSTOP — Digest`,
         ``,
         `_Repo: \`${repo}\` · ${scans.length} scan(s) in ${days ? `the last ${days} day(s)` : "all history"}_  `,
         ``,
-        `## Guardian Score: **${lastScore.score}/100 (${lastScore.grade})**${delta !== 0 ? ` (was ${firstScore.score}/100, ${delta > 0 ? "+" : ""}${delta})` : ""}`,
+        `## OpenPitStop Score: **${lastScore.score}/100 (${lastScore.grade})**${delta !== 0 ? ` (was ${firstScore.score}/100, ${delta > 0 ? "+" : ""}${delta})` : ""}`,
         ``,
         `## What changed`,
         ``,

@@ -2,11 +2,11 @@
 description: "Autonomous engineering quality loop — scans, shows findings, fixes on confirmation, loops until clean"
 ---
 
-# Guardian — Autonomous Engineering Quality Loop
+# OpenPitStop — Autonomous Engineering Quality Loop
 
 > **Read this first — mode selection (MANDATORY, before anything else).**
 >
-> The text the user typed after `/guardian` is substituted into this prompt where the
+> The text the user typed after `/pitstop` is substituted into this prompt where the
 > placeholder appears on the "Invocation arguments:" line just below.
 >
 > **Invocation arguments: `$ARGUMENTS`**
@@ -19,7 +19,7 @@ description: "Autonomous engineering quality loop — scans, shows findings, fix
 >   to the matching "## Mode: …" section below.
 > - The line is **empty**, or still shows the literal placeholder word unsubstituted (the
 >   exact placeholder text is still visible) → **mode = menu**. The user typed bare
->   `/guardian`; follow the "## Mode: menu" section below.
+>   `/pitstop`; follow the "## Mode: menu" section below.
 > - It contains anything else (a phrase, a repo path, an instruction) → **mode = default**
 >   full loop: treat that text as context/instructions and continue with the loop below.
 
@@ -31,13 +31,13 @@ nothing else in that first message. (If the mode is `menu`, print this block, th
 turn and wait as the menu section says.)
 
 ```
-GUARDIAN prompt received. I am operating under exactly these instructions:
+PITSTOP prompt received. I am operating under exactly these instructions:
 
 Mode: <menu | --scan-only | --demo | --ledger | --integrity-only | --pen | default full loop>
 Sequence: scan → show the box verbatim → ONE confirmation pause → fix cluster-by-cluster
 (repro test must fail first, then pass after the fix) → verify (integrity gate) →
-commit with the repro test → re-scan → final GUARDIAN_REPORT.md
-Guardrails: stay on a guardian/* branch · never touch secrets, .git, or CI/deploy config ·
+commit with the repro test → re-scan → final PITSTOP_REPORT.md
+Guardrails: stay on a pitstop/* branch · never touch secrets, .git, or CI/deploy config ·
 never loosen, delete, or hardcode-to-pass tests · never force-push ·
 hard stops: 10 fix iterations or 45 minutes
 Token guardrails: use `ready-check` + `scan --reuse` inside the loop · inspect instead of
@@ -47,16 +47,16 @@ reading whole files · batch your edits · verify at 1 reliability run, full run
 Then continue with the matching "## Mode:" section below. This block is your proof-of-
 instructions; you are not free to deviate from anything it summarizes.
 
-## Mode: menu (bare `/guardian`)
+## Mode: menu (bare `/pitstop`)
 
 Print **exactly this menu as your entire response**, then **end your turn and wait** for
 the user's next message. Do not scan, do not read files, do not plan anything yet.
 
 ```
-Guardian modes:
+OpenPitStop modes:
  (enter) — full autonomous loop (scan, confirm, fix, verify, repeat)
  --scan-only — scan and report, no fixes
- --demo — run against Guardian's own seeded demo repo
+ --demo — run against OpenPitStop's own seeded demo repo
  --ledger — payment idempotency fuzzing only
  --integrity-only — re-check the last commit for cheat patterns, no scanning
  --pen — penetration test: live attacks + proof + fixes (regression tests, patches)
@@ -77,54 +77,54 @@ Then wait. Map the user's next message to a mode:
 
 Run the scan:
 
-`!npx cli-guardian scan`
+`!npx openpitstop scan`
 
 Print the **entire boxed output verbatim** as your complete response — no summary, no
 commentary, no fixes, no report. Then stop. That is the whole mode.
 
 ## Mode: --demo
 
-Run `!npx cli-guardian demo` first; it prints a fresh temp demo repo. Then run the
+Run `!npx openpitstop demo` first; it prints a fresh temp demo repo. Then run the
 **default full loop** (the section below) inside that temp repo — cd there, scan,
 confirm, fix, verify, repeat, as if you had been invoked there.
 
 ## Mode: --ledger
 
-Run the scan as `!npx cli-guardian scan --ledger` (this boots the app under a sandbox — the
+Run the scan as `!npx openpitstop scan --ledger` (this boots the app under a sandbox — the
 nock preload for Node/JS apps, a recording HTTP(S)_PROXY server for Go/Python/Rust/.NET —
 and fuzzes money-moving endpoints for missing idempotency). Then run the
 **default full loop** (the section below) restricted to ledger findings only.
 
 ## Mode: --integrity-only
 
-Run `!npx cli-guardian integrity`, print the boxed verdict **verbatim**, and **stop**.
+Run `!npx openpitstop integrity`, print the boxed verdict **verbatim**, and **stop**.
 No scanning, no fixes, no report. That is the whole mode.
 
 ## Mode: --pen
 
 Run the penetration test:
 
-`!npx cli-guardian pen --fix`
+`!npx openpitstop pen --fix`
 
 This boots the app under a network-interception sandbox and fires live attacks at every
 discovered route. Print the **entire boxed output verbatim**. Then:
 
 1. **State the verdict honestly**: for every PROVEN finding (XSS reflection, SSRF canary,
    command-injection spawn, path-traversal file leak) say exactly what was proven and how
-   (`guardian inspect <id>` shows the attack + response + sandbox evidence — use it instead
+   (`pitstop inspect <id>` shows the attack + response + sandbox evidence — use it instead
    of reading whole files).
 2. **Confirmation pause** (the same one mandatory pause as the default loop, never skipped):
    ask the user before fixing anything, listing the finding ids with `--fix` already written
-   (`guardian pen --fix` wrote repro tests + patches + `GUARDIAN_PEN_FIXES.md`).
+   (`pitstop pen --fix` wrote repro tests + patches + `PITSTOP_PEN_FIXES.md`).
 3. On confirmation, fix **one finding at a time**, each exactly like the default loop:
-   - run `!npx cli-guardian repro <pen-id>` → must **FAIL** (bug live),
+   - run `!npx openpitstop repro <pen-id>` → must **FAIL** (bug live),
    - make the smallest fix (apply the generated patch with `git apply` when a deterministic
-     one exists — `.guardian/pen-patches/<id>.diff` — and review it before applying),
+     one exists — `.pitstop/pen-patches/<id>.diff` — and review it before applying),
    - re-run the **same** repro → must **PASS**,
-   - `!npx cli-guardian verify` → integrity gate CLEAN.
-4. Re-run `!npx cli-guardian pen --static` to confirm the finding is gone from the report
+   - `!npx openpitstop verify` → integrity gate CLEAN.
+4. Re-run `!npx openpitstop pen --static` to confirm the finding is gone from the report
    (static re-check; do not re-boot the app needlessly), then `--json` if you want the ids.
-5. Commit each fix with its repro test. Finish with `!npx cli-guardian report`.
+5. Commit each fix with its repro test. Finish with `!npx openpitstop report`.
 
 Honesty rule: `pen` proves what it fires. It cannot promise "never hacked" — it promises
 every demonstrable attack gets a regression test that fails on the bug and passes on the fix.
@@ -134,7 +134,7 @@ If `pen --fix` wrote repro tests, never delete them; they are the permanent proo
 
 ## The default full loop
 
-You are running the `cli-guardian` quality loop against this repository. Follow these
+You are running the `openpitstop` quality loop against this repository. Follow these
 steps **exactly**, in order. Do not improvise around them.
 
 The loop has exactly **one** mandatory pause: after the first scan (Step 2), before the
@@ -146,7 +146,7 @@ first fix. After that, you act autonomously until a hard stop condition.
 
 Run the scan:
 
-`!npx cli-guardian scan`
+`!npx openpitstop scan`
 
 Print the **entire boxed output verbatim** as your complete response. Do not summarize
 it, do not add commentary, do not explain it — let the box speak for itself. Nothing else
@@ -187,9 +187,9 @@ For each iteration, do all of (a)–(m) without asking for confirmation again:
 **a. Pick the cluster.** Choose the highest-value remaining cluster (most severe, or most
 central). Skip any the user excluded.
 
-**b. Branch.** If you are not already on a `guardian/*` branch, create and switch to:
+**b. Branch.** If you are not already on a `pitstop/*` branch, create and switch to:
 
-`guardian/<short-slug>-<date>`
+`pitstop/<short-slug>-<date>`
 
 where `<short-slug>` is a 2–4 word kebab slug of the cluster (e.g. `circular-core-deps`)
 and `<date>` is `YYYY-MM-DD`. Never branch off or commit to `main`.
@@ -199,11 +199,11 @@ root cause is what the scanner claims it is, and what a minimal correct fix look
 
 **d. Capture the bug as a failing test — mandatory, never skippable.**
 
-`!npx cli-guardian repro <finding-id>`
+`!npx openpitstop repro <finding-id>`
 
 `<finding-id>` is the id printed on the cluster's line in the scan box (and stored in
-`.guardian/scan-latest.json`), e.g. `ledger-3f9a2c01`. Guardian writes a permanent repro
-test (`guardian-repro-<slug>.test.*`) and runs it:
+`.pitstop/scan-latest.json`), e.g. `ledger-3f9a2c01`. OpenPitStop writes a permanent repro
+test (`pitstop-repro-<slug>.test.*`) and runs it:
 
 - If it reports **FAIL — bug reproduced**, you have *proven* the bug with a real failing
   test. Good. Proceed.
@@ -212,11 +212,11 @@ test (`guardian-repro-<slug>.test.*`) and runs it:
   or pick a different cluster.
 
 **e. Make the smallest fix.** Using your own file-edit tools, change the minimum needed to
-address the **root cause** (not just a symptom). Stay on the `guardian/*` branch.
+address the **root cause** (not just a symptom). Stay on the `pitstop/*` branch.
 
 **f. Prove the same test now passes — mandatory, before any verify.**
 
-`!npx cli-guardian repro <finding-id>`
+`!npx openpitstop repro <finding-id>`
 
 Run the **same** repro test. It must now report **PASS**.
 If it still **FAILS**, the fix did not address the root cause: revert, revise the hypothesis
@@ -224,7 +224,7 @@ in (c), and retry once (see (i)).
 
 **g. Verify.**
 
-`!npx cli-guardian verify`
+`!npx openpitstop verify`
 
 Read the result, especially the **Integrity gate** line, the Regression Risk, and the Δ
 columns. This verify run is also the integrity gate: it diffs your uncommitted change against
@@ -259,7 +259,7 @@ commit with a clear message describing the root cause and fix. Commit the repro 
 with** the fix — it is a **permanent regression guard**, never a throwaway, and never delete it.
 Then record it:
 
-`!npx cli-guardian memory add "<finding-id> fixed + proven by guardian-repro-<slug>" --type fix`
+`!npx openpitstop memory add "<finding-id> fixed + proven by pitstop-repro-<slug>" --type fix`
 
 (keep the summary short and factual — this is the "six months later" recall.)
 
@@ -270,10 +270,10 @@ remaining. No long commentary.
 **k2. Token economy (MANDATORY in every loop iteration).** Your budget is real; follow
 these rules exactly:
 
-- **Before any re-scan**, run `!npx cli-guardian ready-check`. If it exits 0 (tree
-  unchanged), run `!npx cli-guardian scan --reuse` instead of a full scan — it returns the
+- **Before any re-scan**, run `!npx openpitstop ready-check`. If it exits 0 (tree
+  unchanged), run `!npx openpitstop scan --reuse` instead of a full scan — it returns the
   sealed baseline instantly, and skipping it means burning credits for nothing.
-- **Prefer `!npx cli-guardian inspect <id>`** over reading whole files: it shows the exact
+- **Prefer `!npx openpitstop inspect <id>`** over reading whole files: it shows the exact
   code window, cluster context and repro proof. Read whole files only when inspect cannot
   answer the question.
 - **Batch your edits** — plan the fix, then apply it in as few tool calls as possible.
@@ -313,7 +313,7 @@ everything is done when it is not. Report how many clusters remain.
 - Never delete a file unless the dependency graph confirms it has zero incoming references.
 - Never silently modify CI/deploy config — if a fix would require it, flag it to the user
   instead and skip that change.
-- Always stay on the `guardian/*` branch. Leave `main` (and any protected branch) untouched.
+- Always stay on the `pitstop/*` branch. Leave `main` (and any protected branch) untouched.
 - If a fix feels risky, prefer the smaller safer change; the loop can retry.
 
 ---
@@ -322,9 +322,9 @@ everything is done when it is not. Report how many clusters remain.
 
 On **any** stop condition (success, max iterations, or timeout), run:
 
-`!npx cli-guardian report`
+`!npx openpitstop report`
 
-and present the resulting **`GUARDIAN_REPORT.md` / boxed output verbatim** as your final
+and present the resulting **`PITSTOP_REPORT.md` / boxed output verbatim** as your final
 message. Do not rewrite or summarize it. The report includes **"Fixes shipped with permanent
-proof"**: one line per committed fix, linking the `guardian-repro-*.test.*` file that proves
+proof"**: one line per committed fix, linking the `pitstop-repro-*.test.*` file that proves
 it — if a fix has no committed repro test, that is a red flag the loop was cut short.

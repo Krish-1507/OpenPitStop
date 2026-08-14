@@ -5,7 +5,7 @@ import path from "node:path";
 import { runVerify, type VerifyOutcome } from "./verify.js";
 
 /**
- * `guardian gate` — the agentless, CI-usable gate. One command answers "is this
+ * `pitstop gate` — the agentless, CI-usable gate. One command answers "is this
  * change safe to commit?" with a plain exit code:
  *
  *   exit 0  PASS — score >= threshold, integrity clean, evidence chain intact
@@ -13,8 +13,8 @@ import { runVerify, type VerifyOutcome } from "./verify.js";
  *                  integrity, or tampered evidence
  *   exit 2  FAIL-HARD — CONFIRMED_CHEAT integrity violation
  *
- * No AI tool, no `/guardian` loop, no config: scan (or try) once for the
- * baseline, then `guardian gate` every step of a fix loop — also usable as a
+ * No AI tool, no `/pitstop` loop, no config: scan (or try) once for the
+ * baseline, then `pitstop gate` every step of a fix loop — also usable as a
  * pre-commit hook or the last line of a CI job.
  */
 function gateOutcome(o: VerifyOutcome, threshold: number): {
@@ -26,7 +26,7 @@ function gateOutcome(o: VerifyOutcome, threshold: number): {
     return {
       pass: false,
       exitCode: 1,
-      reasons: ["no baseline — run `guardian scan` (or `guardian try`) once to create one"],
+      reasons: ["no baseline — run `pitstop scan` (or `pitstop try`) once to create one"],
     };
   }
 
@@ -44,7 +44,7 @@ function gateOutcome(o: VerifyOutcome, threshold: number): {
   }
 
   if (o.evidence?.status === "tampered") {
-    reasons.push("evidence chain broken — baseline was edited after Guardian signed it; re-run `guardian scan`");
+    reasons.push("evidence chain broken — baseline was edited after OpenPitStop signed it; re-run `pitstop scan`");
     exitCode = Math.max(exitCode, 1);
   }
 
@@ -55,7 +55,7 @@ function gateOutcome(o: VerifyOutcome, threshold: number): {
 
   if (o.currentScore.score < threshold) {
     reasons.push(
-      `Guardian Score ${o.currentScore.score}/100 is below the ${threshold}/100 gate`,
+      `OpenPitStop Score ${o.currentScore.score}/100 is below the ${threshold}/100 gate`,
     );
     exitCode = Math.max(exitCode, 1);
   }
@@ -73,7 +73,7 @@ function renderGateBox(o: VerifyOutcome, gate: ReturnType<typeof gateOutcome>, t
 
   const lines: string[] = [];
   lines.push(
-    `${chalk.bold("Guardian Score")}: ${scorePaint.bold(`${score.score}/100 (${score.grade})`)} — gate at ${threshold}/100`,
+    `${chalk.bold("OpenPitStop Score")}: ${scorePaint.bold(`${score.score}/100 (${score.grade})`)} — gate at ${threshold}/100`,
   );
   lines.push(
     `${chalk.bold("Integrity")}: ${
@@ -106,7 +106,7 @@ function renderGateBox(o: VerifyOutcome, gate: ReturnType<typeof gateOutcome>, t
   }
 
   return boxen(lines.join("\n"), {
-    title: ` GUARDIAN — GATE ${gate.pass ? "PASS" : "FAIL"} `,
+    title: ` PITSTOP — GATE ${gate.pass ? "PASS" : "FAIL"} `,
     titleAlignment: "center",
     borderStyle: gate.pass ? "round" : "double",
     padding: 1,
@@ -127,7 +127,7 @@ export const gate = new Command("gate")
   .argument("[repo]", "path to the repo to gate (default: current dir)", ".")
   .option(
     "--score <n>",
-    "minimum Guardian Score required to pass (default 60; 0 disables the score check)",
+    "minimum OpenPitStop Score required to pass (default 60; 0 disables the score check)",
     "60",
   )
   .option("--json", "print a machine-readable gate result")
@@ -165,7 +165,7 @@ export const gate = new Command("gate")
       );
     } else if (outcome.missingBaseline) {
       console.log(
-        chalk.red(`no baseline found — run \`guardian scan\` (or \`guardian try\`) once to create one`),
+        chalk.red(`no baseline found — run \`pitstop scan\` (or \`pitstop try\`) once to create one`),
       );
     } else {
       console.log(renderGateBox(outcome, gateResult, threshold));

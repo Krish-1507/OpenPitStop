@@ -15,7 +15,7 @@ interface TestDir {
 }
 
 function makeDir(): TestDir {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "guardian-proxy-test-"));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "pitstop-proxy-test-"));
   return {
     dir,
     outbound: path.join(dir, "outbound.jsonl"),
@@ -69,16 +69,16 @@ test("proxy: canary hosts get the canary response and are recorded", async () =>
     logPath: t.outbound,
     controlPath: t.control,
     gatewayHosts: ["api.razorpay.com"],
-    canarySuffix: "guardian.invalid",
+    canarySuffix: "pitstop.invalid",
   });
   try {
-    const res = await request(proxy.port, "http://ssrf.guardian.invalid/admin", {});
+    const res = await request(proxy.port, "http://ssrf.pitstop.invalid/admin", {});
     assert.equal(res.status, 200);
-    assert.equal(res.text, "guardian-canary-hit");
+    assert.equal(res.text, "pitstop-canary-hit");
     const events = readLines(t.outbound);
     assert.equal(events.length, 1);
     assert.equal(events[0].kind, "http");
-    assert.equal(events[0].host, "ssrf.guardian.invalid");
+    assert.equal(events[0].host, "ssrf.pitstop.invalid");
   } finally {
     await proxy.close();
   }
@@ -89,7 +89,7 @@ test("proxy: unmocked hosts are blocked with 502 and recorded, never forwarded",
   const proxy = await startRecordingProxy({
     logPath: t.outbound,
     gatewayHosts: [],
-    canarySuffix: "guardian.invalid",
+    canarySuffix: "pitstop.invalid",
   });
   try {
     const res = await request(proxy.port, "http://example.com/anything", {});
@@ -110,7 +110,7 @@ test("proxy: gateway hosts get a mocked success receipt and a ledger gateway log
     controlPath: t.control,
     gatewayLogPath: t.gateway,
     gatewayHosts: ["https://api.razorpay.com"],
-    canarySuffix: "guardian.invalid",
+    canarySuffix: "pitstop.invalid",
   });
   try {
     const res = await request(proxy.port, "http://api.razorpay.com/v1/payments", {
@@ -146,7 +146,7 @@ test("proxy: non-charge gateway paths are recorded with charge=false", async () 
     logPath: t.outbound,
     gatewayLogPath: t.gateway,
     gatewayHosts: ["api.stripe.com"],
-    canarySuffix: "guardian.invalid",
+    canarySuffix: "pitstop.invalid",
   });
   try {
     await request(proxy.port, "http://api.stripe.com/v1/customers", {
@@ -174,7 +174,7 @@ test("proxy: loopback requests are forwarded to the on-machine upstream", async 
   const proxy = await startRecordingProxy({
     logPath: t.outbound,
     gatewayHosts: [],
-    canarySuffix: "guardian.invalid",
+    canarySuffix: "pitstop.invalid",
   });
   try {
     const res = await request(proxy.port, `http://127.0.0.1:${upstreamPort}/health`, {});
@@ -191,7 +191,7 @@ test("proxy: HTTPS CONNECT is refused with 502 and recorded as blocked", async (
   const proxy = await startRecordingProxy({
     logPath: t.outbound,
     gatewayHosts: [],
-    canarySuffix: "guardian.invalid",
+    canarySuffix: "pitstop.invalid",
   });
   try {
     const reply = await new Promise<string>((resolve, reject) => {

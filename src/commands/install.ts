@@ -11,17 +11,17 @@ import {
 } from "../installer/targets.js";
 
 const READY_MESSAGE =
-  "Guardian is ready. Type /guardian in Claude Code, Cursor, OpenCode, Kilo Code, Antigravity, Codex CLI or any AI coding tool installed, hit enter, and watch it work.";
+  "OpenPitStop is ready. Type /pitstop in Claude Code, Cursor, OpenCode, Kilo Code, Antigravity, Codex CLI or any AI coding tool installed, hit enter, and watch it work.";
 
 const CODEX_APP_MESSAGE =
-  "Codex App and Codex VS Code extension don't support custom slash commands yet (OpenAI hasn't shipped this) — use Codex CLI for /guardian, or copy templates/guardian.prompt.md's content directly into a Codex App chat as a one-off prompt.";
+  "Codex App and Codex VS Code extension don't support custom slash commands yet (OpenAI hasn't shipped this) — use Codex CLI for /pitstop, or copy templates/pitstop.prompt.md's content directly into a Codex App chat as a one-off prompt.";
 
 export const install = new Command("install")
-  .description("Install the guardian slash-command into Claude Code, Cursor, OpenCode, Antigravity, Kilo Code, Gemini CLI, Codex")
+  .description("Install the pitstop slash-command into Claude Code, Cursor, OpenCode, Antigravity, Kilo Code, Gemini CLI, Codex")
   .argument("[repo]", "target repo (defaults to cwd)", ".")
-  .option("--force", "overwrite existing guardian files", false)
-  .option("-y, --yes", "same as --force (re-runnable one-liner: npx cli-guardian@latest install -y)", false)
-  .option("--uninstall", "remove guardian files only", false)
+  .option("--force", "overwrite existing pitstop files", false)
+  .option("-y, --yes", "same as --force (re-runnable one-liner: npx openpitstop@latest install -y)", false)
+  .option("--uninstall", "remove pitstop files only", false)
   .action(async (repoArg: string, opts: any) => {
     const cwd = path.resolve(repoArg);
     const targets = getTargets(cwd);
@@ -46,7 +46,7 @@ export const install = new Command("install")
       console.log(table.toString());
       console.log(
         chalk.bold(
-          `\nGuardian uninstalled (${removed} file(s) removed). Nothing else was touched.`,
+          `\nOpenPitStop uninstalled (${removed} file(s) removed). Nothing else was touched.`,
         ),
       );
       return;

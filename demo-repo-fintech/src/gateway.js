@@ -1,13 +1,13 @@
 // Payment-gateway wrapper around the official razorpay Node SDK.
 // All outbound calls go through the SDK's HTTP client (axios -> https), so
-// Guardian's ledger sandbox (nock) can intercept them before they leave the
+// OpenPitStop's ledger sandbox (nock) can intercept them before they leave the
 // process. In ledger mode the gateway is always a mock — never the real one.
 const Razorpay = require("razorpay");
 
 // Fake credentials are fine: requests are intercepted by nock in ledger mode
 // and never actually reach razorpay.
-const KEY_ID = process.env.RAZORPAY_KEY_ID || "rzp_test_guardian000000";
-const KEY_SECRET = process.env.RAZORPAY_KEY_SECRET || "guardian_fake_secret";
+const KEY_ID = process.env.RAZORPAY_KEY_ID || "rzp_test_pitstop000000";
+const KEY_SECRET = process.env.RAZORPAY_KEY_SECRET || "pitstop_fake_secret";
 
 const instance = new Razorpay({
   key_id: KEY_ID,

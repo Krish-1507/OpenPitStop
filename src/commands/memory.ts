@@ -45,7 +45,7 @@ export const add = new Command("add")
   .option("--type <type>", "entry type", "decision")
   .option("--context <context>", "why it happened / matters")
   .option("--file <path...>", "related files (relative to repo)")
-  .option("--mirror", "also write to repo-local .guardian/memory.jsonl", false)
+  .option("--mirror", "also write to repo-local .pitstop/memory.jsonl", false)
   .action((summary: string, opts: any) => {
     const repo = repoFrom(add);
     const type = String(opts.type) as MemoryType;

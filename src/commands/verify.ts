@@ -17,7 +17,7 @@ import { computeScore, type ScoreResult } from "../report/score.js";
 import { getDiff } from "../analyzers/integrity/git.js";
 import { buildIntegrityReport } from "../graph/integrity.js";
 import type { IntegrityFinding, Verdict } from "../analyzers/integrity/types.js";
-import { seal, checkEvidence, type EvidenceCheck, type GuardianEvidence } from "../evidence.js";
+import { seal, checkEvidence, type EvidenceCheck, type OpenPitStopEvidence } from "../evidence.js";
 
 interface IntegrityGate {
   verdict: Verdict;
@@ -59,8 +59,8 @@ function integrityGate(repo: string): IntegrityGate {
   return { verdict: report.verdict, findings: report.findings, summary: report.summary };
 }
 
-function readBaseline(repo: string): (ScanResult & { evidence?: GuardianEvidence }) | null {
-  const p = path.join(repo, ".guardian", "scan-latest.json");
+function readBaseline(repo: string): (ScanResult & { evidence?: OpenPitStopEvidence }) | null {
+  const p = path.join(repo, ".pitstop", "scan-latest.json");
   if (!fs.existsSync(p)) return null;
   try {
     // PowerShell (and some editors) write UTF-8 JSON with a BOM; JSON.parse
@@ -68,7 +68,7 @@ function readBaseline(repo: string): (ScanResult & { evidence?: GuardianEvidence
     const raw = fs.readFileSync(p, "utf8");
     const clean = raw.charCodeAt(0) === 0xfeff ? raw.slice(1) : raw;
     return JSON.parse(clean) as ScanResult & {
-      evidence?: GuardianEvidence;
+      evidence?: OpenPitStopEvidence;
     };
   } catch {
     return null;
@@ -101,7 +101,7 @@ async function currentMetrics(repo: string): Promise<VerifyMetrics> {
 
 /**
  * Verify re-measures only the fast metrics (tests/perf/security/dup), so the
- * "current" Guardian Score is computed from the last scan with exactly those
+ * "current" OpenPitStop Score is computed from the last scan with exactly those
  * categories patched in — the other categories keep their scan snapshot.
  */
 function currentScoreOf(
@@ -145,7 +145,7 @@ function currentScoreOf(
 }
 
 /**
- * The shared verify pipeline (also used by `guardian gate`): re-measure the
+ * The shared verify pipeline (also used by `pitstop gate`): re-measure the
  * fast metrics, diff against the scan baseline, run the integrity gate, check
  * the baseline's evidence signature, and write a sealed verify report. Returns
  * everything a renderer needs plus the exit code to propagate.
@@ -194,8 +194,8 @@ export async function runVerify(repo: string): Promise<VerifyOutcome> {
   }
 
   // Evidence signature: recompute the digest of the stored scan and compare.
-  // A baseline edited after Guardian wrote it breaks the chain — the score
-  // delta is then computed against a document Guardian cannot vouch for.
+  // A baseline edited after OpenPitStop wrote it breaks the chain — the score
+  // delta is then computed against a document OpenPitStop cannot vouch for.
   const evidence = checkEvidence(baselineResult);
 
   const baseline = metricsOf(baselineResult);
@@ -213,7 +213,7 @@ export async function runVerify(repo: string): Promise<VerifyOutcome> {
     staleNote =
       `baseline is STALE — ${relFile} changed ${new Date(newest.mtimeMs).toISOString()}, ` +
       `after the baseline scan (${baselineResult.timestamp}). Score delta vs baseline is ` +
-      "approximate; re-run `guardian scan` for a fresh baseline.";
+      "approximate; re-run `pitstop scan` for a fresh baseline.";
   }
   const stale = staleNote !== "";
 
@@ -237,7 +237,7 @@ export async function runVerify(repo: string): Promise<VerifyOutcome> {
   );
   const scoreDelta = currentScore.score - baselineScore.score;
 
-  const outDir = path.join(repo, ".guardian");
+  const outDir = path.join(repo, ".pitstop");
   fs.mkdirSync(outDir, { recursive: true });
   const ts = new Date().toISOString().replace(/[:.]/g, "-");
   const file = path.join(outDir, `verify-${ts}.json`);
@@ -269,7 +269,7 @@ export async function runVerify(repo: string): Promise<VerifyOutcome> {
       grade: currentScore.grade,
     },
   };
-  fs.writeFileSync(file, JSON.stringify(seal(report, `guardian verify result for ${repo}`), null, 2));
+  fs.writeFileSync(file, JSON.stringify(seal(report, `pitstop verify result for ${repo}`), null, 2));
 
   return {
     repo,
@@ -325,7 +325,7 @@ function deltaPct(n: number): string {
 
 function evidenceLine(ev: EvidenceCheck | undefined): string {
   if (!ev || ev.status === "missing") {
-    return chalk.dim(`evidence: untracked (baseline carries no Guardian signature)`);
+    return chalk.dim(`evidence: untracked (baseline carries no OpenPitStop signature)`);
   }
   if (ev.status === "verified") {
     return chalk.green(`evidence: ✓ signed ${ev.digest.slice(0, 12)}…`);
@@ -402,7 +402,7 @@ function renderVerifyBox(o: VerifyOutcome): { text: string; color: string } {
     false,
   );
   row(
-    "Guardian score",
+    "OpenPitStop score",
     `${baselineScore.score}/100 (${baselineScore.grade})`,
     `${currentScore.score}/100 (${currentScore.grade})`,
     o.scoreDelta,
@@ -446,8 +446,8 @@ function renderVerifyBox(o: VerifyOutcome): { text: string; color: string } {
   if (o.evidence && o.evidence.status === "tampered") {
     contentParts.push(
       chalk.red(
-        `${chalk.bold("Evidence gate:")} the baseline was edited after Guardian signed it — ` +
-          "score delta is against an untrustworthy snapshot. Re-run `guardian scan`.",
+        `${chalk.bold("Evidence gate:")} the baseline was edited after OpenPitStop signed it — ` +
+          "score delta is against an untrustworthy snapshot. Re-run `pitstop scan`.",
       ),
     );
   }
@@ -478,7 +478,7 @@ export const verify = new Command("verify")
 
     if (outcome.missingBaseline) {
       console.log(
-        chalk.red("no baseline found — run `guardian scan` first to create .guardian/scan-latest.json"),
+        chalk.red("no baseline found — run `pitstop scan` first to create .pitstop/scan-latest.json"),
       );
       process.exitCode = 1;
       return;
@@ -488,7 +488,7 @@ export const verify = new Command("verify")
 
     console.log(
       boxen(text, {
-        title: " GUARDIAN — Verify ",
+        title: " PITSTOP — Verify ",
         titleAlignment: "center",
         borderStyle: "double",
         padding: 1,

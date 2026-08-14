@@ -110,7 +110,7 @@ async function runJest(repo: string): Promise<TestsResult> {
       durationMs: 0,
     };
   }
-  const cacheDir = path.join(repo, ".guardian", "cache", "jest");
+  const cacheDir = path.join(repo, ".pitstop", "cache", "jest");
   fs.mkdirSync(cacheDir, { recursive: true });
   const start = performance.now();
   const r = await safeExecAsync(
@@ -174,7 +174,7 @@ async function runVitest(repo: string): Promise<TestsResult> {
       durationMs: 0,
     };
   }
-  const tmp = path.join(repo, ".guardian", "vitest-report.json");
+  const tmp = path.join(repo, ".pitstop", "vitest-report.json");
   fs.mkdirSync(path.dirname(tmp), { recursive: true });
   const start = performance.now();
   const r = await safeExecAsync(

@@ -1,8 +1,8 @@
 {
-  "name": "guardian-demo-integrity",
+  "name": "pitstop-demo-integrity",
   "version": "0.0.0",
   "private": true,
-  "description": "Guardian's intentionally-broken demo repo for the integrity gate: a half-cent float-rounding bug a lazy fix would 'solve' by loosening a test or swallowing an error instead of fixing the root cause.",
+  "description": "OpenPitStop's intentionally-broken demo repo for the integrity gate: a half-cent float-rounding bug a lazy fix would 'solve' by loosening a test or swallowing an error instead of fixing the root cause.",
   "scripts": {
     "test": "jest"
   },

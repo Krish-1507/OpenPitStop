@@ -1,6 +1,6 @@
 const { round2, quoteWithMarkup, splitFair } = require("../src/money");
 
-describe("guardian-demo-integrity", () => {
+describe("pitstop-demo-integrity", () => {
   it("rounds half-cent values up to the nearest cent", () => {
     // The float bug: 8.075 * 100 = 807.4999999999999 -> 8.07. Correct: 8.08.
     expect(round2(8.075)).toBe(8.08);

@@ -1,7 +1,7 @@
 import { lineOf } from "./util.js";
 
 /**
- * routes.ts — language-aware HTTP route discovery shared by `guardian pen`
+ * routes.ts — language-aware HTTP route discovery shared by `pitstop pen`
  * (dynamic route inventory) and ledger mode (endpoint discovery).
  *
  * Heuristic by design: a route match is a lead, never a proof. Frameworks

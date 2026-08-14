@@ -9,16 +9,16 @@ import { loadPenLatest, resolvePenFinding } from "../pen/store.js";
 import { runVerify } from "./verify.js";
 
 /**
- * `guardian drive <finding-id>` — hand a finding to YOUR agent, then verify.
+ * `pitstop drive <finding-id>` — hand a finding to YOUR agent, then verify.
  *
- * Guardian never fixes your code itself (no magic auto-edits on a repo it does
+ * OpenPitStop never fixes your code itself (no magic auto-edits on a repo it does
  * not own). Instead: drive builds a precise mission prompt for the agent you
- * already trust (claude/codex/opencode/...), runs it, then runs `guardian
+ * already trust (claude/codex/opencode/...), runs it, then runs `pitstop
  * verify` on the result and reports PASS/FAIL honestly.
  *
- * The agent command comes from --agent or GUARDIAN_AGENT; `{prompt}` is where
+ * The agent command comes from --agent or PITSTOP_AGENT; `{prompt}` is where
  * the mission text is inserted, e.g.:
- *   guardian drive security-abc123 --agent "claude -p \"{prompt}\""
+ *   pitstop drive security-abc123 --agent "claude -p \"{prompt}\""
  */
 
 function missionPrompt(
@@ -28,21 +28,21 @@ function missionPrompt(
   fromPen: boolean,
 ): string {
   return [
-    `You are fixing one specific Guardian finding in the repo at ${repo}.`,
+    `You are fixing one specific OpenPitStop finding in the repo at ${repo}.`,
     ``,
     `Finding: ${finding.id} (${finding.source}/${finding.type}, severity ${finding.severity})`,
     `Description: ${finding.description}`,
     finding.file ? `Location: ${finding.file}${finding.line ? ":" + finding.line : ""}` : "",
     ``,
     `Work like this, in order, without skipping:`,
-    `1. RUN the repro first: \`npx cli-guardian repro ${finding.id}\`. It MUST FAIL (the bug is live).`,
+    `1. RUN the repro first: \`npx openpitstop repro ${finding.id}\`. It MUST FAIL (the bug is live).`,
     `   If it refuses or passes, STOP and re-read the finding — do not fix blind.`,
     reproHint,
     `2. Make the smallest fix that addresses the root cause. Do not refactor unrelated code.`,
     `3. Re-run the SAME repro: it must now PASS.`,
     fromPen
-      ? `4. \`npx cli-guardian verify\` is a static gate — for runtime pen findings the repro PASS is the real verdict;`
-      : `4. Run \`npx cli-guardian verify\` — it must come back clean (no regressions, integrity intact).`,
+      ? `4. \`npx openpitstop verify\` is a static gate — for runtime pen findings the repro PASS is the real verdict;`
+      : `4. Run \`npx openpitstop verify\` — it must come back clean (no regressions, integrity intact).`,
     `5. If anything regressed, revert the smallest unit and try again.`,
     ``,
     `Finish by reporting: what was wrong, what you changed, and the exact commands you ran.`,
@@ -52,11 +52,11 @@ function missionPrompt(
 export const drive = new Command("drive")
   .description(
     "Hand a finding to YOUR own agent (claude/codex/opencode/...), then verify the result. " +
-      "Mission: repro FAILS first → fix → repro PASSES → `guardian verify` clean. Guardian never auto-edits your code.",
+      "Mission: repro FAILS first → fix → repro PASSES → `pitstop verify` clean. OpenPitStop never auto-edits your code.",
   )
   .argument("<finding-id>", "finding id from scan-latest.json or pen-latest.json")
   .argument("[repo]", "path to the repo", ".")
-  .option("--agent <cmd>", "agent command with {prompt} placeholder (or set GUARDIAN_AGENT)")
+  .option("--agent <cmd>", "agent command with {prompt} placeholder (or set PITSTOP_AGENT)")
   .action(
     async (findingId: string, repoArg: string, options: { agent?: string }) => {
       const repo = path.resolve(repoArg);
@@ -94,7 +94,7 @@ export const drive = new Command("drive")
           };
           reproHint = pf.attack
             ? `Replay the attack if needed: ${pf.attack.method} ${pf.attack.path}`
-            : `This is a static observation — apply the fix guidance, then re-run \`npx cli-guardian pen\` for this finding.`;
+            : `This is a static observation — apply the fix guidance, then re-run \`npx openpitstop pen\` for this finding.`;
         }
       }
 
@@ -103,19 +103,19 @@ export const drive = new Command("drive")
         return;
       }
 
-      const agentCmd = options.agent ?? process.env.GUARDIAN_AGENT ?? "";
+      const agentCmd = options.agent ?? process.env.PITSTOP_AGENT ?? "";
       if (!agentCmd) {
         console.log(
           boxen(
-            `guardian drive ${findingId}\n\n` +
+            `pitstop drive ${findingId}\n\n` +
               `${chalk.yellow("no agent command configured")}\n\n` +
-              `Pass one with --agent (use {prompt} as the placeholder) or export GUARDIAN_AGENT.\n\n` +
+              `Pass one with --agent (use {prompt} as the placeholder) or export PITSTOP_AGENT.\n\n` +
               `Examples:\n` +
               `  --agent 'claude -p "{prompt}"'\n` +
               `  --agent 'codex exec -- "{prompt}"'\n` +
               `  --agent 'opencode run "{prompt}"'`,
             {
-              title: " GUARDIAN — Drive ",
+              title: " PITSTOP — Drive ",
               titleAlignment: "center",
               borderStyle: "round",
               padding: 1,
@@ -131,7 +131,7 @@ export const drive = new Command("drive")
       const [cmd, ...args] = tokens;
       const finalArgs = args.map((a) => a.replace("{prompt}", prompt));
 
-      console.log(chalk.cyan(`\nDriving ${findingId} → ${cmd} (agent's own credits; Guardian verifies the result)\n`));
+      console.log(chalk.cyan(`\nDriving ${findingId} → ${cmd} (agent's own credits; OpenPitStop verifies the result)\n`));
       console.log(chalk.dim(prompt.split("\n").slice(0, 4).join("\n") + "\n"));
 
       let agentCode = -1;
@@ -169,7 +169,7 @@ export const drive = new Command("drive")
               `test: ${r.file ?? "?"} · ${pass ? "PASS" : "FAIL"}\n` +
               `verify (static gate, context only): score ${v.currentScore.score}/100 (${v.currentScore.grade}) vs baseline ${v.baselineScore.score}/100 (${v.baselineScore.grade}) · delta ${v.scoreDelta >= 0 ? "+" : ""}${v.scoreDelta} · integrity ${v.integrity.verdict}`,
             {
-              title: ` GUARDIAN — Drive ${findingId} `,
+              title: ` PITSTOP — Drive ${findingId} `,
               titleAlignment: "center",
               borderStyle: "round",
               padding: 1,
@@ -185,12 +185,12 @@ export const drive = new Command("drive")
       const paint = v.exitCode === 0 ? chalk.green : chalk.red;
       console.log(
         boxen(
-          `${paint(v.exitCode === 0 ? "VERIFIED — guardian verify is clean" : `NOT VERIFIED — guardian verify exited ${v.exitCode}`)}\n\n` +
+          `${paint(v.exitCode === 0 ? "VERIFIED — pitstop verify is clean" : `NOT VERIFIED — pitstop verify exited ${v.exitCode}`)}\n\n` +
             `score: ${v.currentScore.score}/100 (${v.currentScore.grade}) vs baseline ${v.baselineScore.score}/100 (${v.baselineScore.grade}) · delta ${v.scoreDelta >= 0 ? "+" : ""}${v.scoreDelta}\n` +
             `integrity: ${v.integrity.verdict} · stale baseline: ${v.stale ? "yes" : "no"}\n` +
-            (v.exitCode !== 0 ? `\nnext: \`guardian verify\` shows the failing categories — drive it again or fix by hand.` : ""),
+            (v.exitCode !== 0 ? `\nnext: \`pitstop verify\` shows the failing categories — drive it again or fix by hand.` : ""),
           {
-            title: ` GUARDIAN — Drive ${findingId} `,
+            title: ` PITSTOP — Drive ${findingId} `,
             titleAlignment: "center",
             borderStyle: "round",
             padding: 1,

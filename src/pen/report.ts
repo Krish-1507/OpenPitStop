@@ -1,7 +1,7 @@
 /**
- * pen/report.ts — rendering for `guardian pen`: terminal box, markdown, and a
+ * pen/report.ts — rendering for `pitstop pen`: terminal box, markdown, and a
  * self-contained sealed HTML report (zero external assets, like the rest of
- * Guardian's reports).
+ * OpenPitStop's reports).
  */
 
 import boxen from "boxen";
@@ -87,7 +87,7 @@ export function renderPenBox(result: PenResult): string {
   const findings = sortFindings(result.findings);
   if (findings.length === 0) {
     lines.push(chalk.green("No findings. The app holds up. (The absence of proof is not proof of absence —"));
-    lines.push(chalk.green("this test covers the routes and vectors Guardian knows how to fire.)"));
+    lines.push(chalk.green("this test covers the routes and vectors OpenPitStop knows how to fire.)"));
   } else {
     const shown = findings.slice(0, 8);
     for (const f of shown) {
@@ -100,19 +100,19 @@ export function renderPenBox(result: PenResult): string {
       );
     }
     if (findings.length > 8) {
-      lines.push(`${chalk.dim(`… and ${findings.length - 8} more (see GUARDIAN_PEN_REPORT.md)`)}`);
+      lines.push(`${chalk.dim(`… and ${findings.length - 8} more (see PITSTOP_PEN_REPORT.md)`)}`);
     }
   }
 
   lines.push("");
   lines.push(chalk.cyan("next:"));
-  lines.push(`  guardian inspect <id>   deep-dive on one finding`);
-  lines.push(`  guardian repro <id>     record it as a failing-then-passing regression test`);
-  lines.push(`  guardian pen --fix      write repro tests + deterministic patches`);
-  lines.push(`  guardian drive <id>     hand the finding to your own agent and verify its fix`);
+  lines.push(`  pitstop inspect <id>   deep-dive on one finding`);
+  lines.push(`  pitstop repro <id>     record it as a failing-then-passing regression test`);
+  lines.push(`  pitstop pen --fix      write repro tests + deterministic patches`);
+  lines.push(`  pitstop drive <id>     hand the finding to your own agent and verify its fix`);
 
   return boxen(lines.join("\n"), {
-    title: " GUARDIAN — Penetration Test ",
+    title: " PITSTOP — Penetration Test ",
     titleAlignment: "center",
     borderStyle: "double",
     padding: 1,
@@ -125,7 +125,7 @@ export function renderPenMarkdown(result: PenResult): string {
   const sum = result.summary;
   const findings = sortFindings(result.findings);
   const L: string[] = [];
-  L.push(`# Guardian Penetration Test — ${result.repo}`);
+  L.push(`# OpenPitStop Penetration Test — ${result.repo}`);
   L.push("");
   L.push(`_${result.timestamp}_ · static: ${result.staticEnabled ? "on" : "off"} · dynamic: ${result.dynamicEnabled ? "on" : "off"}`);
   L.push("");
@@ -155,7 +155,7 @@ export function renderPenMarkdown(result: PenResult): string {
   L.push(`## Findings`);
   L.push("");
   if (findings.length === 0) {
-    L.push("Nothing surfaced. See the boxed caveat: coverage is the routes + patterns Guardian knows.");
+    L.push("Nothing surfaced. See the boxed caveat: coverage is the routes + patterns OpenPitStop knows.");
   }
   for (const f of findings) {
     L.push(`### ${f.severity.toUpperCase()} — ${f.title} \`${f.id}\``);
@@ -192,7 +192,7 @@ export function renderPenMarkdown(result: PenResult): string {
     if (f.repro) L.push(`- **Reproduce**: ${f.repro}`);
     if (f.fix) {
       L.push(`- **Fix**: ${f.fix}`);
-      L.push(`  Run \`guardian repro ${f.id}\` to capture it as a regression test, then \`guardian pen\` again.`);
+      L.push(`  Run \`pitstop repro ${f.id}\` to capture it as a regression test, then \`pitstop pen\` again.`);
     }
     L.push("");
   }
@@ -233,7 +233,7 @@ export function renderPenHtml(result: PenResult): string {
 
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Guardian Pen Test — ${escapeHtml(result.repo)}</title>
+<title>OpenPitStop Pen Test — ${escapeHtml(result.repo)}</title>
 <style>
   :root { color-scheme: light; }
   body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 0; background: #f6f8fb; color: #111; }
@@ -269,7 +269,7 @@ export function renderPenHtml(result: PenResult): string {
 </style>
 </head><body><div class="wrap">
 <header>
-  <h1>Guardian Penetration Test</h1>
+  <h1>OpenPitStop Penetration Test</h1>
   <p class="muted">${escapeHtml(result.timestamp)} · ${escapeHtml(result.repo)} · static ${result.staticEnabled ? "on" : "off"} · dynamic ${result.dynamicEnabled ? "on" : "off"}</p>
   ${result.dynamicEnabled ? `<p class="muted">Dynamic: ${result.dynamic.status} — ${result.dynamic.routesProbed} routes · ${result.dynamic.attacks} attacks · boot ${result.dynamic.bootMs}ms${result.dynamic.note ? ` · ${escapeHtml(result.dynamic.note)}` : ""}</p>` : ""}
   <div class="sum">
@@ -282,6 +282,6 @@ export function renderPenHtml(result: PenResult): string {
   </div>
 </header>
 ${rows}
-<p class="muted">Coverage: the routes and patterns Guardian knows how to fire. No proof of absence — rerun after every change.</p>
+<p class="muted">Coverage: the routes and patterns OpenPitStop knows how to fire. No proof of absence — rerun after every change.</p>
 </div></body></html>`;
 }

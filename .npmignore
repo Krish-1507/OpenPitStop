@@ -4,10 +4,10 @@
 # would break the published package.
 node_modules
 coverage
-.guardian
+.pitstop
 *.tgz
-GUARDIAN_REPORT.md
-**/GUARDIAN_REPORT.md
-GUARDIAN_BADGE.svg
-**/GUARDIAN_BADGE.svg
+PITSTOP_REPORT.md
+**/PITSTOP_REPORT.md
+PITSTOP_BADGE.svg
+**/PITSTOP_BADGE.svg
 **/.gitkeep

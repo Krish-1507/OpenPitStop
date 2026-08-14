@@ -1,7 +1,7 @@
 import type { ScanResult } from "../analyzers/types.js";
 
 /**
- * score.ts — the Guardian Score.
+ * score.ts — the OpenPitStop Score.
  *
  * Every scan collapses into a single 0–100 health score, weighted across the
  * categories that actually ran (skipped categories are excluded and the weights
@@ -193,12 +193,12 @@ export function computeScore(r: ScanResult, opts: ScoreOptions = {}): ScoreResul
 /** Shield-style SVG badge, single file, no external assets — README-ready. */
 export function renderBadgeSvg(s: ScoreResult): string {
   const color = gradeHex(s.grade);
-  const left = "GUARDIAN";
+  const left = "PITSTOP";
   const right = `${s.score}/100 ${s.grade}`;
   const wLeft = Math.round(left.length * 7.4 + 14);
   const wRight = Math.round(right.length * 7.4 + 14);
   const w = wLeft + wRight;
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="20" role="img" aria-label="Guardian score ${s.score}/100 (${s.grade})">
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="20" role="img" aria-label="OpenPitStop score ${s.score}/100 (${s.grade})">
   <linearGradient id="g" x1="0" y1="0" x2="1" y2="0">
     <stop offset="0%" stop-color="#5c5c5c" stop-opacity="0.95"/>
     <stop offset="100%" stop-color="#3a3a3a" stop-opacity="0.95"/>

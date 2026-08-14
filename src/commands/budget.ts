@@ -8,7 +8,7 @@ import type { ScanResult } from "../analyzers/types.js";
 import { readyCheck } from "./readyCheck.js";
 
 /**
- * `guardian budget` — the token-economy ledger.
+ * `pitstop budget` — the token-economy ledger.
  *
  * The CLI cannot see a model's token counts (nobody can). What it CAN do is
  * keep an honest wall-clock / compute ledger of everything the autonomous loop
@@ -27,7 +27,7 @@ interface BudgetEntry {
 }
 
 function history<T>(repo: string, glob: string): { at: string; data: T }[] {
-  const dir = path.join(repo, ".guardian");
+  const dir = path.join(repo, ".pitstop");
   if (!fs.existsSync(dir)) return [];
   const re = new RegExp(`^${glob}$`);
   const out: { at: string; data: T }[] = [];
@@ -48,11 +48,11 @@ export function budget(repo: string): BudgetEntry {
   const scans = history<ScanResult>(repo, "scan-.*\\.json");
   const verifies = history<{ timestamp?: string }>(repo, "verify-.*\\.json");
   const pens = history<{ timestamp?: string }>(repo, "pen-.*\\.json");
-  const ledgerRuns = fs.existsSync(path.join(repo, ".guardian"))
-    ? fs.readdirSync(path.join(repo, ".guardian")).filter((f) => /^ledger-evidence-.*\.json$/.test(f)).length
+  const ledgerRuns = fs.existsSync(path.join(repo, ".pitstop"))
+    ? fs.readdirSync(path.join(repo, ".pitstop")).filter((f) => /^ledger-evidence-.*\.json$/.test(f)).length
     : 0;
 
-  const cacheDir = path.join(repo, ".guardian", "cache");
+  const cacheDir = path.join(repo, ".pitstop", "cache");
   const auditCacheHits = fs.existsSync(cacheDir)
     ? fs.readdirSync(cacheDir).filter((f) => /^npm-audit-.*\.json$/.test(f)).length
     : 0;
@@ -125,7 +125,7 @@ export const budgetCmd = new Command("budget")
     lines.push(`  verify during iteration, full reliability runs only on the final pass`);
     console.log(
       boxen(lines.join("\n"), {
-        title: " GUARDIAN — Budget ",
+        title: " PITSTOP — Budget ",
         titleAlignment: "center",
         borderStyle: "round",
         padding: 1,

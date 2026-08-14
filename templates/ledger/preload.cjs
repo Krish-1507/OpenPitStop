@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * Guardian `scan --ledger` HTTP sandbox (CommonJS preload).
+ * OpenPitStop `scan --ledger` HTTP sandbox (CommonJS preload).
  *
  * Loaded into the app-under-test via `NODE_OPTIONS=--require=<this file>`, i.e.
  * BEFORE the app's own modules, so every outbound HTTP request is intercepted by
@@ -19,20 +19,20 @@
  *      when interception is not airtight.
  *
  * Everything recorded here is written as JSONL to
- * `GUARDIAN_LEDGER_GATEWAY_LOG` (the "mocked gateway's" receipt ledger) and to
- * `GUARDIAN_LEDGER_CONTROL` (the harness's control/abort stream).
+ * `PITSTOP_LEDGER_GATEWAY_LOG` (the "mocked gateway's" receipt ledger) and to
+ * `PITSTOP_LEDGER_CONTROL` (the harness's control/abort stream).
  */
 
 const fs = require('fs');
 
-const CONTROL = process.env.GUARDIAN_LEDGER_CONTROL || null;
-const GATEWAY_LOG = process.env.GUARDIAN_LEDGER_GATEWAY_LOG || null;
-const HOSTS = (process.env.GUARDIAN_LEDGER_GATEWAY_HOSTS || '')
+const CONTROL = process.env.PITSTOP_LEDGER_CONTROL || null;
+const GATEWAY_LOG = process.env.PITSTOP_LEDGER_GATEWAY_LOG || null;
+const HOSTS = (process.env.PITSTOP_LEDGER_GATEWAY_HOSTS || '')
   .split(',')
   .map((s) => s.trim())
   .filter(Boolean);
 const CHARGE_RE = new RegExp(
-  process.env.GUARDIAN_LEDGER_CHARGE_RE ||
+  process.env.PITSTOP_LEDGER_CHARGE_RE ||
     '(?:^|/)(payments|charges|payment_intents|paymentintents|captures?|transactions)(/|$|\\?)',
   'i',
 );
@@ -57,7 +57,7 @@ function abort(reason) {
   if (aborted) return;
   aborted = true;
   emit({ event: 'abort', reason });
-  console.error('[guardian-ledger] ABORT: ' + reason);
+  console.error('[pitstop-ledger] ABORT: ' + reason);
   setTimeout(() => process.exit(77), 0);
 }
 
@@ -258,8 +258,8 @@ for (const m of ['exec', 'execFile', 'execFileSync', 'spawn', 'spawnSync', 'fork
           String(args[0] || '') +
           ') — native tools cannot be intercepted; aborting ledger mode',
       );
-      const err = new Error('[guardian-ledger] blocked external process spawn');
-      err.code = 'GUARDIAN_LEDGER_BLOCKED_SPAWN';
+      const err = new Error('[pitstop-ledger] blocked external process spawn');
+      err.code = 'PITSTOP_LEDGER_BLOCKED_SPAWN';
       throw err;
     };
   }
@@ -274,8 +274,8 @@ const block = (what) => {
       what +
       ' — such a connection cannot be intercepted by nock; aborting ledger mode',
   );
-  const err = new Error('[guardian-ledger] blocked raw ' + what);
-  err.code = 'GUARDIAN_LEDGER_BLOCKED_SOCKET';
+  const err = new Error('[pitstop-ledger] blocked raw ' + what);
+  err.code = 'PITSTOP_LEDGER_BLOCKED_SOCKET';
   throw err;
 };
 net.connect = function () {
@@ -305,7 +305,7 @@ if (typeof globalThis.fetch === 'function') {
       abort(
         'global fetch to external host ' + u.href + ' cannot be intercepted by nock; aborting ledger mode',
       );
-      throw new Error('[guardian-ledger] blocked external fetch');
+      throw new Error('[pitstop-ledger] blocked external fetch');
     }
     return realFetch.call(globalThis, input, init);
   };
@@ -327,5 +327,5 @@ emit({
   gatewayLog: GATEWAY_LOG,
 });
 console.error(
-  '[guardian-ledger] sandbox armed; mocked hosts: ' + (HOSTS.join(', ') || '(none)'),
+  '[pitstop-ledger] sandbox armed; mocked hosts: ' + (HOSTS.join(', ') || '(none)'),
 );

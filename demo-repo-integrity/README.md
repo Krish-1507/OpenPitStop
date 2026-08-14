@@ -1,6 +1,6 @@
-# guardian-demo-integrity
+# pitstop-demo-integrity
 
-Guardian's demo repo for the **integrity gate**.
+OpenPitStop's demo repo for the **integrity gate**.
 
 ## The bug
 

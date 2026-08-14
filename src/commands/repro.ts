@@ -25,9 +25,9 @@ export const reproCmd = new Command("repro")
         case "refused":
           console.log(
             boxen(
-              `guardian repro ${findingId}\n\n${chalk.yellow("Not generated:")}\n${result.reason}`,
+              `pitstop repro ${findingId}\n\n${chalk.yellow("Not generated:")}\n${result.reason}`,
               {
-                title: " GUARDIAN — Repro Refused (honest, not fabricated) ",
+                title: " PITSTOP — Repro Refused (honest, not fabricated) ",
                 titleAlignment: "center",
                 borderStyle: "round",
                 padding: 1,
@@ -49,7 +49,7 @@ export const reproCmd = new Command("repro")
           const verdict = pass ? "PASS — bug not reproduced (hypothesis unproven)" : "FAIL — bug reproduced";
           console.log(
             boxen(
-              `guardian repro ${result.findingId}\n\n` +
+              `pitstop repro ${result.findingId}\n\n` +
                 `Test file: ${chalk.bold(result.file)}\n` +
                 `Framework: ${r.framework ?? "unknown"}${r.timedOut ? " (timed out)" : ""}\n\n` +
                 `${paint(verdict)}\n\n` +
@@ -60,7 +60,7 @@ export const reproCmd = new Command("repro")
                     "Fix it, then re-run the SAME repro test and confirm it now PASSES.") +
                 `\n\n${chalk.dim(r.stdout || r.stderr || "").slice(0, 2000)}`,
               {
-                title: ` GUARDIAN — Repro ${pass ? "PASS" : "FAIL"} `,
+                title: ` PITSTOP — Repro ${pass ? "PASS" : "FAIL"} `,
                 titleAlignment: "center",
                 borderStyle: pass ? "round" : "double",
                 padding: 1,

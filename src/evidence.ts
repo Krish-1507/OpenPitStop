@@ -1,18 +1,18 @@
 import { createHash } from "node:crypto";
 
 /**
- * evidence.ts — Guardian's tamper-evident evidence chain.
+ * evidence.ts — OpenPitStop's tamper-evident evidence chain.
  *
- * Every scan/cluster/verify document Guardian writes carries a deterministic
+ * Every scan/cluster/verify document OpenPitStop writes carries a deterministic
  * cryptographic digest of its own content. If anyone edits the JSON after the
  * fact — a score inflated, a finding deleted — the digest stops matching and
- * Guardian reports the chain as broken. No key material is involved: this is
- * not "who signed this" but "not a byte changed since Guardian wrote it",
+ * OpenPitStop reports the chain as broken. No key material is involved: this is
+ * not "who signed this" but "not a byte changed since OpenPitStop wrote it",
  * which is the property that makes agent report honesty checkable.
  */
 
-export interface GuardianEvidence {
-  scheme: "guardian-canonical-sha256-v1";
+export interface OpenPitStopEvidence {
+  scheme: "pitstop-canonical-sha256-v1";
   /** sha256 hex over the canonical JSON of the document (evidence excluded). */
   digest: string;
   /** Human description of what the digest covers. */
@@ -42,9 +42,9 @@ export function digestOf(value: unknown): string {
 }
 
 /** Attach a signed evidence block to a document (returns the document itself). */
-export function seal<T extends object>(doc: T, of: string): T & { evidence: GuardianEvidence } {
-  const evidence: GuardianEvidence = {
-    scheme: "guardian-canonical-sha256-v1",
+export function seal<T extends object>(doc: T, of: string): T & { evidence: OpenPitStopEvidence } {
+  const evidence: OpenPitStopEvidence = {
+    scheme: "pitstop-canonical-sha256-v1",
     digest: digestOf(doc),
     of,
     signedAt: new Date().toISOString(),
@@ -66,16 +66,16 @@ export interface EvidenceCheck {
  * field) and compare against the claimed signature.
  */
 export function checkEvidence(value: unknown): EvidenceCheck {
-  const ev = (value as { evidence?: GuardianEvidence })?.evidence;
+  const ev = (value as { evidence?: OpenPitStopEvidence })?.evidence;
   const digest = digestOf(value);
   if (!ev || !ev.digest) {
     return {
       status: "missing",
       digest,
-      reason: "document carries no Guardian evidence block — written by a non-Guardian tool or pre-0.6.0",
+      reason: "document carries no OpenPitStop evidence block — written by a non-OpenPitStop tool or pre-0.6.0",
     };
   }
-  if (ev.scheme !== "guardian-canonical-sha256-v1") {
+  if (ev.scheme !== "pitstop-canonical-sha256-v1") {
     return { status: "tampered", digest, expected: ev.digest, reason: `unrecognized scheme "${ev.scheme}"` };
   }
   if (digest !== ev.digest) {
@@ -83,7 +83,7 @@ export function checkEvidence(value: unknown): EvidenceCheck {
       status: "tampered",
       digest,
       expected: ev.digest,
-      reason: "digest does not match document content — evidence was edited after Guardian wrote it",
+      reason: "digest does not match document content — evidence was edited after OpenPitStop wrote it",
     };
   }
   return { status: "verified", digest };

@@ -11,15 +11,15 @@ import type { PenFinding } from "../pen/types.js";
 import type { ScanResult, Cluster } from "../analyzers/types.js";
 
 /**
- * `guardian inspect <finding-id>` — deep dive on a single finding.
+ * `pitstop inspect <finding-id>` — deep dive on a single finding.
  *
  * Shows the exact code, the cluster it belongs to, whether a permanent repro
- * test exists, and the memory Guardian has about the files involved. One
+ * test exists, and the memory OpenPitStop has about the files involved. One
  * command from the scan box to a fully actionable picture.
  */
 
 function latestScan(repo: string): ScanResult | null {
-  const p = path.join(repo, ".guardian", "scan-latest.json");
+  const p = path.join(repo, ".pitstop", "scan-latest.json");
   if (!fs.existsSync(p)) return null;
   try {
     return JSON.parse(fs.readFileSync(p, "utf8")) as ScanResult;
@@ -107,7 +107,7 @@ function memoryLines(repo: string, f: ReproFinding, c: Cluster | null): string[]
       case "rejection": return chalk.red;
     }
   };
-  const out: string[] = [chalk.bold("Guardian memory:")];
+  const out: string[] = [chalk.bold("OpenPitStop memory:")];
   for (const e of entries.slice(0, 5)) {
     out.push(`  ${typeColor(e)(e.type.toUpperCase().padEnd(9))} ${e.summary}`);
     if (e.context) out.push(`    ${chalk.dim("why: " + e.context)}`);
@@ -156,11 +156,11 @@ function renderPenInspect(repo: string, f: PenFinding): void {
   }
   lines.push("");
   lines.push(
-    chalk.dim(`next: ${chalk.cyan(`guardian repro ${f.id}`)} captures this as a permanent failing-then-passing test`),
+    chalk.dim(`next: ${chalk.cyan(`pitstop repro ${f.id}`)} captures this as a permanent failing-then-passing test`),
   );
   console.log(
     boxen(lines.join("\n"), {
-      title: ` GUARDIAN — Inspect ${f.id} `,
+      title: ` PITSTOP — Inspect ${f.id} `,
       titleAlignment: "center",
       borderStyle: "round",
       padding: 1,
@@ -171,9 +171,9 @@ function renderPenInspect(repo: string, f: PenFinding): void {
 
 export const inspect = new Command("inspect")
   .description(
-    "Deep-dive on a single finding id: code location, cluster context, repro proof, and Guardian's memory of the files.",
+    "Deep-dive on a single finding id: code location, cluster context, repro proof, and OpenPitStop's memory of the files.",
   )
-  .argument("<id>", "finding id from a scan box or .guardian/scan-latest.json (e.g. security-19c390c6)")
+  .argument("<id>", "finding id from a scan box or .pitstop/scan-latest.json (e.g. security-19c390c6)")
   .option("--repo <path>", "repo to inspect (defaults to cwd)", ".")
   .action((idArg: string, options: { repo: string }) => {
     const repo = path.resolve(options.repo);
@@ -187,7 +187,7 @@ export const inspect = new Command("inspect")
     const penResult = loadPenLatest(repo);
     if (!result && !penResult) {
       console.log(
-        chalk.red(`no scan found — run \`guardian scan\` first to create .guardian/scan-latest.json`),
+        chalk.red(`no scan found — run \`pitstop scan\` first to create .pitstop/scan-latest.json`),
       );
       return;
     }
@@ -204,7 +204,7 @@ export const inspect = new Command("inspect")
     if (!f) {
       console.log(
         chalk.red(`finding "${id}" not found in scan-latest.json or pen-latest.json\n`) +
-          chalk.dim(`hint: ids look like ${chalk.cyan("security-19c390c6")}; run \`guardian scan\` to refresh.`),
+          chalk.dim(`hint: ids look like ${chalk.cyan("security-19c390c6")}; run \`pitstop scan\` to refresh.`),
       );
       return;
     }
@@ -224,7 +224,7 @@ export const inspect = new Command("inspect")
             ...proofs.map((p) => `  ${chalk.green("✓")} committed repro test: ${chalk.cyan(p.file)}`),
           ]
         : [
-            `${chalk.bold("Permanent proof:")} ${chalk.yellow("none committed yet")} — run \`guardian repro ${id}\` to capture a failing-then-passing regression test.`,
+            `${chalk.bold("Permanent proof:")} ${chalk.yellow("none committed yet")} — run \`pitstop repro ${id}\` to capture a failing-then-passing regression test.`,
           ];
 
     const lines: string[] = [];
@@ -277,7 +277,7 @@ export const inspect = new Command("inspect")
 
     if (reproCapable) {
       lines.push(
-        chalk.dim(`next: ${chalk.cyan(`guardian repro ${id}`)} captures this as a permanent failing-then-passing test`),
+        chalk.dim(`next: ${chalk.cyan(`pitstop repro ${id}`)} captures this as a permanent failing-then-passing test`),
       );
     } else {
       lines.push(chalk.dim("this finding type is diagnostic-only (no repro generator)."));
@@ -285,7 +285,7 @@ export const inspect = new Command("inspect")
 
     console.log(
       boxen(lines.join("\n"), {
-        title: ` GUARDIAN — Inspect ${id} `,
+        title: ` PITSTOP — Inspect ${id} `,
         titleAlignment: "center",
         borderStyle: "round",
         padding: 1,

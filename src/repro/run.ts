@@ -33,8 +33,8 @@ export function runRepro(repo: string, file: string): Promise<ReproRunResult> {
   }
   const framework = detectTestFramework(repo);
   const extra: Record<string, string> = {
-    GUARDIAN_LEDGER_PRELOAD: preloadPath(),
-    GUARDIAN_PEN_PRELOAD: penPreloadPath(),
+    PITSTOP_LEDGER_PRELOAD: preloadPath(),
+    PITSTOP_PEN_PRELOAD: penPreloadPath(),
   };
   return runTestFile(repo, abs, extra, 150000).then((r) => ({
     ran: true,

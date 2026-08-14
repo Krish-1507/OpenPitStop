@@ -12,7 +12,7 @@ export const integrity = new Command("integrity")
   .description(
     "Diff-scoped scan for AI-agent-cheat patterns (deleted/neutered tests, swallowed " +
       "errors, suppressions, hardcoded-to-pass values, mocked SUT, forced exits). " +
-      "Writes .guardian/integrity-<timestamp>.json. Exit 0=CLEAN, 1=SUSPICIOUS, 2=CONFIRMED_CHEAT.",
+      "Writes .pitstop/integrity-<timestamp>.json. Exit 0=CLEAN, 1=SUSPICIOUS, 2=CONFIRMED_CHEAT.",
   )
   .argument("[repo]", "path to the repo to analyze", ".")
   .option("--from <ref>", "diff base ref (default: commit before last fix)")
@@ -26,13 +26,13 @@ export const integrity = new Command("integrity")
     const changes = getDiff(repo, from, to);
     const report = buildIntegrityReport(repo, from, to ?? "working tree", changes);
 
-    const outDir = path.join(repo, ".guardian");
+    const outDir = path.join(repo, ".pitstop");
     fs.mkdirSync(outDir, { recursive: true });
     const ts = report.timestamp.replace(/[:.]/g, "-");
     const outPath = path.join(outDir, `integrity-${ts}.json`);
     fs.writeFileSync(
       outPath,
-      JSON.stringify(seal(report, `guardian integrity report for ${repo}`), null, 2),
+      JSON.stringify(seal(report, `pitstop integrity report for ${repo}`), null, 2),
     );
 
     printReport(report, outPath);
@@ -63,7 +63,7 @@ function printReport(report: ReturnType<typeof buildIntegrityReport>, outPath: s
 
   console.log(
     boxen(lines.join("\n"), {
-      title: ` GUARDIAN — Integrity ${verdict} `,
+      title: ` PITSTOP — Integrity ${verdict} `,
       titleAlignment: "center",
       borderStyle: verdict === "CLEAN" ? "round" : "double",
       padding: 1,

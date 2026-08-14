@@ -9,7 +9,7 @@ import { checkEvidence } from "../evidence.js";
 import { enumerateFindings } from "../repro/ids.js";
 
 /**
- * `guardian honesty` — the proof that the AI agent did honest work.
+ * `pitstop honesty` — the proof that the AI agent did honest work.
  *
  * Combines the evidence chain (signed baselines), the integrity gate history
  * (cheat attempts caught + self-corrected), the verify delta, and the
@@ -31,7 +31,7 @@ function honestyVerdict(args: {
     return { label: "UNDER REVIEW — cheating attempted", color: "red", reasons };
   }
   if (args.evidence === "tampered") {
-    reasons.push("the baseline evidence chain is broken — reports were edited after Guardian signed them");
+    reasons.push("the baseline evidence chain is broken — reports were edited after OpenPitStop signed them");
     return { label: "SUSPICIOUS — evidence edited", color: "red", reasons };
   }
   if (args.latestVerify?.risk === "High") {
@@ -58,7 +58,7 @@ export const honesty = new Command("honesty")
       "repro tests, distilled into one verdict. --html writes a self-contained shareable certificate.",
   )
   .argument("[repo]", "path to the repo (default: current dir)", ".")
-  .option("--html", "also write a self-contained GUARDIAN_HONESTY.html certificate")
+  .option("--html", "also write a self-contained PITSTOP_HONESTY.html certificate")
   .action((repoArg: string, options: { html?: boolean }) => {
     const repo = path.resolve(repoArg);
     const model = buildModel(repo);
@@ -66,7 +66,7 @@ export const honesty = new Command("honesty")
 
     if (!model.latestScan) {
       console.log(
-        chalk.yellow(`no scan history in ${path.join(repo, ".guardian")} — run \`guardian scan\` first.`),
+        chalk.yellow(`no scan history in ${path.join(repo, ".pitstop")} — run \`pitstop scan\` first.`),
       );
       return;
     }
@@ -126,13 +126,13 @@ export const honesty = new Command("honesty")
     lines.push(chalk.bold("Why:"));
     for (const r of verdict.reasons) lines.push(`  · ${r.startsWith("all checks") ? chalk.green(r) : chalk.yellow(r)}`);
     lines.push("");
-    lines.push(chalk.dim("every figure is read from .guardian/scan-*.json, verify-*.json and the committed guardian-repro-*.test.* files"));
+    lines.push(chalk.dim("every figure is read from .pitstop/scan-*.json, verify-*.json and the committed pitstop-repro-*.test.* files"));
 
     const color = verdict.color === "green" ? "green" : "yellow";
 
     console.log(
       boxen(lines.join("\n"), {
-        title: ` GUARDIAN — Honesty ${verdict.label.split(" ")[0]} `,
+        title: ` PITSTOP — Honesty ${verdict.label.split(" ")[0]} `,
         titleAlignment: "center",
         borderStyle: verdict.color === "green" ? "round" : "double",
         padding: 1,
@@ -148,7 +148,7 @@ export const honesty = new Command("honesty")
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>GUARDIAN — Honesty report for ${escapeHtml(repo)}</title>
+<title>PITSTOP — Honesty report for ${escapeHtml(repo)}</title>
 <style>
   :root{color-scheme:dark}
   *{box-sizing:border-box;margin:0;padding:0}
@@ -176,7 +176,7 @@ export const honesty = new Command("honesty")
 </style>
 </head>
 <body><div class="wrap">
-  <h1>GUARDIAN — AI Honesty Report</h1>
+  <h1>PITSTOP — AI Honesty Report</h1>
   <p class="sub">${escapeHtml(repo)} · generated ${escapeHtml(model.generatedAt.slice(0, 19).replace("T", " "))} · ${hist.scans.length} scan(s), ${hist.verifies.length} verify(ies)</p>
 
   <div class="card">
@@ -210,9 +210,9 @@ export const honesty = new Command("honesty")
     <ul>${verdict.reasons.map((r) => `<li>${escapeHtml(r)}</li>`).join("")}</ul>
   </div>
 
-  <div class="footer">Every figure read from .guardian/scan-*.json, .guardian/verify-*.json and the committed guardian-repro-*.test.* files · sealed with guardian-sha256-canonical-v1</div>
+  <div class="footer">Every figure read from .pitstop/scan-*.json, .pitstop/verify-*.json and the committed pitstop-repro-*.test.* files · sealed with pitstop-sha256-canonical-v1</div>
 </div></body></html>`;
-      const out = path.join(repo, "GUARDIAN_HONESTY.html");
+      const out = path.join(repo, "PITSTOP_HONESTY.html");
       fs.writeFileSync(out, html);
       console.log(chalk.dim(`\nCertificate written to ${out}\n`));
     }
