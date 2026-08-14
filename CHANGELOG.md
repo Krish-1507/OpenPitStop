@@ -2,6 +2,18 @@
 
 All notable changes to this project are documented here.
 
+## [Unreleased]
+
+### Added
+
+- **Custom asks (`/pitstop <your question>`).** Free-form text after `/pitstop` — e.g.
+  `check the security of this app`, `are our tests flaky?`, `did my agent cheat on the
+  last commit?` — now runs a scoped loop instead of the generic one: the agent maps the ask
+  to the right command (`pen` for security, `integrity` for cheats, `scan` for health/
+  tests…), restates its interpretation in a single line, confirms before fixing anything,
+  and fixes only what was asked. Bare `/pitstop` keeps the existing menu / full-loop
+  behavior, and the menu now also routes free-form replies to the custom-ask mode.
+
 ## [0.9.1] - 2026-08-06
 
 ### Changed
@@ -361,9 +373,11 @@ All notable changes to this project are documented here.
 - **`pitstop prompt [--args …]`** — prints the exact rendered `/pitstop` prompt (with the
   invocation arguments substituted) so users can preview what their AI tool will send, in every
   supported tool, regardless of how the tool's UI renders slash commands.
-- **Prompt Step 0 (mandatory transparency).** `/pitstop` now makes the agent open its first
-  message by printing the exact instructions it received (mode, sequence, guardrails) — the user
-  sees the prompt in their own window in every supported tool.
+- **Cleaner `/pitstop` first message.** The agent used to print the full instruction block
+  (mode, sequence, guardrails) as its opening message so users could see the prompt in every
+  tool; it now acknowledges with a single line (`/pitstop — running the quality loop.`) and
+  proceeds, keeping the chat window clean. `pitstop prompt` remains the full-transparency
+  path (preview the exact rendered prompt anytime).
 - **`pitstop scan --json`** — raw scan result as clean JSON for pipelines (no banner/spinner
   pollution); **live spinners** (ora, previously an unused dependency) on `scan` and `demo`.
 - **`pitstop demo` wow moment** — the demo command now scans the seeded-broken demo repo and

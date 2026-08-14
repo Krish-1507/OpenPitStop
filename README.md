@@ -217,10 +217,12 @@ OpenPitStop modes:
  --demo — run against OpenPitStop's own seeded demo repo
  --ledger — payment idempotency fuzzing only
  --integrity-only — re-check the last commit for cheat patterns, no scanning
-Reply with a mode, or just hit enter for the default full loop.
+ --pen — penetration test: live attacks + proof + fixes (regression tests, patches)
+ (your own ask) — reply with anything else, e.g. "check the security of this app"
+Reply with a mode, your own ask, or just hit enter for the default full loop.
 ```
 
-Hit enter for the default loop, or jump straight into a mode:
+Hit enter for the default loop, jump straight into a mode, or ask your own question:
 
 | Invocation | Mode | What it does |
 |---|---|---|
@@ -229,10 +231,11 @@ Hit enter for the default loop, or jump straight into a mode:
 | `/pitstop --demo` | demo | Scaffolds OpenPitStop's seeded broken demo repo into a temp dir, then runs the default full loop there. |
 | `/pitstop --ledger` | ledger | Runs `openpitstop scan --ledger` (boots the app with every outbound HTTP call intercepted and replays duplicate-webhook / double-submit / retry traffic), then runs the loop restricted to the payment findings. |
 | `/pitstop --integrity-only` | integrity-only | Runs `openpitstop integrity`, prints the boxed verdict verbatim, and stops — no scanning, no fixes. |
+| `/pitstop <your question>` | custom ask | Any free-form text (e.g. `check the security of this app`, `are our tests flaky?`, `did my agent cheat on the last commit?`) is scoped to exactly that ask: the agent maps it to the right command (`pen` for security, `integrity` for cheats, `scan` for health/tests…), states its interpretation in one line, confirms before fixing, and fixes only what you asked. |
 
-A flag after `/pitstop` skips the menu and goes straight into that mode. If a tool ever
-fails to substitute arguments into the prompt, OpenPitStop falls back to the menu rather than
-guessing.
+A flag after `/pitstop` skips the menu and goes straight into that mode; any other text after
+it becomes a scoped custom ask. If a tool ever fails to substitute arguments into the prompt,
+OpenPitStop falls back to the menu rather than guessing.
 
 No repo handy? `npx openpitstop@latest demo` scaffolds a broken demo repo in a temp dir so
 you can watch the whole loop — self-contained, no installs on the hot path, and it never
@@ -365,10 +368,9 @@ write; the `gate` exit code treats a broken chain as a hard fail.
 ### Prompt transparency
 
 Some AI tools show you the expanded slash-command prompt in their UI, some don't. OpenPitStop
-guarantees you see it either way: the `/pitstop` prompt's **Step 0** makes the agent print
-the exact instructions it's operating under (mode, sequence, guardrails) as its very first
-message in your window — and `pitstop prompt` lets you preview the raw prompt before
-anyone types anything.
+keeps your chat clean either way: the `/pitstop` agent acknowledges with a single short line
+and gets straight to work — the full instruction set stays out of your window. And
+`pitstop prompt` lets you preview the raw prompt before anyone types anything.
 
 ### Root-cause correlation
 

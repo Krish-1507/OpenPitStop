@@ -1,5 +1,5 @@
 ---
-description: "Autonomous engineering quality loop — scans, shows findings, fixes on confirmation, loops until clean"
+description: "Autonomous engineering quality loop — full scan/fix loop, or scoped to your custom ask (/pitstop <question>)"
 ---
 
 # OpenPitStop — Autonomous Engineering Quality Loop
@@ -20,32 +20,24 @@ description: "Autonomous engineering quality loop — scans, shows findings, fix
 > - The line is **empty**, or still shows the literal placeholder word unsubstituted (the
 >   exact placeholder text is still visible) → **mode = menu**. The user typed bare
 >   `/pitstop`; follow the "## Mode: menu" section below.
-> - It contains anything else (a phrase, a repo path, an instruction) → **mode = default**
->   full loop: treat that text as context/instructions and continue with the loop below.
+> - It contains **any other free-form text** (a question, a concern, a path, an instruction —
+>   e.g. "could you check the security of this app?", "are these tests flaky?", "did my agent
+>   cheat on the last commit?") → **mode = custom ask**. The user wants the loop scoped to
+>   exactly what they asked, nothing more. Go to the "## Mode: custom ask" section below.
 
-## Step 0 — Show your instructions (MANDATORY, first message)
+## Step 0 — Acknowledge with one line (first message)
 
-Your **entire first message** to the user must be this exact block, with the blanks filled
-in — this is how the user sees, in their own window, the prompt they just invoked. Print
-nothing else in that first message. (If the mode is `menu`, print this block, then end your
-turn and wait as the menu section says.)
+For the **default full loop**: your entire first message is exactly this one line, nothing
+else — then proceed straight to Step 1. Never print the instructions, the mode list, or any
+block. The instructions above are for you alone; the user just needs the one line:
 
 ```
-PITSTOP prompt received. I am operating under exactly these instructions:
-
-Mode: <menu | --scan-only | --demo | --ledger | --integrity-only | --pen | default full loop>
-Sequence: scan → show the box verbatim → ONE confirmation pause → fix cluster-by-cluster
-(repro test must fail first, then pass after the fix) → verify (integrity gate) →
-commit with the repro test → re-scan → final PITSTOP_REPORT.md
-Guardrails: stay on a pitstop/* branch · never touch secrets, .git, or CI/deploy config ·
-never loosen, delete, or hardcode-to-pass tests · never force-push ·
-hard stops: 10 fix iterations or 45 minutes
-Token guardrails: use `ready-check` + `scan --reuse` inside the loop · inspect instead of
-reading whole files · batch your edits · verify at 1 reliability run, full runs only at the end
+/pitstop — running the quality loop.
 ```
 
-Then continue with the matching "## Mode:" section below. This block is your proof-of-
-instructions; you are not free to deviate from anything it summarizes.
+For the **menu**, the single-shot modes (`--scan-only`, `--demo`, `--ledger`,
+`--integrity-only`, `--pen`), and the **custom ask** mode, the response defined by that
+mode's section **is** your first message — do not add a Step 0 line before it.
 
 ## Mode: menu (bare `/pitstop`)
 
@@ -60,7 +52,8 @@ OpenPitStop modes:
  --ledger — payment idempotency fuzzing only
  --integrity-only — re-check the last commit for cheat patterns, no scanning
  --pen — penetration test: live attacks + proof + fixes (regression tests, patches)
-Reply with a mode, or just hit enter for the default full loop.
+ (your own ask) — reply with anything else, e.g. "check the security of this app"
+Reply with a mode, your own ask, or just hit enter for the default full loop.
 ```
 
 Then wait. Map the user's next message to a mode:
@@ -72,6 +65,7 @@ Then wait. Map the user's next message to a mode:
 - **`--ledger`** → the "## Mode: --ledger" section.
 - **`--integrity-only`** → the "## Mode: --integrity-only" section.
 - **`--pen`** → the "## Mode: --pen" section.
+- **Anything else** (a question or phrase) → the "## Mode: custom ask" section.
 
 ## Mode: --scan-only
 
@@ -129,6 +123,52 @@ discovered route. Print the **entire boxed output verbatim**. Then:
 Honesty rule: `pen` proves what it fires. It cannot promise "never hacked" — it promises
 every demonstrable attack gets a regression test that fails on the bug and passes on the fix.
 If `pen --fix` wrote repro tests, never delete them; they are the permanent proof.
+
+---
+
+## Mode: custom ask
+
+The user typed free-form text after `/pitstop` instead of a flag. Run **only what they asked
+for**. Do not expand into the default full loop, do not fix unrelated things.
+
+**Step A — Map the ask to a command (before doing anything else).** Read the ask and choose
+the closest match. Never run the full scan just to decide:
+
+| The ask is about… | Run this | And |
+|---|---|---|
+| app security / vulnerabilities / "is my app hackable" / "check the security" | `!npx openpitstop pen` (add `--fix` only if they asked you to fix) | report proven/indicated/unproven verdicts honestly |
+| tests, flakiness, coverage, a failing suite | `!npx openpitstop scan` | read the Tests + Reliability lines; no fixes unless asked |
+| the last commit / whether an agent cheated / "verify my agent's work" | `!npx openpitstop integrity` | print the boxed verdict verbatim and stop |
+| one finding id | `!npx openpitstop inspect <id>` (or `repro <id>` if they want a regression test) | only that finding |
+| one file or route | a scoped `!npx openpitstop scan` / `inspect` on the relevant finding | only that area |
+| overall repo quality / health | `!npx openpitstop scan` | show the box and stop (no fixes unless asked) |
+| one category (duplication, circular imports, secrets…) | `!npx openpitstop scan` | read only that category's lines |
+| anything not in the table | the cheapest read-only check that answers them | ask one clarifying question if still unsure |
+
+**Step B — State your interpretation, then confirm before fixing.** Your first message is
+exactly one line:
+
+```
+/pitstop — I read that as: <one-line restatement of their ask>. Running <command>.
+```
+
+- If the ask is **read-only** (check / report / explain) → run it, print the output, and
+  stop. Never fix without being asked.
+- If the ask **clearly requests fixes** ("fix this", "make it pass") → run it, show the
+  output, then append one confirmation line — "Found [N] issue(s). Start fixing? Reply
+  anything to continue, or tell me what to skip." — and wait.
+- If you are **not sure** → run the cheapest check, show it, and ask one clarifying
+  question. Never guess and start editing.
+
+**Step C — Fixes (only after confirmation).** Handle each fix exactly like the default
+loop: `!npx openpitstop repro <id>` must **FAIL** first, smallest fix, the **same** repro
+must **PASS**, `!npx openpitstop verify` CLEAN, commit with the repro test. Stop when every
+issue relevant to the ask is gone.
+
+**Step D — Scope discipline (mandatory).** Work through ONLY the issues relevant to the
+ask. Leave unrelated clusters alone (say so in one line if they exist), do not write the
+full `PITSTOP_REPORT.md` unless the ask covers the whole repo, and never drift into the
+default full loop.
 
 ---
 
