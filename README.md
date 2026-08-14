@@ -196,7 +196,14 @@ npx openpitstop@latest install
 
 Run it from inside any project directory. It writes the `/pitstop` command into every
 supported tool below — project-level for the current repo, user-level so it works in any
-repo on your machine. Re-run with `-y` to refresh after updates (it's safe to re-run).
+repo on your machine. Re-run with `-y` to refresh after updates (it's safe to re-run):
+
+```bash
+npx openpitstop install -y
+```
+
+Re-installing overwrites each tool's `/pitstop` command file with the latest prompt
+(say, a new mode or an updated loop) — your tool picks it up on its next use.
 
 Requires Node.js 22+ (npm will warn on older versions).
 
