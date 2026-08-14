@@ -126,7 +126,9 @@ Every clip below is real command output — the only thing that was trimmed is d
 
 ### Try it on your repo
 
-`pitstop try .` — score any repo in ~2 seconds, no setup, no config.
+`pitstop try .` — score any repo in ~2 seconds of scanning, no setup, no config.
+(First `npx openpitstop …` on a machine downloads the package once — a few seconds;
+`npm i -g openpitstop` makes even that instant.)
 
 <p align="center">
   <img src="docs/media/pitstop-try.gif" alt="pitstop try — zero-setup score on any repo" width="700">
@@ -182,7 +184,8 @@ Not even 90 seconds? Point it at **your own repo** — zero setup, no install, n
 npx openpitstop try .
 ```
 
-Two seconds, your repo, your score. Everything else can wait.
+Two seconds of scanning, your repo, your score (plus a one-time package download on the
+first-ever `npx` run — see the speed tip in [Install](#install)). Everything else can wait.
 
 ---
 
@@ -205,6 +208,15 @@ npx openpitstop install -y
 Re-installing overwrites each tool's `/pitstop` command file with the latest prompt
 (say, a new mode or an updated loop) — your tool picks it up on its next use.
 
+Speed tip: the `try`/`scan` itself takes ~2 seconds — but the **first** `npx openpitstop …`
+on a machine has to download the package first (a few seconds on a fast connection, more on a
+slow one). For an instant first run on machines you own, install once:
+
+```bash
+npm i -g openpitstop
+openpitstop try .
+```
+
 Requires Node.js 22+ (npm will warn on older versions).
 
 ## Usage
@@ -215,7 +227,22 @@ Open your repo in any supported tool and type:
 /pitstop
 ```
 
-Bare `/pitstop` prints this menu and waits:
+Bare `/pitstop` runs the full quality loop **immediately** — scan, one confirmation pause,
+fix, verify, repeat. No menu, no waiting. Everything below is the power paths on top of
+that:
+
+| Invocation | Mode | What it does |
+|---|---|---|
+| `/pitstop` (bare) | **default full loop** | Scans right away, prints the boxed report, one confirmation pause, then the autonomous fix loop — repeat until clean. |
+| `/pitstop --menu` | menu | Prints the full mode list below and **waits** — handy if you forgot the flags. |
+| `/pitstop --scan-only` | scan-only | Runs `openpitstop scan`, prints the entire boxed report verbatim, and stops — no fixes, no commentary. |
+| `/pitstop --demo` | demo | Scaffolds OpenPitStop's seeded broken demo repo into a temp dir, then runs the default full loop there. |
+| `/pitstop --ledger` | ledger | Runs `openpitstop scan --ledger` (boots the app with every outbound HTTP call intercepted and replays duplicate-webhook / double-submit / retry traffic), then runs the loop restricted to the payment findings. |
+| `/pitstop --integrity-only` | integrity-only | Runs `openpitstop integrity`, prints the boxed verdict verbatim, and stops — no scanning, no fixes. |
+| `/pitstop --pen` | pen | Live penetration test with proof — see [The pen test](#the-pen-test). |
+| `/pitstop <your question>` | custom ask | Any free-form text (e.g. `check the security of this app`, `are our tests flaky?`, `did my agent cheat on the last commit?`) is scoped to exactly that ask: the agent maps it to the right command (`pen` for security, `integrity` for cheats, `scan` for health/tests…), states its interpretation in one line, confirms before fixing, and fixes only what you asked. |
+
+For reference, `/pitstop --menu` shows this list:
 
 ```
 OpenPitStop modes:
@@ -226,23 +253,11 @@ OpenPitStop modes:
  --integrity-only — re-check the last commit for cheat patterns, no scanning
  --pen — penetration test: live attacks + proof + fixes (regression tests, patches)
  (your own ask) — reply with anything else, e.g. "check the security of this app"
-Reply with a mode, your own ask, or just hit enter for the default full loop.
 ```
 
-Hit enter for the default loop, jump straight into a mode, or ask your own question:
-
-| Invocation | Mode | What it does |
-|---|---|---|
-| `/pitstop` (bare) | menu | Prints the mode menu above and **waits**. Reply with a mode, or hit enter for the default full loop. |
-| `/pitstop --scan-only` | scan-only | Runs `openpitstop scan`, prints the entire boxed report verbatim, and stops — no fixes, no commentary. |
-| `/pitstop --demo` | demo | Scaffolds OpenPitStop's seeded broken demo repo into a temp dir, then runs the default full loop there. |
-| `/pitstop --ledger` | ledger | Runs `openpitstop scan --ledger` (boots the app with every outbound HTTP call intercepted and replays duplicate-webhook / double-submit / retry traffic), then runs the loop restricted to the payment findings. |
-| `/pitstop --integrity-only` | integrity-only | Runs `openpitstop integrity`, prints the boxed verdict verbatim, and stops — no scanning, no fixes. |
-| `/pitstop <your question>` | custom ask | Any free-form text (e.g. `check the security of this app`, `are our tests flaky?`, `did my agent cheat on the last commit?`) is scoped to exactly that ask: the agent maps it to the right command (`pen` for security, `integrity` for cheats, `scan` for health/tests…), states its interpretation in one line, confirms before fixing, and fixes only what you asked. |
-
-A flag after `/pitstop` skips the menu and goes straight into that mode; any other text after
-it becomes a scoped custom ask. If a tool ever fails to substitute arguments into the prompt,
-OpenPitStop falls back to the menu rather than guessing.
+A flag after `/pitstop` picks a specific mode; any free-form text after it becomes a scoped
+custom ask; bare `/pitstop` is the full loop. If a tool ever fails to substitute arguments,
+`/pitstop` behaves as bare — the default full loop — rather than guessing.
 
 No repo handy? `npx openpitstop@latest demo` scaffolds a broken demo repo in a temp dir so
 you can watch the whole loop — self-contained, no installs on the hot path, and it never
@@ -308,7 +323,7 @@ one-shot.
 |---|---|
 | `pitstop scan [path] [--json] [--reuse] [--ledger]` | The big one. Runs every check in parallel and prints one box with a single **OpenPitStop Score** (0–100, A–F). `--json` for scripts and pipelines; `--reuse` returns the saved baseline when nothing changed; `--ledger` also fuzzes payment idempotency. |
 | `pitstop verify` | Re-scans after a change and shows exactly how the score moved — the numbers can't be argued with. Also checks your diff for agent-cheat patterns. |
-| `pitstop try [path]` | Get a score on **any** repo in ~2 seconds — no install, no config, no setup. Saves a sealed baseline so verify and gate can build on it later. |
+| `pitstop try [path]` | Get a score on **any** repo in ~2 seconds of scanning — no install, no config, no setup (the first `npx` run on a machine downloads the package once). Saves a sealed baseline so verify and gate can build on it later. |
 | `pitstop ready-check [path]` | Quick "is it worth scanning again?" — nothing changed → exit 0 and reuse the baseline; something changed → exit 1. |
 | `pitstop watch [path] [--interval ms]` | The live shield. Sits in a terminal and re-checks the moment you save a file, printing how the score moved. |
 | `pitstop trends` | Turns your saved scan history into per-category sparklines and a score trend — watch a repo actually improve. |

@@ -15,11 +15,12 @@ description: "Autonomous engineering quality loop — full scan/fix loop, or sco
 > before printing anything — by reading that one line:
 >
 > - It contains one of the flags `--scan-only`, `--demo`, `--ledger`, `--integrity-only`,
->   or `--pen` → **mode = that flag**. You MUST NOT print the menu. Go directly
+>   `--pen`, or `--menu` → **mode = that flag**. You MUST NOT print the menu. Go directly
 >   to the matching "## Mode: …" section below.
 > - The line is **empty**, or still shows the literal placeholder word unsubstituted (the
->   exact placeholder text is still visible) → **mode = menu**. The user typed bare
->   `/pitstop`; follow the "## Mode: menu" section below.
+>   exact placeholder text is still visible) → **mode = default full loop**. The user typed
+>   bare `/pitstop` and wants the general quality loop — no menu, no waiting. Continue to
+>   the "## The default full loop" section below.
 > - It contains **any other free-form text** (a question, a concern, a path, an instruction —
 >   e.g. "could you check the security of this app?", "are these tests flaky?", "did my agent
 >   cheat on the last commit?") → **mode = custom ask**. The user wants the loop scoped to
@@ -35,11 +36,11 @@ block. The instructions above are for you alone; the user just needs the one lin
 /pitstop — running the quality loop.
 ```
 
-For the **menu**, the single-shot modes (`--scan-only`, `--demo`, `--ledger`,
+For the **menu** (`--menu`), the single-shot modes (`--scan-only`, `--demo`, `--ledger`,
 `--integrity-only`, `--pen`), and the **custom ask** mode, the response defined by that
 mode's section **is** your first message — do not add a Step 0 line before it.
 
-## Mode: menu (bare `/pitstop`)
+## Mode: --menu
 
 Print **exactly this menu as your entire response**, then **end your turn and wait** for
 the user's next message. Do not scan, do not read files, do not plan anything yet.

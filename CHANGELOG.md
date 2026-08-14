@@ -2,17 +2,39 @@
 
 All notable changes to this project are documented here.
 
-## [Unreleased]
+## [1.0.0] - 2026-08-14
+
+The launch release. OpenPitStop is the agent referee, renamed and rebranded from
+Guardian CLI — and the entire first-run experience is now zero-friction.
 
 ### Added
 
+- **Rebrand: Guardian CLI → OpenPitStop.** Package `openpitstop`, binary `pitstop`, slash
+  command `/pitstop`, storage `.pitstop/`, env vars `PITSTOP_*`, evidence scheme
+  `pitstop-canonical-sha256-v1`, and rebranded docs/media/CI. The old `guardian`-named CLI
+  is deprecated.
 - **Custom asks (`/pitstop <your question>`).** Free-form text after `/pitstop` — e.g.
   `check the security of this app`, `are our tests flaky?`, `did my agent cheat on the
-  last commit?` — now runs a scoped loop instead of the generic one: the agent maps the ask
-  to the right command (`pen` for security, `integrity` for cheats, `scan` for health/
-  tests…), restates its interpretation in a single line, confirms before fixing anything,
-  and fixes only what was asked. Bare `/pitstop` keeps the existing menu / full-loop
-  behavior, and the menu now also routes free-form replies to the custom-ask mode.
+  last commit?` — runs a scoped loop instead of the generic one: the agent maps the ask to
+  the right command (`pen` for security, `integrity` for cheats, `scan` for health/tests),
+  restates its interpretation in a single line, confirms before fixing anything, and fixes
+  only what was asked.
+
+### Changed
+
+- **Bare `/pitstop` now runs, no menu.** Typing `/pitstop` and hitting enter starts the
+  full quality loop immediately (scan → confirm → fix → verify → repeat) instead of
+  printing a mode menu and waiting. The menu still exists as `/pitstop --menu`; flags
+  (`--scan-only`, `--demo`, `--ledger`, `--integrity-only`, `--pen`) and custom asks stay
+  as the power paths. Fallback for unsubstituted arguments is the default full loop, never
+  a guess.
+- **Cleaner first message.** The agent acknowledges with a single line
+  (`/pitstop — running the quality loop.`) instead of printing the full instruction block;
+  `pitstop prompt` remains the full-transparency preview.
+- **Honest first-run copy.** `npx openpitstop try .` scanned in ~2s, but the first-ever
+  `npx` run downloads the package first — the Install section now says so and offers
+  `npm i -g openpitstop` for instant starts, and the README documents the
+  `npx openpitstop install -y` refresh flow for tool command files.
 
 ## [0.9.1] - 2026-08-06
 
