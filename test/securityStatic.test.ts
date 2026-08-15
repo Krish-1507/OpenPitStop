@@ -208,6 +208,27 @@ if (await bcrypt.compare(req.body.password, user.hash)) {
     },
   },
   {
+    name: "authentication: object __eq__/getattr compare is not a credential leak",
+    category: "authentication",
+    vulnerable: {
+      "auth.js": `
+if (req.body.password === user.password) {
+  req.session.user = user;
+}
+`,
+    },
+    fixed: {
+      "auth.py": `
+class HTTPBasicAuth:
+    def __eq__(self, other: Any) -> bool:
+        return all([
+            self.username == getattr(other, "username", None),
+            self.password == getattr(other, "password", None),
+        ])
+`,
+    },
+  },
+  {
     name: "authentication: Math.random token",
     category: "authentication",
     vulnerable: {

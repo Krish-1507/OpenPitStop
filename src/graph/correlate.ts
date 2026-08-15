@@ -36,6 +36,11 @@ function severityRank(s: string): number {
 /** Flatten Phase-1 results into a list of file-based findings. */
 export function collectFindings(repo: string, r: ScanResult): ClusterFinding[] {
   const findings: ClusterFinding[] = [];
+  // Analyzers disagree: some emit absolute paths, some emit paths relative to
+  // the repo. Normalize once here — path.relative(repo, alreadyRelativePath)
+  // would resolve against the CWD and break on any cross-drive scan.
+  const relOf = (f: string | undefined): string =>
+    f ? path.relative(repo, path.isAbsolute(f) ? f : path.join(repo, f)) : "";
 
   for (const i of r.security.issues) {
     findings.push({
@@ -44,7 +49,7 @@ export function collectFindings(repo: string, r: ScanResult): ClusterFinding[] {
       severity: i.severity,
       type: i.type,
       description: i.description,
-      files: i.file ? [path.relative(repo, i.file)] : [],
+      files: relOf(i.file) ? [relOf(i.file)] : [],
     });
   }
 
@@ -55,12 +60,12 @@ export function collectFindings(repo: string, r: ScanResult): ClusterFinding[] {
       severity: "low",
       type: "duplication",
       description: `duplicate code (${c.lines} lines)`,
-      files: c.files.map((f) => path.relative(repo, f)),
+      files: c.files.map(relOf),
     });
   }
 
   for (const cyc of r.dependencyGraph.circular) {
-    const files = cyc.map((f) => path.relative(repo, f));
+    const files = cyc.map(relOf);
     findings.push({
       id: findingIdFor("graph", "circular", cyc[0], files.join(" → ")),
       source: "graph",
@@ -78,7 +83,7 @@ export function collectFindings(repo: string, r: ScanResult): ClusterFinding[] {
       severity: i.severity,
       type: "a11y",
       description: i.description,
-      files: i.file ? [path.relative(repo, i.file)] : [],
+      files: relOf(i.file) ? [relOf(i.file)] : [],
     });
   }
 
@@ -89,7 +94,7 @@ export function collectFindings(repo: string, r: ScanResult): ClusterFinding[] {
       severity: "warning",
       type: "flaky-test",
       description: `flaky test (outcome changed across ${r.reliability.runs} runs): ${f.name}`,
-      files: f.file ? [path.relative(repo, f.file)] : [],
+      files: relOf(f.file) ? [relOf(f.file)] : [],
     });
   }
 
@@ -100,7 +105,7 @@ export function collectFindings(repo: string, r: ScanResult): ClusterFinding[] {
       severity: i.severity,
       type: "race-condition",
       description: i.description,
-      files: i.file ? [path.relative(repo, i.file)] : [],
+      files: relOf(i.file) ? [relOf(i.file)] : [],
     });
   }
 
@@ -111,7 +116,7 @@ export function collectFindings(repo: string, r: ScanResult): ClusterFinding[] {
       severity: i.severity,
       type: "unused-export",
       description: i.description,
-      files: i.file ? [path.relative(repo, i.file)] : [],
+      files: relOf(i.file) ? [relOf(i.file)] : [],
     });
   }
 
@@ -129,7 +134,7 @@ export function collectFindings(repo: string, r: ScanResult): ClusterFinding[] {
       description: `near-identical function bodies (${(d.similarity * 100).toFixed(0)}% similar, ${d.lines} lines): ${d.name} in ${d.files
         .map((f) => path.basename(f.file))
         .join(" vs ")}`,
-      files: d.files.map((f) => path.relative(repo, f.file)),
+      files: d.files.map((f) => relOf(f.file)),
     });
   }
 

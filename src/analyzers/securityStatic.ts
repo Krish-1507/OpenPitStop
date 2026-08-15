@@ -267,9 +267,15 @@ export const STATIC_SECURITY_RULES: StaticRule[] = [
     describe: () =>
       "password value compared directly with ==/=== — no key-derivation function in sight; cleartext compares are trivially leaked",
     fix: "compare only salted hashes: await bcrypt.compare(input, user.hash) — never plaintext ===",
-    accept: (m) => {
+    accept: (m, content) => {
       const s = m[0];
       if (/\b(?:bcrypt|compare|hash|argon2|scrypt)\b/.test(s)) return false;
+      // Object-equality methods (dataclass __eq__ / getattr pulls) compare two
+      // in-memory objects — a shape check, not a credential check.
+      const lineStart = content.lastIndexOf("\n", m.index) + 1;
+      const lineEnd = content.indexOf("\n", m.index);
+      const line = content.slice(lineStart, lineEnd === -1 ? undefined : lineEnd);
+      if (/\bgetattr\s*\(|__eq__\s*\(|\.equals\s*\(/.test(line)) return false;
       const reqRefs = (s.match(/req\./g) ?? []).length;
       // password === confirmPassword (both from the request) is a shape check, not a leak.
       return reqRefs < 2;

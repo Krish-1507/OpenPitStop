@@ -2,6 +2,31 @@
 
 All notable changes to this project are documented here.
 
+## [1.4.1] - 2026-08-15
+
+Dogfooding fixes. Running the 1.4.0 scanner against axios, preact and requests
+surfaced two real bugs — both fixed with regression tests.
+
+### Fixed
+
+- **Cross-drive path rendering.** Cluster "shared file" lines (scan box,
+  report, HTML) showed CWD-prefixed paths whenever the scanned repo lived on a
+  different drive than the shell's working directory — hidden for months
+  because self-dogfooding always scanned the same drive. `collectFindings` now
+  normalizes relative and absolute analyzer paths exactly once
+  (`test/correlate.test.ts`).
+- **Password-compare false positive.** The `authentication` rule flagged
+  dataclass `__eq__` methods (`self.password == getattr(other, "password",
+  None)` — requests' `HTTPBasicAuth`). Object-equality comparisons are shape
+  checks, not credential leaks; the rule's accept now skips `getattr`/`__eq__`
+  lines (detect-and-clear regression added).
+
+### Note
+
+- The remaining findings on those repos are real: axios's smoke tests
+  deliberately disable TLS verification; requests runs Basic-auth password
+  flows with no key-derivation function anywhere.
+
 ## [1.4.0] - 2026-08-15
 
 The "spot it, fix it, prove it" release: the security pass grows the four

@@ -4,15 +4,23 @@
 
 ```
 ╔══════════════════  PITSTOP — Repository Scan Complete  ══════════════════╗
-║   Dependency Graph : 2 circular — src/userService.js → src/userRepo.js →  ║
-║   src/userService.js                                                      ║
-║   Security         : 1 issues — high dependency: lodash: Command Injection ║
-║   Root Causes      : 1 root cause(s) → 2 symptom(s)                       ║
-║   1. MEDIUM circular: circular dependency: src/userService.js → ...       ║
-║   Tests            : 2 failed / 2 — 5832ms, 38.46% cov                    ║
-║   Awaiting confirmation to begin autonomous fixing.                       ║
+║   OpenPitStop Score: 50/100 (D)                                            ║
+║   Dependency Graph : 2 circular — src/userService.js → src/userRepo.js →   ║
+║   src/userService.js                                                       ║
+║   Security         : 1 root cause(s) → 2 symptoms (see below)              ║
+║   Root Causes      : 2 root cause(s) → 3 symptom(s)                        ║
+║   1. MEDIUM circular [graph-ead632a4]: circular dependency:                ║
+║   src/userService.js → src/userRepo.js → src/userService.js                ║
+║   2. HIGH code [security-0d098ed0]: [indicated] known credential format    ║
+║   committed in source — anyone with repo access has a live key             ║
+║   Tests            : 2 failed / 2 — 22201ms, 38.46% cov                    ║
+║   Reliability      : 0 flaky · 0 race smells · 2 runs                      ║
 ╚═══════════════════════════════════════════════════════════════════════════╝
 ```
+
+That is **real output** — a fresh `openpitstop scan` of the repo this project
+ships as its demo. Score, root causes with exact file:line, the security
+finding with its fix one line below, honest skips, no invented numbers.
 
 ## The one-liner
 
@@ -38,8 +46,10 @@ Your agent is great at fixing code. It's terrible at *knowing when to stop* — 
 one thing it noticed and declares victory. OpenPitStop gives it an honest feedback loop:
 
 1. **Scan** → `openpitstop` runs real tools (`npm audit`, `jest`, a dependency-graph pass,
-   a structural duplicate-function detector) and prints a **boxed root-cause summary** —
-   circular deps, security issues, broken tests, copy-paste, flaky tests, unused exports.
+   a structural duplicate-function detector, and a 40-rule static security pass) and prints
+   a **boxed root-cause summary** — circular deps, security issues, broken tests, copy-paste,
+   flaky tests, unused exports. Every security finding is labeled `[indicated]`, carries its
+   exact fix, and is never overclaimed as proof.
 2. **Confirm** → the agent prints *"Found N root-cause clusters covering M issues. Reply
    with anything to start."* and **stops**. One pause, never skipped. Nothing is edited until
    you approve.
@@ -67,6 +77,36 @@ one thing it noticed and declares victory. OpenPitStop gives it an honest feedba
 - **Memory.** Every fix it makes is recorded and recalled on later scans, so the loop gets
   smarter on your actual codebase over time.
 
+## The security pass: spot it, fix it, prove it
+
+The static pass hunts **nine vulnerability classes** — SQL injection, command injection,
+XSS, path traversal, CSRF, hardcoded secrets, rate-limiting gaps, database lockdown
+(privileged DSNs, `GRANT ALL`/`SUPERUSER`, TLS-free connections, no row-level security),
+data exposure (credentials/PII in responses, PII in logs, `SELECT *`), and hidden
+vulnerabilities (disabled TLS verification, JWT `alg: none`, `eval(atob(…))`, security
+TODOs, lint/type bypasses, tokens in `localStorage`, committed minified bundles and
+backup files). Every rule was written as a detect-and-clear pair: the regression suite
+plants the vulnerable fixture, then applies the fix the tool itself recommends and
+proves zero findings remain — 40+ cases today. Nothing is reported clean that wasn't
+scanned, and anything missing is honestly `skipped — not found`.
+
+## The test pyramid
+
+```text
+╔═════════════════════  PITSTOP — Test Pyramid  ═════════════════════╗
+║   unit          : 1 fail · 2 pass · 1.1s (npm script (test))        ║
+║   integration   : 1 pass · 0 fail · 1.0s (npm script (test:it))     ║
+║   e2e           : 1 fail · 0 pass · 1.0s (npm script (test:e2e))    ║
+║   Failing tests — fix these, then re-run:                           ║
+║       ✕ checkout flow                                               ║
+║   2 layer(s) failing — OpenPitStop Test Pyramid verdict: DO NOT SHIP ║
+╚════════════════════════════════════════════════════════════════════╝
+```
+
+`pitstop test` discovers your unit, integration and e2e layers (npm scripts first, then
+vitest/jest/mocha/pytest/playwright/cypress by config), runs them, names the failing
+tests, never invents a skipped layer, and exits 1 on any failure — so CI can trust it.
+
 ## Try it in under 2 minutes — no messy codebase needed
 
 Don't want to point it at your own repo yet? The repo ships an intentionally-broken demo
@@ -84,7 +124,8 @@ verify → re-scan → report. No menu, no waiting — bare `/pitstop` just runs
 single mode (`--scan-only`, `--demo`, `--ledger`, `--integrity-only`, `--pen`), any
 question scopes the run (`/pitstop check the security of this app` maps to the pen test,
 restates its interpretation in one line, confirms before fixing, and fixes only what you
-asked), and `/pitstop --menu` prints the full mode list on demand.
+asked), `/pitstop test` runs the full unit/integration/e2e pyramid, and `/pitstop --menu`
+prints the full mode list on demand.
 
 The demo source is at [`demo-repo/`](demo-repo/) if you want to read exactly what it plants
 in the code before you watch it get fixed.
@@ -96,6 +137,8 @@ in the code before you watch it get fixed.
 - It won't reformat your entire codebase; it fixes *root causes the scan actually finds*.
 - It's deliberately conservative: one cluster at a time, max 2 attempts per cluster, 10
   iterations max, then it stops and tells you what's left.
+- Static security findings are **indicated, never proven** — the pen test is what proves.
+  The referee never sells a guess as a fact.
 
 ## Show, don't tell
 
@@ -147,6 +190,15 @@ was built and deleted.
   blocks, exit 1), then deletes the failing test (gate blocks, exit 2) —
   while the tamper-evident baseline keeps verifying. Deterministic, scripted,
   safe to run in a live room.
+- **Round two (1.3.x/1.4.x).** The security pass grew from the original five
+  mandated classes to nine, every rule with its detect-and-clear regression
+  pair, and `pitstop test` added the honest test pyramid. Both were validated
+  the hard way: running the tool on axios, preact and requests surfaced two
+  real bugs in the tool itself (a cross-drive path-rendering bug and a
+  password-compare false positive) — both fixed with regression tests, and
+  the remaining findings on those repos are real (axios's smoke tests
+  deliberately disable TLS verification; requests handles password auth
+  without any KDF).
 
 **Deliberately not built** (and why): no cloud/dashboard (the numbers are
 local and auditable — that's the point), no plugin marketplace (the
@@ -156,8 +208,9 @@ the measurement (the referee must be deterministic to be a referee). Each
 was sketched, found to dilute the thesis, and cut.
 
 The git history shows the cuts in order: `scan` → `try`/`gate`/evidence →
-`share`/`honesty` → `pen`/`watch`/`drive`/`budget`. Four phases, each one a
-layer of the same promise: *the agent finally has a referee.*
+`share`/`honesty` → `pen`/`watch`/`drive`/`budget` → security round 2 +
+`test` pyramid. Five phases, each one a layer of the same promise: *the
+agent finally has a referee.*
 
 ## Built for the boring, important stuff
 
