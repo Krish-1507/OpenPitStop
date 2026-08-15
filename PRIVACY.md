@@ -15,11 +15,13 @@ explicit cases listed below.
 - **No SaaS, no accounts, no cloud.** There is no OpenPitStop server, no
   dashboard, no login. Nothing to sign up for.
 - **No code uploads.** `scan`, `try`, `verify`, `gate`, `integrity`, `pen`,
-  `ledger`, `watch`, `trends`, `digest`, `share`, `honesty` — every one of
-  these analyzes your files locally. Your source never leaves your machine.
+  `ledger`, `watch`, `trends`, `digest`, `share`, `honesty`, `test` — every
+  one of these analyzes your files locally. Your source never leaves your
+  machine.
 - **No third-party processes** are ever spawned that you didn't initiate
   (`scan` runs the scanners you have installed, e.g. `gitleaks`, `semgrep`,
-  `osv-scanner`, `pip-audit` — or honestly reports them as `skipped`).
+  `osv-scanner`, `pip-audit`; `test` runs your own test scripts — or honestly
+  reports them as `skipped`).
 - **The static security pass is fully offline.** It reads files and matches
   patterns on your machine; it never sends code anywhere. The only network
   calls in the entire security pipeline are the dependency audits listed

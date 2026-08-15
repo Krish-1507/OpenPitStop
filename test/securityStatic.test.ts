@@ -418,6 +418,269 @@ app.post("/login", loginLimiter, async (req, res) => {
 `,
     },
   },
+  {
+    name: "rate-limiting: limiter set so high it is a decoration",
+    category: "rate-limiting",
+    vulnerable: {
+      "limits.js": `
+const rateLimit = require("express-rate-limit");
+const limiter = rateLimit({ windowMs: 60 * 1000, max: 1000 });
+app.use("/api", limiter);
+`,
+    },
+    fixed: {
+      "limits.js": `
+const rateLimit = require("express-rate-limit");
+const limiter = rateLimit({ windowMs: 60 * 1000, max: 5 });
+app.use("/api", limiter);
+`,
+    },
+  },
+  {
+    name: "rate-limiting repo-level: state-changing routes with no limiter anywhere",
+    category: "rate-limiting",
+    vulnerable: {
+      "server.js": `
+app.post("/transfer", (req, res) => {
+  transfer(req.body.amount, req.body.to);
+});
+app.post("/comment", (req, res) => {
+  save(req.body.text);
+});
+`,
+    },
+    fixed: {
+      "server.js": `
+const rateLimit = require("express-rate-limit");
+const limiter = rateLimit({ windowMs: 60 * 1000, max: 10 });
+app.post("/transfer", limiter, (req, res) => {
+  transfer(req.body.amount, req.body.to);
+});
+app.post("/comment", limiter, (req, res) => {
+  save(req.body.text);
+});
+`,
+    },
+  },
+  {
+    name: "database: privileged account in committed connection string",
+    category: "database",
+    vulnerable: {
+      "config.js": `
+const DATABASE_URL = "postgres://postgres:postgres@localhost:5432/app";
+const pool = new Pool({ connectionString: DATABASE_URL });
+`,
+    },
+    fixed: {
+      "config.js": `
+const DATABASE_URL = \`postgres://app_user:\${process.env.DB_PASSWORD}@db.internal:5432/app\`;
+const pool = new Pool({ connectionString: DATABASE_URL });
+`,
+    },
+  },
+  {
+    name: "database: GRANT ALL PRIVILEGES in migrations",
+    category: "database",
+    vulnerable: {
+      "migrate.sql": `
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO web_app;
+`,
+    },
+    fixed: {
+      "migrate.sql": `
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO web_app;
+`,
+    },
+  },
+  {
+    name: "database: TLS-free connection",
+    category: "database",
+    vulnerable: {
+      "db.js": `
+const pool = new Pool({
+  host: "db.example.com",
+  sslmode: "disable",
+  user: "app_user",
+});
+`,
+    },
+    fixed: {
+      "db.js": `
+const pool = new Pool({
+  host: "db.example.com",
+  sslmode: "require",
+  user: "app_user",
+});
+`,
+    },
+  },
+  {
+    name: "database repo-level: direct DB access with no row-level security",
+    category: "database",
+    vulnerable: {
+      "server.js": `
+app.get("/orders", (req, res) => {
+  db.query("SELECT * FROM orders WHERE tenant_id = ?", [req.user.tenant], (e, rows) => {
+    res.json(rows);
+  });
+});
+`,
+    },
+    fixed: {
+      "server.js": `
+ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
+CREATE POLICY tenant_isolation ON orders USING (tenant_id = current_setting("app.tenant_id"));
+app.get("/orders", (req, res) => {
+  db.query("SELECT * FROM orders WHERE tenant_id = ?", [req.user.tenant], (e, rows) => {
+    res.json(rows);
+  });
+});
+`,
+    },
+  },
+  {
+    name: "data-exposure: password in the API response body",
+    category: "data-exposure",
+    vulnerable: {
+      "route.js": `
+app.get("/me", (req, res) => {
+  const user = db.getUser(req.user.id);
+  res.json({ id: user.id, name: user.name, password: user.password });
+});
+`,
+    },
+    fixed: {
+      "route.js": `
+app.get("/me", (req, res) => {
+  const user = db.getUser(req.user.id);
+  res.json({ id: user.id, name: user.name });
+});
+`,
+    },
+  },
+  {
+    name: "data-exposure: full user object returned",
+    category: "data-exposure",
+    vulnerable: {
+      "route.js": `
+app.get("/profile", (req, res) => {
+  res.json(user);
+});
+`,
+    },
+    fixed: {
+      "route.js": `
+app.get("/profile", (req, res) => {
+  const { password, hash, ...safe } = user;
+  res.json(safe);
+});
+`,
+    },
+  },
+  {
+    name: "data-exposure: PII in logs",
+    category: "data-exposure",
+    vulnerable: {
+      "pay.js": `
+console.log("payment", cardNumber, req.body.card_number, ssn);
+`,
+    },
+    fixed: {
+      "pay.js": `
+console.log("payment", { cardLast4: cardNumber.slice(-4) });
+`,
+    },
+  },
+  {
+    name: "hidden-vulnerabilities: TLS verification disabled",
+    category: "hidden-vulnerabilities",
+    vulnerable: {
+      "client.js": `
+const https = require("https");
+https.request(url, { rejectUnauthorized: false }, (res) => {});
+`,
+    },
+    fixed: {
+      "client.js": `
+const https = require("https");
+https.request(url, { rejectUnauthorized: true }, (res) => {});
+`,
+    },
+  },
+  {
+    name: "hidden-vulnerabilities: JWT accepts alg none",
+    category: "hidden-vulnerabilities",
+    vulnerable: {
+      "auth.js": `
+const jwt = require("jsonwebtoken");
+jwt.verify(token, secret, { algorithms: ["none"] });
+`,
+    },
+    fixed: {
+      "auth.js": `
+const jwt = require("jsonwebtoken");
+jwt.verify(token, secret, { algorithms: ["HS256"] });
+`,
+    },
+  },
+  {
+    name: "hidden-vulnerabilities: token in localStorage",
+    category: "hidden-vulnerabilities",
+    vulnerable: {
+      "client.js": `
+localStorage.setItem("auth_token", token);
+`,
+    },
+    fixed: {
+      "client.js": `
+document.cookie = "session=" + token + "; HttpOnly; Secure; SameSite=Lax";
+`,
+    },
+  },
+  {
+    name: "hidden-vulnerabilities: security TODO left in code",
+    category: "hidden-vulnerabilities",
+    vulnerable: {
+      "server.js": `
+// TODO: remove this insecure fallback password
+const auth = checkPassword(input, "admin1234");
+`,
+    },
+    fixed: {
+      "server.js": `
+const auth = checkPassword(input, process.env.APP_PASSWORD);
+`,
+    },
+  },
+  {
+    name: "hidden-vulnerabilities: backup file committed",
+    category: "hidden-vulnerabilities",
+    vulnerable: {
+      "app.js.bak": `
+const apiKey = "sk-abcdefghijklmnopqrstuvwxyz123456";
+app.listen(3000);
+`,
+    },
+    fixed: {
+      "app.js": `
+app.listen(3000);
+`,
+    },
+  },
+  {
+    name: "hidden-vulnerabilities: eval decoding an encoded payload",
+    category: "hidden-vulnerabilities",
+    vulnerable: {
+      "boot.js": `
+eval(atob(payload));
+`,
+    },
+    fixed: {
+      "boot.js": `
+applyPayload(payload);
+`,
+    },
+  },
 ];
 
 test("the 5 mandated vulnerability classes + extras: detection", () => {
@@ -459,7 +722,7 @@ test("applying the fix clears the finding (identify-and-solve is real)", () => {
 });
 
 test("rule registry is internally consistent", () => {
-  assert.ok(STATIC_SECURITY_RULES.length >= 20, "covers the 5 mandated classes + extras");
+  assert.ok(STATIC_SECURITY_RULES.length >= 30, "covers the mandated classes + extras");
   const cats = new Set(STATIC_SECURITY_RULES.map((r) => r.category));
   for (const required of [
     "sql-injection",
@@ -467,6 +730,10 @@ test("rule registry is internally consistent", () => {
     "authorization",
     "input-validation",
     "secret",
+    "rate-limiting",
+    "database",
+    "data-exposure",
+    "hidden-vulnerabilities",
   ]) {
     assert.ok(cats.has(required), `mandated class ${required} has rules`);
   }

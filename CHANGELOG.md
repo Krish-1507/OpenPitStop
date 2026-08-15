@@ -2,6 +2,61 @@
 
 All notable changes to this project are documented here.
 
+## [1.4.0] - 2026-08-15
+
+The "spot it, fix it, prove it" release: the security pass grows the four
+requested classes (rate limiting, database lockdown, data exposure, hidden
+vulnerabilities), and a new `pitstop test` command runs the full test pyramid —
+unit, integration and e2e — with failing-test names and an honest skip for
+layers that don't exist.
+
+### Added
+
+- **Security classes** (all offline, deterministic, every finding carries its
+  `fix`):
+  - `rate-limiting` — repo-level "state-changing routes with no limiter",
+    limiters with `max ≥ 100` (decorations), disabled limiters
+    (`windowMs: 0` / `max: 0`).
+  - `database` — privileged accounts in committed connection strings
+    (`postgres://postgres:postgres@…`), `GRANT ALL PRIVILEGES` / `SUPERUSER`
+    grants, TLS-free DB connections (`sslmode=disable`, `ssl: false`),
+    hardcoded DB passwords, repo-level "direct DB access with no
+    row-level security".
+  - `data-exposure` — credentials/PII in API response bodies, full DB
+    objects returned (`res.json(user)`), PII in logs, `SELECT * FROM`.
+  - `hidden-vulnerabilities` — disabled TLS verification
+    (`rejectUnauthorized: false`, `NODE_TLS_REJECT_UNAUTHORIZED`, `curl -k`),
+    JWT `alg: "none"`, `eval(atob(…))` deobfuscation, security TODOs, lint/
+    type bypasses on sensitive lines, tokens in `localStorage`, committed
+    minified bundles, backup/editor files (`*.bak`/`*.swp`/`~`) and
+    `.htpasswd` in the tree.
+- **`pitstop test [path] [--unit] [--integration] [--e2e]`** — the test
+  pyramid. Discovers unit/integration/e2e layers (npm scripts first, then
+  vitest/jest/mocha/pytest/playwright/cypress by config), runs them, reports
+  per-layer pass/fail with failing-test names, never invents a skipped layer,
+  exits 1 on any failure. Nested `node --test` contexts are neutralized so the
+  command works even when invoked from inside another test run.
+- `.sql` files now scanned (migrations are app code); `.env` files remain
+  exempt from secret rules (the `.gitignore` protection governs them).
+
+### Tests
+
+- `test/securityStatic.test.ts`: 16 new detect-and-clear cases (vulnerable
+  fixture must be found; the same fixture with the documented fix applied
+  must be clean) → 39 cases across the 9 mandated classes + extras.
+- `test/testPyramid.test.ts`: discovery (scripts, config fallbacks, bare
+  repo), output parsing (jest/vitest/mocha/pytest/node:test), failing-name
+  extraction, and real end-to-end runs (passing and failing suites) — 8 tests.
+
+### Docs
+
+- `docs/security.md`: new sections for rate limiting, database lockdown, data
+  exposure, hidden vulnerabilities, and the test pyramid.
+- `README.md`: updated security posture list, new "The test pyramid" section,
+  `pitstop test` in the command table (24 commands).
+- `PRIVACY.md`: `test` added to the no-uploads list (runs your own scripts
+  locally, no network).
+
 ## [1.3.0] - 2026-08-15
 
 The security release: the static vulnerability pass that identifies **and

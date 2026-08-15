@@ -139,6 +139,7 @@ the closest match. Never run the full scan just to decide:
 |---|---|---|
 | app security / vulnerabilities / "is my app hackable" / "check the security" | `!npx openpitstop pen` (add `--fix` only if they asked you to fix) | report proven/indicated/unproven verdicts honestly |
 | tests, flakiness, coverage, a failing suite | `!npx openpitstop scan` | read the Tests + Reliability lines; no fixes unless asked |
+| "run my tests" / unit tests / integration tests / e2e / the test pyramid / "are my tests passing?" | `!npx openpitstop test` (add `--unit`/`--integration`/`--e2e` if they named one layer) | print the boxed pyramid verbatim; if a layer failed, list the failing tests and offer to fix them (confirmation pause first) |
 | the last commit / whether an agent cheated / "verify my agent's work" | `!npx openpitstop integrity` | print the boxed verdict verbatim and stop |
 | one finding id | `!npx openpitstop inspect <id>` (or `repro <id>` if they want a regression test) | only that finding |
 | one file or route | a scoped `!npx openpitstop scan` / `inspect` on the relevant finding | only that area |

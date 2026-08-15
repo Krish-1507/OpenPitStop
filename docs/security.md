@@ -111,6 +111,104 @@ Fix:
 | `logging` | `console.log(...password...)` | log identifiers, redact secrets |
 | `logging` | `res.json({ error: err.stack })` | log the stack server-side, return a correlation id |
 
+## Rate limiting — "scripted abuse is an attack too"
+
+Detection (all `rate-limiting`):
+- State-changing endpoints (`app.post/put/delete/patch`) exist but **no** rate
+  limiter appears anywhere in the repo (repo-level finding).
+- `rateLimit({ max: N })` with N ≥ 100 — a limiter set so high it is a
+  decoration, not a defense.
+- `windowMs: 0` / `max: 0` — an effectively disabled limiter.
+
+Fix:
+- `express-rate-limit` on auth and every state-changing route:
+  `windowMs: 60_000, max: 5–10` per IP+account; tune the window for legit
+  bursts, never the ceiling for attackers.
+
+## Database lockdown — "the DB role is not a superuser"
+
+Detection (all `database`):
+- Connection strings using a privileged account with a committed password:
+  `postgres://postgres:postgres@...` (also `root`/`sa`/`admin`/`superuser`).
+- `GRANT ALL PRIVILEGES` or `ALTER/CREATE USER|ROLE ... SUPERUSER` in
+  migrations.
+- Connections without enforced TLS: `sslmode=disable|allow`, `ssl: false`,
+  `useSSL: false`, `encrypt: false`.
+- Database passwords hardcoded in config (`db_password: "..."` etc.).
+- A backend with direct DB access but **no row-level security** anywhere
+  (repo-level finding): tenant isolation is one missing `WHERE` clause away
+  from leaking everyone's data.
+
+Fix:
+- Create a scoped role with only what the app needs
+  (`GRANT SELECT, INSERT, UPDATE, DELETE` — no DDL), a strong generated
+  password in `.env`, and connect as that role.
+- Run migrations with a separate CI-only credential.
+- `sslmode=require` on every connection.
+- Enable RLS on every table and add policies:
+  `ALTER TABLE orders ENABLE ROW LEVEL SECURITY; CREATE POLICY tenant_isolation ON orders USING (tenant_id = current_setting("app.tenant_id"));`
+  and set `app.tenant_id` once per request.
+
+## Data exposure — "the client doesn't need the hash"
+
+Detection (all `data-exposure`):
+- Credentials or PII in API response bodies:
+  `res.json({ ...password/hash/apiKey/ssn... })`.
+- Full DB objects shipped to the client: `res.json(user)` /
+  `res.json(orders)` — password/hash/internal fields ride along.
+- PII logged: `console.log(...cardNumber/ssn/iban/cvv...)`.
+- `SELECT * FROM ...` — every column (including secrets) goes to every caller.
+
+Fix:
+- Return only what the UI needs: `res.json({ id: user.id, name: user.name })`,
+  or `const { password, hash, ...safe } = user; res.json(safe)`, or a
+  `toJSON()` that strips secrets.
+- Name columns: `SELECT id, email, name FROM users`.
+- Log masked tokens: `card.slice(-4)`.
+
+## Hidden vulnerabilities — "the protections that were switched off"
+
+Detection (all `hidden-vulnerabilities`):
+- TLS verification silently disabled: `rejectUnauthorized: false`,
+  `NODE_TLS_REJECT_UNAUTHORIZED=0`, `curl -k`, `wget --no-check-certificate`.
+- JWTs accepting `alg: "none"` — a forged unsigned token validates.
+- Obfuscation into `eval`: `eval(atob(...))`, `eval(Buffer.from(...))`.
+- Comments acknowledging an unfinished security gap:
+  `// TODO/FIXME/HACK ... password/bypass/insecure/...`.
+- Lint/type checks bypassed on security-sensitive lines:
+  `eslint-disable-next-line ... password/eval/sql/...`.
+- Tokens kept in `localStorage` — any XSS walks away with them.
+- Committed minified bundles (logic hidden from review), backup/editor files
+  (`*.bak`, `*.old`, `*.swp`, `*~` — older snapshots often hold secrets), and
+  `.htpasswd` credential files.
+
+Fix:
+- Remove the override: `rejectUnauthorized: true` (the default); pin the CA if
+  it's a private cert; never `curl -k` in scripts.
+- Verify with an allowlist: `jwt.verify(token, secret, { algorithms: ['HS256'] })`.
+- Replace decoder-eval chains with the plain logic.
+- Resolve security TODOs now or track them as blocking tickets.
+- Fix the underlying issue instead of suppressing it.
+- httpOnly + Secure + SameSite cookie for the session.
+- Commit source (with maps/signatures), delete backups, `gitignore` `*.bak`.
+
+## The test pyramid — unit, integration and e2e
+
+`pitstop test [path] [--unit] [--integration] [--e2e]` discovers and runs all
+three layers of the test pyramid:
+
+| Layer | Discovered via | Reported |
+|---|---|---|
+| unit | `test` / `test:unit` / `unit` scripts; vitest, jest, mocha, pytest fallbacks | pass/fail counts |
+| integration | `test:integration` / `test:it` / `integration` scripts; vitest/jest/pytest on `tests/integration` dirs | pass/fail counts |
+| e2e | `test:e2e` / `e2e` / `test:playwright` / `test:cypress` scripts; playwright/cypress configs | pass/fail counts + failing test names |
+
+Every layer that cannot be found is reported `skipped — no suite discovered`
+rather than silently ignored, counts are parsed from the runner's own output
+(never invented), failing tests are listed by name so the fix list is
+actionable, and the command exits 1 the moment any layer fails — CI can trust
+it. Tests run on your machine, against your repo, with no external calls.
+
 ## Honesty contract
 
 - Every static finding is `[indicated]` and carries a `fix` — the report is a

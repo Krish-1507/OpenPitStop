@@ -25,6 +25,7 @@ import { readyCheckCmd } from "./commands/readyCheck.js";
 import { budgetCmd } from "./commands/budget.js";
 import { watch } from "./commands/watch.js";
 import { drive } from "./commands/drive.js";
+import { testCmd } from "./commands/test.js";
 import { guidedFirstRun } from "./firstRun.js";
 
 /**
@@ -102,5 +103,6 @@ program.addCommand(readyCheckCmd);
 program.addCommand(budgetCmd);
 program.addCommand(watch);
 program.addCommand(drive);
+program.addCommand(testCmd);
 
 program.parseAsync(process.argv);

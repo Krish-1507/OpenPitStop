@@ -23,6 +23,17 @@ import type { ScanIssue } from "./types.js";
  *     without role checks
  *   - Input validation: file uploads without limits, unvalidated money
  *     fields, eval/Function sinks, prototype pollution
+ *   - Rate limiting: missing limiters on state-changing endpoints, limits
+ *     set so high they are decorations, disabled limiters
+ *   - Database lockdown: privileged accounts in committed connection
+ *     strings, GRANT ALL/SUPERUSER, TLS-free connections, hardcoded DB
+ *     passwords, missing row-level security
+ *   - Data exposure: credentials/PII in API responses, full DB rows sent
+ *     to the client, PII in logs, SELECT *
+ *   - Hidden vulnerabilities: disabled TLS verification, alg:none JWTs,
+ *     eval-atob deobfuscation, security TODOs, lint/type bypasses on
+ *     sensitive code, tokens in localStorage, committed minified bundles,
+ *     backup/editor files and .htpasswd in the tree
  *   - Config & transport: CORS+credentials, missing security headers,
  *     cleartext HTTP, insecure cookies, CSRF exposure, stack leaks,
  *     sensitive logging, weak hashing
@@ -68,6 +79,7 @@ const CODE_EXTS = new Set([
   ".html",
   ".vue",
   ".svelte",
+  ".sql",
 ]);
 
 /** Paths that a sane app treats as needing protection. */
@@ -195,6 +207,12 @@ export const STATIC_SECURITY_RULES: StaticRule[] = [
     describe: () =>
       "user-supplied URL reaches an HTTP client — SSRF lets attackers hit internal services (169.254.169.254)",
     fix: "allowlist destinations: only https + your domain, or an explicit allowlist; never fetch a user-supplied URL",
+    accept: (_m, content) => {
+      // A loopback/localhost guard immediately before the call is a real
+      // (partial) mitigation for internal-probe scenarios — skip it.
+      const before = content.slice(Math.max(0, _m.index - 200), _m.index);
+      return !/\b(?:isLoopback|isLocalhost|isPrivate)\s*\(/.test(before);
+    },
   },
 
   /* --------------------------- XSS ----------------------------- */
@@ -417,6 +435,154 @@ export const STATIC_SECURITY_RULES: StaticRule[] = [
       "error.stack is shipped to the client — file paths, library versions and internals leak to attackers",
     fix: 'log the stack server-side; respond with { error: "internal", id } and keep a correlation id',
   },
+
+  /* ---------------------- Rate limiting ----------------------- */
+  {
+    category: "rate-limiting",
+    severity: "medium",
+    re: /\b(?:rateLimit|rate-limit|limiter)\w*\s*\(\s*\{[^}]{0,300}?\bmax\s*:\s*(\d{3,})\b/g,
+    describe: (m) =>
+      `rate limiter allows ${m[1]} requests per window — that's a decoration, not a defense: brute-force and abuse still fit through`,
+    fix: "tighten to 5–10 per window per IP+account on auth and state-changing routes (express-rate-limit: windowMs: 60_000, max: 5)",
+  },
+  {
+    category: "rate-limiting",
+    severity: "low",
+    re: /\bwindowMs\s*:\s*0\b|\bmax\s*:\s*0\b/g,
+    describe: () =>
+      "rate limiter configured with a zero window or zero max — effectively disabled middleware",
+    fix: "give the limiter a real window and max (5–10 per minute), or delete it until you can",
+  },
+
+  /* --------------------- Database lockdown -------------------- */
+  {
+    category: "database",
+    severity: "high",
+    re: /\b(?:DATABASE_URL|DB_URL|CONNECTION_STRING|connectionString|connection_?string|dsn|db_?uri|mongo(?:db)?_?uri|jdbc_?url|MYSQL_URL|PG_URL)\s*[:=]\s*["'][a-z0-9+]+:\/\/\s*(postgres|root|sa|admin|superuser):([^@\s/]{0,40})@/gi,
+    describe: (m) =>
+      `connection string uses the privileged account ${m[1]} with a committed password — every database in the fleet shares one superuser credential`,
+    fix: 'create a scoped role with only the privileges the app needs (SELECT/INSERT/UPDATE/DELETE, no DDL), a strong generated password in .env, and connect as it: postgres://app_user:${process.env.DB_PASSWORD}@db.internal:5432/app',
+    accept: (m) => Boolean(m[2]),
+  },
+  {
+    category: "database",
+    severity: "high",
+    re: /\bGRANT\s+ALL\s+PRIVILEGES\b|(?:ALTER|CREATE)\s+(?:USER|ROLE)\b[^;\n]{0,80}\b(?:SUPERUSER|SYSADMIN|DBA)\b/gi,
+    describe: () =>
+      "database grants hand out ALL PRIVILEGES / SUPERUSER — any compromise of this app is now a compromise of every database",
+    fix: "grant only what the app needs: GRANT SELECT, INSERT, UPDATE, DELETE ON <tables> TO app_user; run migrations with a separate CI-only credential",
+  },
+  {
+    category: "database",
+    severity: "medium",
+    re: /\bsslmode\s*[:=]\s*["']?(?:disable|allow)["']?|\bssl\s*:\s*false\b|\buseSSL\s*:\s*false\b|\bencrypt\s*:\s*false\b|\btls\s*:\s*false\b/gi,
+    describe: () =>
+      "database connection without enforced TLS — queries, rows and credentials travel cleartext",
+    fix: 'require TLS on every connection: sslmode=require (or ssl: { rejectUnauthorized: true }); disable only for a localhost dev sandbox',
+    accept: (_m, content) => {
+      const before = content.slice(Math.max(0, _m.index - 300), _m.index);
+      return !/(?:localhost|127\.0\.0\.1|192\.168\.)/.test(before);
+    },
+  },
+  {
+    category: "database",
+    severity: "high",
+    re: /\b(?:db[_-]?password|database[_-]?password|pg[_-]?password|mysql[_-]?password|mongo(?:db)?[_-]?password|redis[_-]?password|jdbc[^;"]{0,30}password)\s*[:=]\s*["']([^"']{3,})["']/gi,
+    describe: (m) =>
+      `database password hardcoded in config (${m[1].length} chars) — every clone of the repo holds the key to the database`,
+    fix: "rotate it now, then read from the environment: password: process.env.DB_PASSWORD with DB_PASSWORD in .env (gitignored) and the CI secret store",
+  },
+
+  /* ---------------------- Data exposure ----------------------- */
+  {
+    category: "data-exposure",
+    severity: "high",
+    re: /\b(?:res|response)\.(?:json|send)\s*\(\s*\{[^{}]{0,200}\b(?:password|passwd|hash|apiKey|api_key|client_secret|secret|cardNumber|card_number|ssn|cvv|iban)\b[^{}]{0,40}\}/g,
+    describe: () =>
+      "credentials or PII in the API response body — the client never needed them, and now every log, XSS and third-party script can read them",
+    fix: 'return only what the UI needs: res.json({ id: user.id, name: user.name }) — never password/hash/apiKey; or a toJSON() that strips secrets',
+  },
+  {
+    category: "data-exposure",
+    severity: "medium",
+    re: /\b(?:res|response)\.(?:json|send)\s*\(\s*(user|users|account|accounts|profile|customer|order|orders)\b[\s\S]{0,120}/g,
+    describe: (m) =>
+      `full ${m[1]} object(s) returned to the client — if that's a DB row, password/hash/internal fields ride along`,
+    fix: "strip before sending: const { password, hash, ...safe } = user; res.json(safe) — or map explicit fields",
+    accept: (m) => !/\b(?:toJSON|pick|omit|select|strip|safeUser|sanitize)\b/.test(m[0]),
+  },
+  {
+    category: "data-exposure",
+    severity: "medium",
+    re: /\bconsole\.(?:log|info|debug|warn)\s*\([\s\S]{0,120}?(?:cardNumber|card_number|ssn|nationalId|bankAccount|iban|cvv|creditCard|passportNumber|dateOfBirth)\b[\s\S]{0,40}?\)/g,
+    describe: () =>
+      "PII (card/SSN/IBAN…) reaches the log pipeline — a data breach becomes searchable in log storage",
+    fix: "log a masked token, never the value: console.log({ cardLast4: card.slice(-4) })",
+    accept: (m) =>
+      !/\b(?:last4|last_?4|mask|redact|slice\(\s*-4\s*\)|\*{3})/i.test(m[0]),
+  },
+  {
+    category: "data-exposure",
+    severity: "medium",
+    re: /\bSELECT\s+\*\s+FROM\b/gi,
+    describe: () =>
+      "SELECT * — every column (password, hash, internal flags) ships to every caller; one careless response leaks the whole row",
+    fix: "name the columns you need: SELECT id, email, name FROM users — narrower columns, narrower blast radius",
+  },
+
+  /* ------------------ Hidden vulnerabilities ------------------ */
+  {
+    category: "hidden-vulnerabilities",
+    severity: "high",
+    re: /\brejectUnauthorized\s*:\s*false\b|\bNODE_TLS_REJECT_UNAUTHORIZED\s*[:=]\s*["']?0["']?\b|\bcurl\s+[^;\n]{0,60}-[kK]\b|\bwget\s+[^;\n]{0,60}--no-check-certificate\b/g,
+    describe: () =>
+      "TLS verification silently disabled — every 'secure' connection is MITM-able and nothing will ever complain",
+    fix: "remove the override: rejectUnauthorized: true (default), drop NODE_TLS_REJECT_UNAUTHORIZED, never curl -k in scripts — pin the CA if it's a private cert",
+    accept: (_m, content) => {
+      const before = content.slice(Math.max(0, _m.index - 300), _m.index);
+      return !/(?:localhost|127\.0\.0\.1|192\.168\.)/.test(before);
+    },
+  },
+  {
+    category: "hidden-vulnerabilities",
+    severity: "high",
+    re: /\b(?:algorithms?|alg)\s*[:=]\s*\[?\s*["']none["']\s*\]?/gi,
+    describe: () =>
+      "JWT accepts alg:none — a forged unsigned token validates as a real session",
+    fix: "verify with an explicit allowlist: jwt.verify(token, secret, { algorithms: ['HS256'] }) — 'none' is never an option",
+  },
+  {
+    category: "hidden-vulnerabilities",
+    severity: "medium",
+    re: /\beval\s*\(\s*(?:atob|Buffer\.from|btoa|decodeURIComponent|unescape)/g,
+    describe: () =>
+      "encoded payload decoded straight into eval — obfuscation exists to hide the logic from review",
+    fix: "delete the decoder-eval chain and replace the payload with the actual logic, plainly; if it's an external artifact, pin and hash it",
+  },
+  {
+    category: "hidden-vulnerabilities",
+    severity: "medium",
+    re: /\/\/\s*(?:TODO|FIXME|HACK|XXX|BUG)\b[^\n]{0,120}?(?:secur|auth|password|token|bypass|insecure|vuln|backdoor|ssl|encrypt|key|secret|csrf)/gi,
+    describe: () =>
+      "a comment acknowledges an unfinished security gap (TODO/FIXME/HACK) — 'we'll fix it later' is how breaches ship",
+    fix: "resolve it now or track it as a blocking ticket with an owner; security TODOs never make a release",
+  },
+  {
+    category: "hidden-vulnerabilities",
+    severity: "medium",
+    re: /\b(?:eslint-disable(?:-next-line|-line)?|@ts-ignore|@ts-nocheck|@ts-expect-error)\b[^\n]{0,80}?(?:password|token|secret|auth|sql|eval|innerHTML|key|cookie)\b/gi,
+    describe: () =>
+      "lint/type checks bypassed on security-sensitive code — the guardrail was switched off right where it mattered",
+    fix: "fix the underlying issue instead of suppressing it; a suppression comment hides the danger, it doesn't remove it",
+  },
+  {
+    category: "hidden-vulnerabilities",
+    severity: "medium",
+    re: /\blocalStorage\.(?:setItem|getItem)\s*\(\s*["'][^"']{0,40}(?:token|jwt|auth|session|refresh|access)[^"']{0,20}["']/gi,
+    describe: () =>
+      "session/access token kept in localStorage — readable by any XSS, exfiltrated by the next compromised script tag",
+    fix: "httpOnly + secure + SameSite cookie for the session; never localStorage for credentials",
+  },
 ];
 
 /**
@@ -494,6 +660,35 @@ export function analyzeSecurityRepoLevel(repo: string): ScanIssue[] {
     });
   }
 
+  if (hasStateChanging && !/\b(?:rateLimit|rate-limit|express-rate-limit|limiter|throttle)\b/i.test(all)) {
+    issues.push({
+      type: "code",
+      category: "rate-limiting",
+      severity: "medium",
+      description:
+        "[indicated] state-changing endpoints exist but no rate limiter appears anywhere — scripted abuse, brute-force and spam are wide open",
+      fix: "express-rate-limit on auth and every state-changing route: 5–10 req/min per IP+account; tune the window for legit bursts",
+    });
+  }
+
+  const hasSqlLayer =
+    /\b(?:CREATE\s+TABLE|ALTER\s+TABLE|SELECT\s+\w+\s+FROM|INSERT\s+INTO|UPDATE\s+\w+\s+SET|\.findMany\s*\(|\.findAll\s*\(|queryRaw|\.query\s*\()/i.test(all);
+  const hasRoutes = /\b(?:app|router)\.(?:get|post|put|delete|patch)\s*\(/g.test(all);
+  if (
+    hasSqlLayer &&
+    hasRoutes &&
+    !/\b(?:ROW\s+LEVEL\s+SECURITY|ENABLE\s+ROW|CREATE\s+POLICY|FORCE\s+ROW\s+LEVEL|security_invoker)\b/i.test(all)
+  ) {
+    issues.push({
+      type: "code",
+      category: "database",
+      severity: "medium",
+      description:
+        "[indicated] backend with direct DB access but no row-level security — tenant isolation is one missing WHERE clause away from leaking everyone's data",
+      fix: 'enable RLS on every table and add policies: ALTER TABLE orders ENABLE ROW LEVEL SECURITY; CREATE POLICY tenant_isolation ON orders USING (tenant_id = current_setting("app.tenant_id")); set app.tenant_id once per request',
+    });
+  }
+
   return issues;
 }
 
@@ -514,7 +709,13 @@ function walkTextFiles(root: string): string[] {
         if (SKIP_DIRS.has(e.name) || e.name.startsWith(".")) continue;
         stack.push(p);
       } else if (e.isFile()) {
-        if (e.name === ".gitignore" || e.name.startsWith(".env") || CODE_EXTS.has(path.extname(e.name))) out.push(p);
+        if (
+          e.name === ".gitignore" ||
+          e.name.startsWith(".env") ||
+          CODE_EXTS.has(path.extname(e.name)) ||
+          /(?:\.(?:bak|old|orig|swp)$|~$|^\.htpasswd$)/.test(e.name)
+        )
+          out.push(p);
       }
     }
   }
@@ -579,13 +780,19 @@ export function analyzeSecurityStatic(repo: string): ScanIssue[] {
     const lineStart = content.lastIndexOf("\n", m.index) + 1;
     const lineEnd = content.indexOf("\n", m.index);
     const lineText = content.slice(lineStart, lineEnd === -1 ? undefined : lineEnd).trim();
-    if (/^(?:\/\/|\/\*|\*|#|<!--|"""|''')/.test(lineText)) return;
+    // Comment lines are skipped EXCEPT for the hidden-vulnerabilities rules —
+    // a "TODO: fix insecure auth" comment IS the finding there.
+    if (
+      /^(?:\/\/|\/\*|\*|#|<!--|"""|''')/.test(lineText) &&
+      rule.category !== "hidden-vulnerabilities"
+    )
+      return;
     if (/\b(?:fix:|describe:|title:|re:)/.test(lineText) || /\(\?:/.test(lineText)) return;
     // Multi-line metadata strings: the marker sits on the previous line
     // ("describe: () =>" then the quoted text on the next line).
     const prevStart = content.lastIndexOf("\n", lineStart - 2) + 1;
     const prevLine = content.slice(prevStart, lineStart - 1).trim();
-    if (/\b(?:describe|fix)\s*:\s*\(?\s*\)?\s*=>/.test(prevLine)) return;
+    if (/\b(?:describe|fix|title|re)\s*:/.test(prevLine)) return;
     // Same-line adjacency false positive: `something.exec(fn) + \`…${…}\`` —
     // a closing paren BEFORE the interpolated/concatenated part means the
     // danger isn't the SQL/shell call on this line.
@@ -607,6 +814,20 @@ export function analyzeSecurityStatic(repo: string): ScanIssue[] {
     });
   };
 
+  const pushNamed = (
+    file: string,
+    category: string,
+    severity: string,
+    description: string,
+    fix: string,
+  ) => {
+    const rel = path.relative(repo, file);
+    const key = `${category}|${rel}|1`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    issues.push({ type: "code", category, severity, file: rel, line: 1, description, fix });
+  };
+
   for (const file of walkTextFiles(repo)) {
     const content = readText(file);
     if (!content) continue;
@@ -614,6 +835,35 @@ export function analyzeSecurityStatic(repo: string): ScanIssue[] {
     // (gitignore protection) is the rule that governs them, not the
     // hardcoded-secret patterns.
     if (path.basename(file).startsWith(".env")) continue;
+
+    const name = path.basename(file);
+    if (/\.min\.js$/.test(name)) {
+      pushNamed(
+        file,
+        "hidden-vulnerabilities",
+        "low",
+        "[indicated] minified bundle committed — logic hidden from review; it can silently carry secrets or backdoor payloads",
+        "commit the source and build the bundle at release time; if a bundle must ship, keep its sourcemap and sign it",
+      );
+    }
+    if (/(?:\.(?:bak|old|orig|swp)$|~$)/.test(name)) {
+      pushNamed(
+        file,
+        "hidden-vulnerabilities",
+        "medium",
+        "[indicated] backup/editor file committed — old snapshots commonly contain earlier (secret-bearing) versions of the code",
+        "delete it and add *.bak, *.old, *.orig, *.swp, *~ to .gitignore",
+      );
+    }
+    if (name === ".htpasswd") {
+      pushNamed(
+        file,
+        "hidden-vulnerabilities",
+        "medium",
+        "[indicated] .htpasswd credential file committed — a password store living in the repository",
+        "rotate the passwords, move auth to the app layer or a secret manager, and delete the file",
+      );
+    }
 
     for (const rule of STATIC_SECURITY_RULES) {
       rule.re.lastIndex = 0;

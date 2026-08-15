@@ -68,6 +68,7 @@ export async function safeExecAsync(
   args: string[],
   cwd: string,
   timeoutMs = 120000,
+  env?: Record<string, string | undefined>,
 ): Promise<{ code: number; stdout: string; stderr: string }> {
   const asStr = (v: unknown): string => (typeof v === "string" ? v : v instanceof Buffer ? v.toString() : "");
   try {
@@ -79,6 +80,7 @@ export async function safeExecAsync(
       windowsHide: true,
       maxBuffer: 50 * 1024 * 1024,
       reject: false,
+      ...(env ? { env } : {}),
     });
     return {
       code: typeof res.exitCode === "number" ? res.exitCode : res.failed ? 1 : -1,

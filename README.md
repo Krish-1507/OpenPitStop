@@ -44,7 +44,7 @@ your agent.
 | [See it in 90 seconds](#see-it-in-90-seconds) | [What OpenPitStop actually does](#what-openpitstop-actually-does) · [Every command](#every-command) |
 | [Architecture](#architecture) | [Known limitations](#known-limitations) · [Contributing](#contributing) · [License](#license) |
 
-**Straight to one feature:** [The scan](#the-scan) · [Verify](#verify) · [Trends](#trends) · [Inspect](#inspect) · [Repro](#repro) · [The pen test](#the-pen-test) · [Report](#report) · [Share](#share) · [Honesty](#honesty) · [Try it on your repo](#try-it-on-your-repo) · [The live shield](#the-live-shield) · [The GitHub Action](#the-github-action) · [The pre-commit hook](#the-pre-commit-hook)
+**Straight to one feature:** [The scan](#the-scan) · [The test pyramid](#the-test-pyramid) · [Verify](#verify) · [Trends](#trends) · [Inspect](#inspect) · [Repro](#repro) · [The pen test](#the-pen-test) · [Report](#report) · [Share](#share) · [Honesty](#honesty) · [Try it on your repo](#try-it-on-your-repo) · [The live shield](#the-live-shield) · [The GitHub Action](#the-github-action) · [The pre-commit hook](#the-pre-commit-hook)
 
 **Receipts:** [Caught in the wild](docs/caught-in-the-wild.md) — real gate output, screenshot-ready.
 
@@ -353,15 +353,21 @@ Security is two layers:
    other stacks, and `gitleaks`/`semgrep` when installed. A failed audit is reported as
    `skipped` with a repair hint — deps that were never scanned are never reported as clean.
 2. **The static vulnerability pass** (fully offline, every language, no tooling needed) —
-   the five classic classes plus the full posture: **SQL injection** (concatenated/
+   the classic classes plus the full posture: **SQL injection** (concatenated/
    interpolated queries, ORM raw builders, `$where`, Python f-strings), **authentication**
    (cleartext password compares, missing hashing, `Math.random` tokens, inline JWT
-   secrets, missing rate limits), **authorization** (unprotected data routes, admin
-   routes without role checks), **input validation** (unrestricted uploads, unvalidated
-   money fields, `eval`, XSS sinks), **secret management** (known credential formats,
-   inline secret literals, committed `.env` files) — plus command injection, path
-   traversal, SSRF, CORS+credentials, missing security headers, CSRF exposure, stack
-   leaks and sensitive logging.
+   secrets), **authorization** (unprotected data routes, admin routes without role
+   checks), **input validation** (unrestricted uploads, unvalidated money fields,
+   `eval`, XSS sinks), **secret management** (known credential formats, inline secret
+   literals, committed `.env` files) — plus command injection, path traversal, SSRF,
+   **rate limiting** (missing limiters on state-changing routes, limits set so high they
+   are decorations), **database lockdown** (privileged accounts in committed connection
+   strings, `GRANT ALL`/`SUPERUSER`, TLS-free connections, missing row-level security),
+   **data exposure** (credentials/PII in API responses, full DB rows shipped to the
+   client, PII in logs), **hidden vulnerabilities** (disabled TLS verification, `alg:
+   none` JWTs, security TODOs, lint/type bypasses, tokens in `localStorage`, committed
+   minified bundles, backup files), CORS+credentials, missing security headers, CSRF
+   exposure, stack leaks and sensitive logging.
 
 Every static finding is labeled `[indicated]` and ships with its exact **fix**; `scan`
 and `try` print the complete identify-and-solve list under the score box, so the report
@@ -378,9 +384,20 @@ Scans are fast by design: the checks run **in parallel**, flaky detection runs t
 (plus `osv-scanner`) results are cached for 24 hours (keyed on the lockfile hash) so
 repeated scans inside one fix loop never hit the registry again.
 
+### The test pyramid
+
+`pitstop test [path] [--unit] [--integration] [--e2e]` runs your **unit, integration and
+e2e** layers the way a senior dev would — it discovers each layer (`test`/`test:unit`,
+`test:integration`/`test:it`, `test:e2e`/`e2e` npm scripts first, then vitest/jest/
+pytest/playwright/cypress by config), executes them, and reports per-layer pass/fail
+counts with the **names of the failing tests**, so the fix list is actionable. Layers it
+cannot find are reported as `skipped — no suite discovered`, never invented; the command
+exits 1 the moment any layer fails, so CI can trust it. (Add `"test:e2e": "playwright
+test"` to a repo and it is picked up automatically on the next run.)
+
 ## Every command
 
-All 23 commands, grouped by job. Run them from inside a repo as `pitstop …` (CLI) or
+All 24 commands, grouped by job. Run them from inside a repo as `pitstop …` (CLI) or
 `npx openpitstop …` (one-off); `/pitstop` in a tool drives the loop, the rest are
 one-shot.
 
@@ -395,6 +412,7 @@ one-shot.
 | `pitstop watch [path] [--interval ms]` | The live shield. Sits in a terminal and re-checks the moment you save a file, printing how the score moved. |
 | `pitstop trends` | Turns your saved scan history into per-category sparklines and a score trend — watch a repo actually improve. |
 | `pitstop budget [path]` | The token bill: how many scans/verifies/pens/repros you've run and the compute-seconds, plus advice on what to reuse in a fix loop. |
+| `pitstop test [path] [--unit] [--integration] [--e2e]` | The test pyramid: discovers and runs the **unit, integration and e2e** layers, reports per-layer pass/fail with the failing test names. Any failing layer → exit 1. See [The test pyramid](#the-test-pyramid). |
 
 **The fix loop — what the agent is told to do**
 
