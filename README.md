@@ -214,6 +214,17 @@ verbatim gate output you can screenshot and share: [Caught in the wild](docs/cau
 One command, that's it:
 
 ```bash
+npx openpitstop
+```
+
+No arguments needed: the CLI detects your AI tools, and asks what you want —
+install `/pitstop` into them, score *this* repo (`try .`), or watch the 90-second
+demo. Pick, and it does it. (In a non-interactive terminal it skips the
+questions and prints the one-line menu instead.)
+
+Or go straight to the files:
+
+```bash
 npx openpitstop@latest install
 ```
 
@@ -403,6 +414,7 @@ one-shot.
 | Command | What it does |
 |---|---|
 | `pitstop install` / `install --uninstall` | Writes `/pitstop` into every supported tool (project + user level). `--uninstall` removes it all. `--hooks` also installs (or with `--uninstall`, removes) the git pre-commit gate. |
+| `pitstop` (no args) | The guided first-run: detects your AI tools and git repo, then offers to install, score this repo (`try .`), or run the demo. Non-TTY prints the one-line menu instead. |
 | `pitstop doctor` | Explains why categories show `skipped`: checks your toolchain (Node, git, jscpd, gitleaks, semgrep, pa11y) and prints copy-paste install hints. |
 | `pitstop prompt [--args …]` | Prints the exact prompt your AI tool expands `/pitstop` into, with your arguments filled in — full transparency into what the agent was told. |
 | `pitstop demo [demo]` | Scaffolds an intentionally-broken demo repo into a fresh temp dir (`demo-repo`, `demo-repo-integrity`, `demo-repo-fintech`, `demo-repo-generators`), initializes git, and scans it immediately. |
@@ -497,8 +509,12 @@ cheat its own referee. That separation is the product.
 
 - **Windows** is CI-verified on every push (build + smoke on `ubuntu-latest` and
   `windows-latest`), and the Windows-specific bugs were reproduced and fixed on a real
-  Windows host during development — but not every workflow has been exhaustively manually
-  tested on Windows.
+  Windows host during development. `watch`, `pen`, `pen --fix` and `scan --ledger` have
+  additionally been run end-to-end on a real Windows host against the demo repos: a live
+  watch delta, PROVEN ledger double-charges with sealed evidence, and honest pen
+  verdicts (including the honest "0 patches" case) all verified. The one remaining
+  caveat is breadth, not correctness: not every exotic repo shape has been manually
+  exercised on Windows.
 - **Codex App / VS Code extension** isn't supported and won't be until OpenAI ships custom
   slash commands; use Codex CLI for `/pitstop`.
 - **Graceful degradation:** duplication (`jscpd`), secrets/code scanning (`gitleaks`,
@@ -528,6 +544,16 @@ cheat its own referee. That separation is the product.
 - **`drive` verdicts** for runtime pen findings come from the repro test (FAIL first, PASS
   after the fix), not from the static score — the static gate has nothing to say about a
   runtime-only finding.
+
+## Privacy
+
+**Zero telemetry, zero SaaS, zero accounts — nothing leaves your machine unless you ask
+it to.** OpenPitStop is a local CLI with no server and no phone-home: scans, gates and
+pen tests run entirely on your machine, and the only network calls in the entire codebase
+are the dependency audits you can see and opt out of (plus the `npx` download you
+initiated). The full, auditable list — every connection, every cache, every file stored —
+is in [PRIVACY.md](PRIVACY.md). The honesty brand is the product; that statement is the
+receipt.
 
 ## Contributing
 

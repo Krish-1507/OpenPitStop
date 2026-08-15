@@ -43,6 +43,44 @@ export async function runPen(repo: string, opts: PenOptions): Promise<PenResult>
     outboundEvents: 0,
   };
 
+  // Friendly early abort: nothing to boot, nothing to attack. This is a
+  // "pen cannot meaningfully run here" exit (2), not a finding.
+  const hasApp =
+    fs.existsSync(path.join(repo, "package.json")) &&
+    (() => {
+      try {
+        return Boolean(
+          JSON.parse(fs.readFileSync(path.join(repo, "package.json"), "utf8")).scripts?.start,
+        );
+      } catch {
+        return false;
+      }
+    })();
+  if (!hasApp && staticOutcome.routes.length === 0) {
+    const d: PenResult["dynamic"] = {
+      status: "aborted",
+      note: "no app to attack — no `start` script and no routes found",
+      routesProbed: 0,
+      attacks: 0,
+      bootMs: 0,
+      durationMs: 0,
+      outboundEvents: 0,
+    };
+    const result: PenResult = {
+      timestamp: new Date().toISOString(),
+      repo,
+      mode: "pen",
+      staticEnabled: true,
+      dynamicEnabled: false,
+      dynamic: d,
+      staticProof: { proven: 0, indicated: 0, unproven: 0, notTested: 0 },
+      packages: staticOutcome.packages,
+      findings: [],
+      summary: { critical: 0, high: 0, medium: 0, low: 0, info: 0, proven: 0, indicated: 0, heuristic: 0 },
+    };
+    return result;
+  }
+
   const findings: PenFinding[] = [];
   if (dynamicEnabled) {
     const spin = createSpinner(
@@ -143,6 +181,21 @@ export const pen = new Command("pen")
       json: options.json,
       html: options.html,
     });
+
+    // Friendly early abort (no app to boot, nothing to attack): one line and a
+    // hint, no report ceremony, exit 2.
+    if (!result.dynamicEnabled && result.dynamic.status === "aborted") {
+      console.log(chalk.yellow(`\nPen aborted: ${result.dynamic.note}.`));
+      console.log(
+        chalk.dim(
+          "hint: point me at an app — a package.json with a `start` script (or PITSTOP_START) —\n" +
+            "so the dynamic phase has something to boot and attack.\n",
+        ),
+      );
+      if (options.json) console.log(JSON.stringify(result, null, 2));
+      process.exitCode = 2;
+      return;
+    }
 
     const { file } = persistPen(repo, result);
 

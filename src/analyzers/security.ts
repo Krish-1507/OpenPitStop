@@ -17,24 +17,36 @@ export async function analyzeSecurity(repo: string): Promise<SecurityResult> {
     // JSON — capture stdout and persist it for parsing either way. The result
     // is cached keyed on the lockfile hash: an unchanged lockfile (the common
     // case inside one fix loop) makes the audit network call disappear.
-    const stdout = await npmAudit(repo);
-    if (stdout) {
+    const audit = await npmAudit(repo);
+    if (audit.error) {
+      // Honesty over numbers: a broken lockfile means dependencies are NOT
+      // scanned — that is never reported as "clean".
+      depNote = audit.error;
+    } else if (audit.stdout) {
       const auditFile = path.join(repo, ".pitstop", "npm-audit.json");
       fs.mkdirSync(path.dirname(auditFile), { recursive: true });
-      fs.writeFileSync(auditFile, stdout);
-      issues.push(...parseNpmAudit(stdout));
+      fs.writeFileSync(auditFile, audit.stdout);
+      issues.push(...parseNpmAudit(audit.stdout));
     }
   } else if (lang === "python") {
     if (commandExists("pip-audit")) {
       const r = await safeExecAsync("pip-audit", ["-f", "json"], repo, 120000);
-      if (r.stdout) issues.push(...parsePipAudit(r.stdout));
+      if (r.stdout && (r.code === 0 || looksLikeJson(r.stdout))) {
+        issues.push(...parsePipAudit(r.stdout));
+      } else {
+        depNote = `pip-audit failed (${firstLine(r.stderr || r.stdout)}) — deps not scanned`;
+      }
     } else {
       // pip-audit missing — OSV understands pyproject.toml / poetry.lock etc.
-      issues.push(...(await osvScan(repo)));
+      const osv = await osvScan(repo);
+      if (osv.error) depNote = osv.error;
+      else issues.push(...osv.issues);
     }
   } else if (lang !== "unknown") {
     if (commandExists("osv-scanner")) {
-      issues.push(...(await osvScan(repo)));
+      const osv = await osvScan(repo);
+      if (osv.error) depNote = osv.error;
+      else issues.push(...osv.issues);
     } else {
       depNote = `install osv-scanner (go install github.com/google/osv-scanner/cmd/osv-scanner@latest) to scan ${lang} dependencies`;
     }
@@ -82,11 +94,29 @@ export async function analyzeSecurity(repo: string): Promise<SecurityResult> {
   return { status: "ok", issues };
 }
 
-async function npmAudit(repo: string): Promise<string | null> {
+/** The lockfile exists but npm refuses to read it — a real finding on its own. */
+function lockfileHint(): string {
+  return "run `npm i --package-lock-only` to repair the lockfile, then re-scan";
+}
+
+function looksLikeJson(s: string): boolean {
+  try {
+    JSON.parse(s);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function firstLine(s: string): string {
+  return (s || "").split(/\r?\n/).map((l) => l.trim()).filter(Boolean)[0] ?? "unknown error";
+}
+
+async function npmAudit(repo: string): Promise<{ stdout: string | null; error: string | null }> {
   const lockCandidate = ["package-lock.json", "npm-shrinkwrap.json", "package.json"].find(
     (f) => fs.existsSync(path.join(repo, f)),
   );
-  if (!lockCandidate) return null;
+  if (!lockCandidate) return { stdout: null, error: null };
   const hash = crypto
     .createHash("sha1")
     .update(fs.readFileSync(path.join(repo, lockCandidate)))
@@ -106,9 +136,13 @@ async function npmAudit(repo: string): Promise<string | null> {
         cached &&
         typeof cached.stdout === "string" &&
         typeof cached.at === "string" &&
-        Date.now() - Date.parse(cached.at) < AUDIT_TTL_MS
+        Date.now() - Date.parse(cached.at) < AUDIT_TTL_MS &&
+        // Never trust a cached failure: only a parseable audit report is a
+        // valid cache hit (older versions cached stdout even when audit errored).
+        looksLikeJson(cached.stdout) &&
+        typeof JSON.parse(cached.stdout)?.vulnerabilities === "object"
       ) {
-        return cached.stdout;
+        return { stdout: cached.stdout, error: null };
       }
     } catch {
       /* stale or corrupt — re-fetch */
@@ -116,7 +150,18 @@ async function npmAudit(repo: string): Promise<string | null> {
   }
 
   const r = await safeExecAsync("npm", ["audit", "--json"], repo, 120000);
-  if (r.stdout) {
+  // Success means a real audit report: JSON that carries a `vulnerabilities`
+  // object. npm exits 0 on a clean audit and 1 when vulnerabilities exist —
+  // but it ALSO exits 1 and prints a JSON `error` payload when the audit
+  // itself fails (e.g. ENOLOCK). Anything without `vulnerabilities` is a
+  // failed audit, and reporting that as "clean" would be lying.
+  let auditJson: any = null;
+  try {
+    auditJson = JSON.parse(r.stdout || "");
+  } catch {
+    auditJson = null;
+  }
+  if (auditJson && typeof auditJson.vulnerabilities === "object") {
     try {
       fs.writeFileSync(
         cachePath,
@@ -125,8 +170,17 @@ async function npmAudit(repo: string): Promise<string | null> {
     } catch {
       /* cache write is best-effort */
     }
+    return { stdout: r.stdout, error: null };
   }
-  return r.stdout || null;
+  const why =
+    auditJson?.error?.message ||
+    auditJson?.error?.summary ||
+    firstLine(r.stderr || r.stdout) ||
+    "audit failed";
+  return {
+    stdout: null,
+    error: `npm audit failed (${why}) — deps not scanned; ${lockfileHint()}`,
+  };
 }
 
 /** Root-level manifests/lockfiles OSV understands (nested ones are scanned too). */
@@ -152,7 +206,7 @@ const OSV_ROOT_LOCKFILES = [
  * pom.xml, build.gradle, *.csproj, ...). Result is cached like npm-audit,
  * keyed on root lockfile names + sizes.
  */
-async function osvScan(repo: string): Promise<ScanIssue[]> {
+async function osvScan(repo: string): Promise<{ issues: ScanIssue[]; error: string | null }> {
   const lockKey = OSV_ROOT_LOCKFILES.filter((f) => fs.existsSync(path.join(repo, f)))
     .map((f) => {
       try {
@@ -179,7 +233,7 @@ async function osvScan(repo: string): Promise<ScanIssue[]> {
         typeof cached.at === "string" &&
         Date.now() - Date.parse(cached.at) < AUDIT_TTL_MS
       ) {
-        return parseOsvScanner(cached.stdout);
+        return { issues: parseOsvScanner(cached.stdout), error: null };
       }
     } catch {
       /* stale or corrupt — re-scan */
@@ -187,7 +241,10 @@ async function osvScan(repo: string): Promise<ScanIssue[]> {
   }
 
   const r = await safeExecAsync("osv-scanner", ["scan", "--format", "json", repo], repo, 180000);
-  if (r.stdout) {
+  // osv-scanner exits 1 when vulnerabilities are found but still prints the
+  // JSON report; any other nonzero exit with unusable output means the scan
+  // failed and deps were NOT checked — say so instead of reporting clean.
+  if (r.stdout && (r.code === 0 || (r.code === 1 && looksLikeJson(r.stdout)))) {
     try {
       fs.writeFileSync(
         cachePath,
@@ -196,9 +253,12 @@ async function osvScan(repo: string): Promise<ScanIssue[]> {
     } catch {
       /* cache write is best-effort */
     }
-    return parseOsvScanner(r.stdout);
+    return { issues: parseOsvScanner(r.stdout), error: null };
   }
-  return [];
+  return {
+    issues: [],
+    error: `osv-scanner failed (${firstLine(r.stderr || r.stdout) || "no output"}) — deps not scanned`,
+  };
 }
 
 function parseOsvScanner(stdout: string): ScanIssue[] {

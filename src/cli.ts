@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { Command } from "commander";
 import fs from "node:fs";
+import chalk from "chalk";
 import { install } from "./commands/install.js";
 import { scan } from "./commands/scan.js";
 import { verify } from "./commands/verify.js";
@@ -24,6 +25,40 @@ import { readyCheckCmd } from "./commands/readyCheck.js";
 import { budgetCmd } from "./commands/budget.js";
 import { watch } from "./commands/watch.js";
 import { drive } from "./commands/drive.js";
+import { guidedFirstRun } from "./firstRun.js";
+
+/**
+ * Last line of defense: a crash is a bug report, not a stack dump on someone's
+ * terminal. Friendly one-liner + hint by default; PITSTOP_DEBUG=1 keeps the
+ * full stack for the issue you file.
+ */
+function friendlyCrash(kind: string, err: unknown): void {
+  const message = err instanceof Error ? err.message : String(err);
+  if (process.env.PITSTOP_DEBUG) {
+    console.error(`\n[openpitstop] ${kind} (PITSTOP_DEBUG=1):`);
+    console.error(err instanceof Error ? err.stack ?? message : message);
+  } else {
+    console.error(
+      chalk.red(`\nOpenPitStop hit an unexpected ${kind}: ${message}`) +
+        "\n" +
+        chalk.dim(
+          "This is a bug, not your fault. Please report it at " +
+            "https://github.com/Krish-1507/OpenPitStop/issues and paste the output of:\n" +
+            "  PITSTOP_DEBUG=1 openpitstop <the command you ran>\n" +
+            "Every command leaves a sealed report in .pitstop/ — that's evidence, keep it.",
+        ),
+    );
+  }
+}
+
+process.on("uncaughtException", (err) => {
+  friendlyCrash("crash", err);
+  process.exit(1);
+});
+process.on("unhandledRejection", (err) => {
+  friendlyCrash("error", err);
+  process.exit(1);
+});
 
 function readVersion(): string {
   try {
@@ -41,7 +76,8 @@ const program = new Command();
 program
   .name("pitstop")
   .description("OpenPitStop CLI")
-  .version(readVersion());
+  .version(readVersion())
+  .action(guidedFirstRun);
 
 program.addCommand(install);
 program.addCommand(scan);

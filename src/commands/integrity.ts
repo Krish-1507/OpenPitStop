@@ -1,6 +1,7 @@
 import { Command } from "commander";
 import path from "node:path";
 import fs from "node:fs";
+import { spawnSync } from "node:child_process";
 import chalk from "chalk";
 import boxen from "boxen";
 import { getDiff, resolveRefs } from "../analyzers/integrity/git.js";
@@ -19,6 +20,31 @@ export const integrity = new Command("integrity")
   .option("--to <ref>", "diff head ref (default: current working tree)")
   .action(async (repoArg: string, options: { from?: string; to?: string }) => {
     const repo = path.resolve(repoArg);
+
+    const gitOk = (() => {
+      try {
+        const gitDir = spawnSync("git", ["rev-parse", "--is-inside-work-tree"], {
+          cwd: repo,
+          encoding: "utf8",
+          timeout: 10000,
+          stdio: ["ignore", "pipe", "pipe"],
+        });
+        return gitDir.status === 0 && gitDir.stdout.trim() === "true";
+      } catch {
+        return false;
+      }
+    })();
+    if (!gitOk) {
+      console.log(
+        chalk.yellow("\nnot a git repo — integrity diffs your committed history against the working tree,\n") +
+          chalk.yellow("and there is nothing to diff here. Reporting CLEAN would be a lie.\n") +
+          chalk.dim("hint: run inside a git repo (`git init` first), or use `pitstop scan` for a full\n") +
+          chalk.dim("report that does not need git.\n"),
+      );
+      process.exitCode = 1;
+      return;
+    }
+
     const { from, to } = resolveRefs(repo, options.from, options.to);
 
     console.log(chalk.cyan(`\nScanning diff ${from}..${to ?? "working tree"} for integrity cheats ...\n`));

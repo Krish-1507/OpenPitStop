@@ -2,6 +2,44 @@
 
 All notable changes to this project are documented here.
 
+## [1.2.0] - 2026-08-15
+
+The credibility release: friendly everywhere, honest about the network, and the
+one-liner now does the whole onboarding.
+
+### Added
+
+- **Guided first-run (`npx openpitstop`, no args).** Detects your AI tools and
+  git repo, then asks: install `/pitstop` into your tools, score *this* repo
+  (`try .`), or watch the 90-second demo. Non-TTY prints the one-line menu
+  instead. The landing page is now a complete product demo with zero docs
+  reading.
+- **`PRIVACY.md`.** The auditable version of "zero telemetry, zero SaaS":
+  every network call the CLI can make, everything it stores, and how to verify
+  both (read the source, firewall-watch a run, run offline). Added to the npm
+  package.
+
+### Changed
+
+- **Honest failure paths.** A corrupt or missing lockfile no longer reports
+  `Security: 0 issues — clean` — the audit error becomes an honest `skipped`
+  with a repair hint (`npm i --package-lock-only`). Same for `pip-audit` and
+  `osv-scanner` failures: dependencies that were never scanned are never
+  reported as clean.
+- **Friendly errors instead of silence or ceremonies.** `pitstop integrity`
+  outside a git repo says so with a hint (exit 1) instead of printing a
+  meaningless CLEAN verdict; `pitstop pen` on a repo with no `start` script
+  and nothing to attack aborts with a one-line hint (exit 2) instead of
+  producing an empty report.
+- **Global crash handler.** An unexpected error is now a friendly one-liner
+  with a bug-report hint and `PITSTOP_DEBUG=1` for the full stack — a crash is
+  a bug report, never a bare stack dump on someone's terminal.
+- **Windows runthrough.** `watch`, `pen`, `pen --fix` and `scan --ledger`
+  verified end-to-end on a real Windows host (live watch delta; 3 PROVEN
+  ledger double-charges with sealed evidence; honest pen verdicts including
+  the 0-patch case). README's Known Limitations updated to claim exactly
+  what was run.
+
 ## [1.1.0] - 2026-08-14
 
 The distribution release: the gate gets everywhere — PRs, pre-commit — and the
