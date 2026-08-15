@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { commandExists, detectLanguage, safeExecAsync } from "./util.js";
+import { analyzeSecurityStatic } from "./securityStatic.js";
 import type { ScanIssue, SecurityResult } from "./types.js";
 
 /** How long an npm-audit result is reused before re-fetching from the registry. */
@@ -9,7 +10,11 @@ const AUDIT_TTL_MS = 24 * 60 * 60 * 1000;
 
 export async function analyzeSecurity(repo: string): Promise<SecurityResult> {
   const lang = detectLanguage(repo);
-  const issues: ScanIssue[] = [];
+  // The offline static pass runs for EVERY language (even "unknown"): it is
+  // deterministic, needs no tooling, and covers the vulnerability classes
+  // that AI-generated code ships most often (SQL injection, secrets, XSS,
+  // authz gaps, money inputs). Its findings are labeled [indicated].
+  const issues: ScanIssue[] = [...analyzeSecurityStatic(repo)];
   let depNote: string | undefined;
 
   if (lang === "js") {

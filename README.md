@@ -341,12 +341,32 @@ editing, knowing it's being watched.
 ### The scan
 
 `pitstop scan` runs a bunch of checks on your repo: circular imports, known security
-issues (`npm audit`, plus `pip-audit`/`osv-scanner` for Python and other stacks, and
-`gitleaks`/`semgrep` when installed), duplicated code (`jscpd`), test results
+issues, duplicated code (`jscpd`), test results
 (jest/vitest/pytest plus native suites for Go, Rust, Flutter/Dart, .NET and Java
 (Maven/Gradle) — pass/fail, duration, coverage), build speed, accessibility, flaky-test
 and race-condition heuristics, and developer-experience checks (unused exports, duplicate
 functions).
+
+Security is two layers:
+
+1. **Dependency audits** — `npm audit`, plus `pip-audit`/`osv-scanner` for Python and
+   other stacks, and `gitleaks`/`semgrep` when installed. A failed audit is reported as
+   `skipped` with a repair hint — deps that were never scanned are never reported as clean.
+2. **The static vulnerability pass** (fully offline, every language, no tooling needed) —
+   the five classic classes plus the full posture: **SQL injection** (concatenated/
+   interpolated queries, ORM raw builders, `$where`, Python f-strings), **authentication**
+   (cleartext password compares, missing hashing, `Math.random` tokens, inline JWT
+   secrets, missing rate limits), **authorization** (unprotected data routes, admin
+   routes without role checks), **input validation** (unrestricted uploads, unvalidated
+   money fields, `eval`, XSS sinks), **secret management** (known credential formats,
+   inline secret literals, committed `.env` files) — plus command injection, path
+   traversal, SSRF, CORS+credentials, missing security headers, CSRF exposure, stack
+   leaks and sensitive logging.
+
+Every static finding is labeled `[indicated]` and ships with its exact **fix**; `scan`
+and `try` print the complete identify-and-solve list under the score box, so the report
+is a worklist, not a scare. The full matrix — every detection and every fix — is in
+[docs/security.md](docs/security.md).
 
 Each check either contributes a real number, or prints `skipped` with a one-line hint on
 how to install the tool it needs — it never makes up a number. Everything adds up to one

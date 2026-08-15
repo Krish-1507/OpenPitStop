@@ -14,10 +14,10 @@ import { stampFindings } from "../repro/ids.js";
 import { correlate } from "../graph/correlate.js";
 import { computeScore } from "../report/score.js";
 import { createSpinner } from "../ui/spinner.js";
-import { persistScan } from "./scan.js";
+import { persistScan, renderSecurityFixes } from "./scan.js";
 
 function rel(repo: string, p?: string): string {
-  return p ? path.relative(repo, p) : "";
+  return p ? path.relative(repo, path.resolve(repo, p)) : "";
 }
 
 function label(text: string): string {
@@ -103,8 +103,12 @@ function categoryLines(r: ScanResult): string[] {
   if (sec.status === "ok") {
     if (sec.issues.length > 0) {
       const i = sec.issues[0];
+      const desc =
+        i.description.length > 84
+          ? i.description.slice(0, 84) + "…"
+          : i.description;
       lines.push(
-        `${label("Security")}: ${chalk.red(`${sec.issues.length} issue(s)`)} — ${i.type}: ${i.description}`,
+        `${label("Security")}: ${chalk.red(`${sec.issues.length} issue(s)`)} — ${i.severity} ${i.category ?? i.type}: ${desc}`,
       );
     } else {
       lines.push(`${label("Security")}: ${chalk.green("clean")} — ${sec.issues.length} issues`);
@@ -230,5 +234,6 @@ export const try_ = new Command("try")
     }
 
     console.log(renderTryBox(result, elapsedMs));
+    console.log(renderSecurityFixes(result));
     console.log(chalk.dim(`\nBaseline saved to ${path.join(repo, ".pitstop", "scan-latest.json")}\n`));
   });

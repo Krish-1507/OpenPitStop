@@ -26,7 +26,7 @@ function memTypeColor(t: MemoryType): (s: string) => string {
 }
 
 function rel(repo: string, p?: string): string {
-  return p ? path.relative(repo, p) : "";
+  return p ? path.relative(repo, path.resolve(repo, p)) : "";
 }
 
 function label(text: string): string {
@@ -358,6 +358,27 @@ export async function runScan(
   return { result, file };
 }
 
+/**
+ * Identify-and-solve: every security finding printed with its exact fix, so
+ * the terminal output is a worklist, not a scare.
+ */
+export function renderSecurityFixes(r: ScanResult): string {
+  const withFixes = r.security.issues.filter((i) => i.fix);
+  if (withFixes.length === 0) return "";
+  const lines: string[] = [chalk.bold("\nSecurity fixes (indicated — verify, then apply):")];
+  withFixes.forEach((i, idx) => {
+    const loc = i.file
+      ? ` ${chalk.dim(rel(r.repo, i.file) + (i.line ? `:${i.line}` : ""))}`
+      : "";
+    const cat = i.category ? ` ${i.category}` : "";
+    lines.push(
+      `  ${idx + 1}. ${chalk.red(i.severity.toUpperCase())}${cat}${loc} — ${i.description}`,
+    );
+    lines.push(`     ${chalk.green("fix:")} ${i.fix}`);
+  });
+  return lines.join("\n");
+}
+
 export const scan = new Command("scan")
   .description("Scan a repo for dependency, security, duplication, test and performance issues")
   .argument("[repo]", "path to the repo to scan", ".")
@@ -403,6 +424,7 @@ export const scan = new Command("scan")
             console.log(JSON.stringify(reused, null, 2));
           } else {
             console.log(renderBox(reused));
+            console.log(renderSecurityFixes(reused));
             console.log(
               chalk.dim(
                 `\n[reuse] baseline from ${reused.timestamp} returned — sources unchanged, nothing re-ran.\n`,
@@ -442,6 +464,7 @@ export const scan = new Command("scan")
       }
 
       console.log(renderBox(result));
+      console.log(renderSecurityFixes(result));
       console.log(chalk.dim(`\nReports written to ${file}\n`));
     },
   );

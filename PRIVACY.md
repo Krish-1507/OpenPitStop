@@ -20,6 +20,10 @@ explicit cases listed below.
 - **No third-party processes** are ever spawned that you didn't initiate
   (`scan` runs the scanners you have installed, e.g. `gitleaks`, `semgrep`,
   `osv-scanner`, `pip-audit` — or honestly reports them as `skipped`).
+- **The static security pass is fully offline.** It reads files and matches
+  patterns on your machine; it never sends code anywhere. The only network
+  calls in the entire security pipeline are the dependency audits listed
+  below.
 - **No auto-updates.** The CLI never updates itself or checks for updates.
   You control when you run a newer version (`npx openpitstop@latest`).
 

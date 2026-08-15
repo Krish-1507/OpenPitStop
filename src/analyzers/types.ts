@@ -8,6 +8,10 @@ export interface ScanIssue {
   description: string;
   /** Stable, deterministic finding id (used by `pitstop repro`). */
   id?: string;
+  /** Vulnerability class (sql-injection, xss, secret, authentication, ...). */
+  category?: string;
+  /** One-line remediation — the "solve" half of identify-and-solve. */
+  fix?: string;
 }
 
 export interface DependencyGraphResult {

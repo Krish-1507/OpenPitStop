@@ -2,6 +2,53 @@
 
 All notable changes to this project are documented here.
 
+## [1.3.0] - 2026-08-15
+
+The security release: the static vulnerability pass that identifies **and
+solves** — every finding carries its exact fix, and the test suite proves both
+sides (a vulnerable fixture is detected; the same fixture with the fix applied
+is clean).
+
+### Added
+
+- **Static security pass** (offline, every language, zero tooling). Runs on
+  every `scan` and `try`, covering the five classic classes plus the full
+  posture:
+  - **SQL injection** — concatenated/interpolated queries, ORM raw builders
+    (`whereRaw`, `knex.raw`, `sequelize.literal`), Prisma `$queryRawUnsafe`,
+    Mongoose `$where`, Python f-string/`%` executes.
+  - **Authentication** — cleartext `==`/`===` password compares, plaintext
+    storage, missing password hashing (repo-level), `Math.random` tokens/OTPs,
+    inline JWT secrets, missing auth rate limits (repo-level).
+  - **Authorization** — protected-looking routes with no authn/authz check,
+    admin routes with no role check (server-side enforcement in the fix).
+  - **Input validation** — unrestricted file uploads, unvalidated money
+    fields, `eval`/`new Function`, XSS sinks (`innerHTML`,
+    `dangerouslySetInnerHTML`, `v-html`), prototype pollution.
+  - **Secret management** — known credential formats (private keys, AWS,
+    Google, GitHub, Slack, Stripe, OpenAI), inline secret literals, committed
+    JWTs, `.env` not gitignored.
+  - **Extras** — command injection, path traversal, SSRF, CORS wildcard +
+    credentials, cleartext HTTP/insecure cookies/`ws://`, missing security
+    headers (helmet), CSRF exposure, sensitive logging, stack-trace leaks,
+    weak hashing.
+- **Identify-and-solve output.** `scan` and `try` print every finding with its
+  severity, category, `file:line` and a one-line concrete `fix` under the score
+  box. Findings also carry `category` + `fix` in `scan-latest.json` for the
+  agent loop.
+- **`docs/security.md`** — the full detection/fix matrix for every class.
+- **23-test suite** (`test/securityStatic.test.ts`): for every vulnerability
+  class, a vulnerable fixture must be detected (with fix + file:line evidence),
+  and the same fixture **after applying the documented fix** must be clean —
+  the identify-and-solve claim is regression-tested, not marketing.
+
+### Changed
+
+- `scan`/`try` box: the Security line now shows the first finding's severity
+  and category (truncated description, no more mid-box line breaks).
+- Relative file paths in findings render correctly regardless of the scan's
+  working directory.
+
 ## [1.2.0] - 2026-08-15
 
 The credibility release: friendly everywhere, honest about the network, and the
