@@ -44,7 +44,7 @@ your agent.
 | [See it in 90 seconds](#see-it-in-90-seconds) | [What OpenPitStop actually does](#what-openpitstop-actually-does) · [Every command](#every-command) |
 | [Architecture](#architecture) | [Known limitations](#known-limitations) · [Contributing](#contributing) · [License](#license) |
 
-**Straight to one feature:** [The scan](#the-scan) · [The test pyramid](#the-test-pyramid) · [Verify](#verify) · [Trends](#trends) · [Inspect](#inspect) · [Repro](#repro) · [The pen test](#the-pen-test) · [Report](#report) · [Share](#share) · [Honesty](#honesty) · [Try it on your repo](#try-it-on-your-repo) · [The live shield](#the-live-shield) · [The GitHub Action](#the-github-action) · [The pre-commit hook](#the-pre-commit-hook)
+**Straight to one feature:** [The scan](#the-scan) · [Security fixes](#security-fixes) · [Try it on your repo](#try-it-on-your-repo) · [The test pyramid](#the-test-pyramid) · [The gate](#the-gate) · [Integrity](#integrity) · [The pen test](#the-pen-test) · [Honesty](#honesty) · [Verify](#verify) · [Trends](#trends) · [Inspect](#inspect) · [Repro](#repro) · [Report](#report) · [Share](#share) · [The live shield](#the-live-shield) · [The GitHub Action](#the-github-action) · [The pre-commit hook](#the-pre-commit-hook)
 
 **Receipts:** [Caught in the wild](docs/caught-in-the-wild.md) — real gate output, screenshot-ready.
 
@@ -52,7 +52,8 @@ your agent.
 
 ## Feature tour
 
-Every clip below is real command output — the only thing that was trimmed is dead time.
+Every clip below is real opencode output, captured from a live agent session —
+the only thing trimmed is dead time.
 
 ### The scan
 
@@ -62,68 +63,13 @@ Every clip below is real command output — the only thing that was trimmed is d
   <img src="docs/media/pitstop-scan.gif" alt="pitstop scan — boxed report with the OpenPitStop Score" width="700">
 </p>
 
-### Verify
+### Security fixes
 
-`pitstop verify` — re-scan after a change and see exactly how the score moved. Also checks your diff for cheat patterns.
-
-<p align="center">
-  <img src="docs/media/pitstop-verify.gif" alt="pitstop verify — the score moves, points don't lie" width="700">
-</p>
-
-### Trends
-
-`pitstop trends` — per-category sparklines from your scan history.
+`pitstop scan` — and below the box, the indicated fixes, with a concrete
+`fix:` line for each finding.
 
 <p align="center">
-  <img src="docs/media/pitstop-trends.gif" alt="pitstop trends — sparklines showing a repo improving" width="700">
-</p>
-
-### Inspect
-
-`pitstop inspect <finding-id>` — open up one finding: the code snippet, the root cause, whether a repro test exists, and what OpenPitStop remembers about these files.
-
-<p align="center">
-  <img src="docs/media/pitstop-inspect.gif" alt="pitstop inspect — deep-dive on a single finding" width="700">
-</p>
-
-### Repro
-
-`pitstop repro <finding-id>` — every fix starts with a failing test. The test is written to fail *now* and pass after the fix.
-
-<p align="center">
-  <img src="docs/media/pitstop-repro.gif" alt="pitstop repro — a regression test that fails first" width="700">
-</p>
-
-### The pen test
-
-`pitstop pen --fix` — boots your app in a sandbox, attacks it, and writes PROVEN verdicts — plus repro tests and a patch.
-
-<p align="center">
-  <img src="docs/media/pitstop-pen.gif" alt="pitstop pen — runtime-proof findings with repros and a patch" width="700">
-</p>
-
-### Report
-
-`pitstop report --html` — one self-contained HTML report, sealed with an evidence signature.
-
-<p align="center">
-  <img src="docs/media/pitstop-report.gif" alt="pitstop report — HTML report with evidence signature" width="700">
-</p>
-
-### Share
-
-`pitstop share` — one-card summary, easy to paste into a PR or a demo chat.
-
-<p align="center">
-  <img src="docs/media/pitstop-share.gif" alt="pitstop share — a compact shareable summary card" width="700">
-</p>
-
-### Honesty
-
-`pitstop honesty --html` — an honest assessment of what this tool can't do.
-
-<p align="center">
-  <img src="docs/media/pitstop-honesty.gif" alt="pitstop honesty — an honest self-assessment certificate" width="700">
+  <img src="docs/media/pitstop-security.gif" alt="pitstop scan — the indicated security fixes, each with a concrete fix" width="700">
 </p>
 
 ### Try it on your repo
@@ -136,13 +82,78 @@ Every clip below is real command output — the only thing that was trimmed is d
   <img src="docs/media/pitstop-try.gif" alt="pitstop try — zero-setup score on any repo" width="700">
 </p>
 
+### The test pyramid
+
+`pitstop test` — unit, integration and e2e layers run separately, so a
+suite that "passes" can't hide a missing layer. One failing layer means
+**DO NOT SHIP**.
+
+<p align="center">
+  <img src="docs/media/pitstop-pyramid.gif" alt="pitstop test — the pyramid verdict: DO NOT SHIP on a failing e2e layer" width="700">
+</p>
+
+### The gate
+
+`pitstop gate` — the score plus the integrity check, exit 0/1/2:
+clean / suspicious / confirmed cheat.
+
+<p align="center">
+  <img src="docs/media/pitstop-gate.gif" alt="pitstop gate — GATE FAIL on a confirmed cheat, exit 2" width="700">
+</p>
+
+### Integrity
+
+`pitstop integrity` — diff against the sealed baseline, hunting cheat
+patterns: focused tests, deleted tests, rewritten tests.
+
+<p align="center">
+  <img src="docs/media/pitstop-integrity.gif" alt="pitstop integrity — CONFIRMED_CHEAT: test file deleted" width="700">
+</p>
+
+### The pen test
+
+`pitstop pen` — boots your app in a sandbox, attacks it, and writes PROVEN
+verdicts — plus repro tests and a patch with `--fix`.
+
+<p align="center">
+  <img src="docs/media/pitstop-pen.gif" alt="pitstop pen — sandboxed attacks with runtime-proof verdicts" width="700">
+</p>
+
+### Honesty
+
+`pitstop honesty` — an honest assessment of what this tool can't do.
+
+<p align="center">
+  <img src="docs/media/pitstop-honesty.gif" alt="pitstop honesty — an honest self-assessment certificate" width="700">
+</p>
+
+### Verify
+
+`pitstop verify` — re-scan after a change and see exactly how the score moved. Also checks your diff for cheat patterns.
+
+### Trends
+
+`pitstop trends` — per-category sparklines from your scan history.
+
+### Inspect
+
+`pitstop inspect <finding-id>` — open up one finding: the code snippet, the root cause, whether a repro test exists, and what OpenPitStop remembers about these files.
+
+### Repro
+
+`pitstop repro <finding-id>` — every fix starts with a failing test. The test is written to fail *now* and pass after the fix.
+
+### Report
+
+`pitstop report --html` — one self-contained HTML report, sealed with an evidence signature.
+
+### Share
+
+`pitstop share` — one-card summary, easy to paste into a PR or a demo chat.
+
 ### The live shield
 
 `pitstop watch` — re-scans the moment a file changes and prints the score delta.
-
-<p align="center">
-  <img src="docs/media/pitstop-watch.gif" alt="pitstop watch — live score delta when a file changes" width="700">
-</p>
 
 ### The GitHub Action
 
@@ -188,12 +199,11 @@ ACT 3  agent deletes the test       →  GATE: CONFIRMED_CHEAT (exit 2) — bloc
 ```
 
 <p align="center">
-  <img src="docs/media/pitstop-demo.gif" alt="The scripted cheat-catch demo: a lazy agent focuses the tests (SUSPICIOUS, exit 1), then deletes the failing test (CONFIRMED_CHEAT, exit 2) — the gate blocks both, on real output." width="780">
+  <img src="docs/media/pitstop-gate.gif" alt="The cheat-catch in the real TUI: the gate reads the diff against the sealed baseline and blocks a CONFIRMED_CHEAT with exit 2 — on real opencode output." width="780">
 </p>
 
 Deterministic, safe to run in a live room, and it's the whole product in miniature:
 **OpenPitStop measures, your agent edits, and the numbers can't be cheated.**
-(Or watch the [34-second video](docs/media/pitstop-demo.mp4).)
 
 Not even 90 seconds? Point it at **your own repo** — zero setup, no install, no config:
 
