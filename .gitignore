@@ -15,3 +15,16 @@ PITSTOP_PEN_FIXES.md
 docs/Marketing plan.txt
 ScreenRecScript.txt
 demo/
+
+# AI coding tool command/hook configs written by `pitstop install`
+.opencode/
+.claude/
+.cursor/
+.gemini/
+.kilo/
+.kilocode/
+.codex/
+.windsurf/
+.aider/
+.agent/
+.agents/
