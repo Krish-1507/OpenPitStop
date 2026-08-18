@@ -66,6 +66,8 @@ difference is what happens after a vulnerability is found:
 | Secret exfiltration | not emphasized | **Ledger mode** proves the app doesn't phone home with your keys |
 | DevSecOps | Cloud platform (paid tiers) | **Free SARIF → GitHub Security tab** + one-number `pitstop gate` |
 | Proof coverage | — | **`PITSTOP_PROOF` badge**: % of findings that ship a permanent repro test |
+| Continuous proof (drift) | report only — re-run and hope | **Drift gate**: every `pitstop pen` compares to the last sealed run, *proves a fix* (finding gone) and *fails the CI gate* on a new high/critical regression or a hypothesis the live attack just confirmed |
+| Prove-my-fix loop | manual | **`pitstop repro <id>`** re-runs the exact attack and asserts the safe outcome — a PASS means the fix is real, a deleted repro test is flagged as a cheat |
 | Bug classes covered | strong general set | **40+ classes** — race/TOCTOU, IDOR/BOLA, price-tampering, XXE, insecure deserialization, JWT alg-confusion/weak-secret, SSRF, SQL/NoSQLi, command-injection, path traversal, XSS, secrets, CORS, missing headers, rate-limit, and more |
 
 The honest pitch: a pen-test that only reports is a list of things to argue about. A

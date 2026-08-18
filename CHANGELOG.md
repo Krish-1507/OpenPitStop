@@ -2,6 +2,29 @@
 
 All notable changes to this project are documented here.
 
+## [1.5.2] - 2026-08-18
+
+P2 of the "beat usestrix/Strix" security push — the **permanent referee**: drift
+detection that turns a one-off pen-test into a continuous proof gate.
+
+### Added
+
+- **Drift detection (`pen` vs the last sealed run).** Every `pitstop pen` now
+  re-reads `.pitstop/pen-latest.json` and reports, in one glance:
+  - **NEW** findings → a regression introduced since the last run (a new
+    high/critical fails the gate, exit 1);
+  - **RESOLVED** findings → a fix that made a previous finding disappear
+    (proof the fix is real, not just claimed);
+  - **ESCALATIONS** → a static hypothesis the live attack just confirmed
+    (`indicated` → `proven`).
+  Computed only when the two runs are comparable (same dynamic phase status),
+  so an aborted run never fabricates resolutions. Rendered in the terminal box,
+  the Markdown report, and the HTML report.
+- **Prove-my-fix loop (documented).** `pitstop repro <id>` already re-runs the
+  exact pen attack and asserts the safe outcome; a PASS now reads as "fix
+  verified" and a deleted repro test is the classic agent cheat the integrity
+  gate already blocks.
+
 ## [1.5.1] - 2026-08-18
 
 P1 of the "beat usestrix/Strix" security push — six new bug classes plus the

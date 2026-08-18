@@ -8,7 +8,7 @@ import boxen from "boxen";
 import chalk from "chalk";
 import path from "node:path";
 import { escapeHtml } from "../report/format.js";
-import { sortFindings, summarizeFindings, SEVERITY_ORDER, type PenFinding, type PenResult } from "./types.js";
+import { sortFindings, summarizeFindings, SEVERITY_ORDER, type PenFinding, type PenResult, type PenDrift } from "./types.js";
 
 function sevPaint(sev: PenFinding["severity"]): (s: string) => string {
   switch (sev) {
@@ -105,6 +105,31 @@ export function renderPenBox(result: PenResult): string {
   }
 
   lines.push("");
+  if (result.drift) {
+    const d = result.drift;
+    const head = d.baselineTimestamp ? `Drift since ${d.baselineTimestamp}` : "Drift";
+    if (d.new.length === 0 && d.resolved.length === 0 && d.escalations.length === 0) {
+      lines.push(chalk.green(`${head}: no change — identical to the last sealed run`));
+    } else {
+      lines.push(chalk.bold(`${head}:`));
+      if (d.new.length) {
+        lines.push(
+          chalk.red(`  ${d.regression ? "⚠ " : ""}+ ${d.new.length} NEW`) +
+            (d.regression ? chalk.red(" (regression)") : ""),
+        );
+        for (const e of d.new.slice(0, 5)) {
+          lines.push(`    ${sevPaint(e.severity)(e.severity.toUpperCase())} ${e.type} — ${e.target}`);
+        }
+      }
+      if (d.escalations.length) {
+        lines.push(chalk.yellow(`  ↑ ${d.escalations.length} escalated (a hypothesis the live attack just confirmed)`));
+      }
+      if (d.resolved.length) {
+        lines.push(chalk.green(`  − ${d.resolved.length} resolved (gone since last run — fix verified)`));
+      }
+    }
+    lines.push("");
+  }
   lines.push(chalk.cyan("next:"));
   lines.push(`  pitstop inspect <id>   deep-dive on one finding`);
   lines.push(`  pitstop repro <id>     record it as a failing-then-passing regression test`);
@@ -147,9 +172,34 @@ export function renderPenMarkdown(result: PenResult): string {
   }
   if (result.dynamicEnabled) {
     L.push(
-      `Dynamic: ${result.dynamic.status} — ${result.dynamic.routesProbed} routes, ${result.dynamic.attacks} attacks, boot ${result.dynamic.bootMs}ms, ${result.dynamic.outboundEvents} outbound events.`,
+      `Dynamic: ${result.dynamic.status} — ${result.dynamic.routesProbed} routes, ${result.dynamic.attacks}, boot ${result.dynamic.bootMs}ms, ${result.dynamic.outboundEvents} outbound events.`,
     );
     if (result.dynamic.note) L.push(`> ${result.dynamic.note}`);
+  }
+  if (result.drift) {
+    const d = result.drift;
+    L.push("");
+    L.push(`## Drift vs last run${d.baselineTimestamp ? ` (${d.baselineTimestamp})` : ""}`);
+    L.push("");
+    if (d.new.length === 0 && d.resolved.length === 0 && d.escalations.length === 0) {
+      L.push(`No change — identical to the last sealed run.`);
+    } else {
+      if (d.new.length) {
+        L.push(`- **${d.new.length} NEW**${d.regression ? " — regression, fails the gate" : ""}:`);
+        for (const e of d.new.slice(0, 10))
+          L.push(`  - \`${e.severity}/${e.confidence}\` ${e.type} — ${e.target}`);
+      }
+      if (d.escalations.length) {
+        L.push(`- **${d.escalations.length} escalated**: a static hypothesis the live attack just confirmed`);
+        for (const e of d.escalations.slice(0, 10))
+          L.push(`  - ${e.type} — ${e.from} → ${e.to} (${e.target})`);
+      }
+      if (d.resolved.length) {
+        L.push(`- **${d.resolved.length} resolved** (gone since last run — fix verified):`);
+        for (const e of d.resolved.slice(0, 10))
+          L.push(`  - \`${e.severity}/${e.confidence}\` ${e.type} — ${e.target}`);
+      }
+    }
   }
   L.push("");
   L.push(`## Findings`);
@@ -266,6 +316,12 @@ export function renderPenHtml(result: PenResult): string {
   .rt-indicated { background: #fef3c7; border: 1px solid #fde68a; color: #92400e; }
   .rt-unproven { background: #f1f5f9; border: 1px solid #e2e8f0; color: #475569; }
   .rt-not-tested { background: #f1f5f9; border: 1px solid #e2e8f0; color: #475569; }
+   .drift { border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px 18px; margin-bottom: 18px; background: #fff; }
+   .drift h2 { margin: 0 0 8px; font-size: 17px; }
+   .drift .new { color: #b91c1c; font-weight: 600; }
+   .drift .resolved { color: #15803d; font-weight: 600; }
+   .drift .esc { color: #b45309; font-weight: 600; }
+   .drift ul { margin: 6px 0 0; padding-left: 18px; }
 </style>
 </head><body><div class="wrap">
 <header>
@@ -281,7 +337,46 @@ export function renderPenHtml(result: PenResult): string {
     <span class="badge">proven ${sum.proven}</span>
   </div>
 </header>
+${result.drift ? driftHtml(result.drift) : ""}
 ${rows}
-<p class="muted">Coverage: the routes and patterns OpenPitStop knows how to fire. No proof of absence — rerun after every change.</p>
+ <p class="muted">Coverage: the routes and patterns OpenPitStop knows how to fire. No proof of absence — rerun after every change.</p>
 </div></body></html>`;
+}
+
+function driftHtml(d: PenDrift): string {
+  if (d.new.length === 0 && d.resolved.length === 0 && d.escalations.length === 0) {
+    return `<div class="drift"><h2>Drift vs last run</h2><p class="resolved">No change — identical to the last sealed run.</p></div>`;
+  }
+  const items: string[] = [];
+  if (d.new.length) {
+    items.push(
+      `<li class="new">${d.new.length} NEW${d.regression ? " (regression — fails the gate)" : ""}: ` +
+        d.new
+          .slice(0, 10)
+          .map((e) => `${escapeHtml(e.severity)}/${escapeHtml(e.confidence)} ${escapeHtml(e.type)} @ ${escapeHtml(e.target)}`)
+          .join("; ") +
+        `</li>`,
+    );
+  }
+  if (d.escalations.length) {
+    items.push(
+      `<li class="esc">${d.escalations.length} escalated (a hypothesis the live attack just confirmed): ` +
+        d.escalations
+          .slice(0, 10)
+          .map((e) => `${escapeHtml(e.type)} ${escapeHtml(e.from)}→${escapeHtml(e.to)}`)
+          .join("; ") +
+        `</li>`,
+    );
+  }
+  if (d.resolved.length) {
+    items.push(
+      `<li class="resolved">${d.resolved.length} resolved (gone since last run — fix verified): ` +
+        d.resolved
+          .slice(0, 10)
+          .map((e) => `${escapeHtml(e.type)} @ ${escapeHtml(e.target)}`)
+          .join("; ") +
+        `</li>`,
+    );
+  }
+  return `<div class="drift"><h2>Drift vs last run${d.baselineTimestamp ? ` (${escapeHtml(d.baselineTimestamp)})` : ""}</h2><ul>${items.join("")}</ul></div>`;
 }

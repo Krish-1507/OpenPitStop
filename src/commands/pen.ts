@@ -5,7 +5,8 @@ import fs from "node:fs";
 import { analyzeStatic } from "../pen/static.js";
 import { runDynamic } from "../pen/dynamic.js";
 import { applyStaticProof } from "../pen/proof.js";
-import { persistPen } from "../pen/store.js";
+import { loadPenLatest, persistPen } from "../pen/store.js";
+import { computePenDrift } from "../pen/drift.js";
 import { runFixes } from "../pen/fix.js";
 import { renderPenBox, renderPenMarkdown, renderPenHtml } from "../pen/report.js";
 import { summarizeFindings, type PenFinding, type PenResult } from "../pen/types.js";
@@ -28,6 +29,9 @@ export async function runPen(repo: string, opts: PenOptions): Promise<PenResult>
   const staticStart = Date.now();
   const staticOutcome = analyzeStatic(repo);
   const staticMs = Date.now() - staticStart;
+
+  // Previous sealed run, for drift detection (read before we overwrite it).
+  const prev = loadPenLatest(repo);
 
   const staticFindings: PenFinding[] = [...staticOutcome.findings];
 
@@ -125,6 +129,11 @@ export async function runPen(repo: string, opts: PenOptions): Promise<PenResult>
     findings.push(...staticFindings);
   }
 
+  // Drift vs the previously sealed run — only when the two runs are comparable
+  // (same dynamic phase status), so an aborted run never fabricates resolutions.
+  const comparable = prev && prev.dynamic && dynamic.status === prev.dynamic.status;
+  const drift = comparable ? computePenDrift(prev!.findings, findings, prev!.timestamp) : undefined;
+
   return {
     timestamp: new Date().toISOString(),
     repo,
@@ -133,6 +142,7 @@ export async function runPen(repo: string, opts: PenOptions): Promise<PenResult>
     dynamicEnabled,
     dynamic,
     staticProof,
+    drift,
     packages: staticOutcome.packages,
     findings,
     summary: summarizeFindings(findings),
@@ -238,6 +248,26 @@ export const pen = new Command("pen")
     if (result.summary.critical + result.summary.high > 0) process.exitCode = 1;
     else if (result.dynamicEnabled && result.dynamic.status === "aborted" && result.findings.length === 0) {
       process.exitCode = 2;
+    }
+    // A regression (new high/critical, or a hypothesis the live attack just
+    // confirmed) since the last sealed run always fails the gate.
+    if (result.drift?.regression) process.exitCode = 1;
+
+    if (result.drift) {
+      const d = result.drift;
+      const parts: string[] = [];
+      if (d.new.length) parts.push(`${d.new.length} NEW${d.regression ? " (regression)" : ""}`);
+      if (d.resolved.length) parts.push(`${d.resolved.length} resolved`);
+      if (d.escalations.length) parts.push(`${d.escalations.length} escalated`);
+      if (parts.length) {
+        console.log(
+          chalk.dim(
+            `Drift vs last run${d.baselineTimestamp ? ` (${d.baselineTimestamp})` : ""}: ${parts.join(" · ")}`,
+          ),
+        );
+      } else {
+        console.log(chalk.dim("Drift vs last run: no change"));
+      }
     }
   });
 

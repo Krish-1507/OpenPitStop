@@ -74,6 +74,39 @@ export interface PenDynamicSummary {
   outboundEvents: number;
 }
 
+export interface PenDriftEntry {
+  id: string;
+  type: string;
+  /** route (dynamic) or file (static) the finding was seen at. */
+  target: string;
+  severity: PenSeverity;
+  confidence: PenConfidence;
+  title: string;
+}
+
+export interface PenDriftEscalation {
+  id: string;
+  type: string;
+  target: string;
+  from: PenConfidence;
+  to: PenConfidence;
+}
+
+/**
+ * Drift vs the previously sealed `pen-latest.json`. This is the "permanent
+ * referee": it proves a fix (a finding that was present last run is now gone)
+ * and catches a regression (a new high/critical, or a hypothesis that the live
+ * attack just confirmed). Computed only when both runs are comparable (same
+ * dynamic phase status), so an aborted run never fabricates "resolutions".
+ */
+export interface PenDrift {
+  baselineTimestamp?: string;
+  new: PenDriftEntry[];
+  resolved: PenDriftEntry[];
+  escalations: PenDriftEscalation[];
+  regression: boolean;
+}
+
 export interface PenResult {
   timestamp: string;
   repo: string;
@@ -89,6 +122,8 @@ export interface PenResult {
     unproven: number;
     notTested: number;
   };
+  /** Change vs the previously sealed run (absent on the first run / non-comparable runs). */
+  drift?: PenDrift;
   findings: PenFinding[];
   summary: {
     critical: number;
