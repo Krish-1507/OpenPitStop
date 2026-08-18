@@ -2,6 +2,24 @@
 
 All notable changes to this project are documented here.
 
+## [1.5.1] - 2026-08-18
+
+P1 of the "beat usestrix/Strix" security push — six new bug classes plus the
+proof wiring that makes them trustworthy.
+
+### Added
+
+- **Six new pen-test bug classes** (static detection, honest `heuristic`/`indicated` labels — the dynamic phase proves the live ones):
+  - `race-condition` — non-atomic read-modify-write / TOCTOU (double-spend, lost updates).
+  - `idor` — object accessed by a client-supplied id with no ownership check (IDOR / BOLA).
+  - `price-tampering` — order/payment handlers that trust a client-supplied amount/price.
+  - `xxe` — XML parsing without entity hardening (file read / SSRF via external entities).
+  - `insecure-deserialization` — `node-serialize` / `unserialize` / function-gadget deserializers.
+  - `jwt-weak-secret` — `jsonwebtoken` used without `algorithms` (alg=none) or with a short/guessable secret.
+- **Live dynamic attacks** for the new classes that can be proven safely: XXE (file read + SSRF canary), insecure deserialization (spawn canary), price-tampering and JWT alg=none. Each reuses the existing sandbox evidence stream (`proven` only on a canary).
+- **Runtime-proof mapping** (`pen/proof.ts`) so every new static class carries a live `proven`/`indicated`/`unproven`/`not-tested` verdict.
+- **Repro assertion bodies** for `price-tampering` and `insecure-deserialization`; XXE and JWT mark themselves non-replayable (they need an XML body / Authorization header the generic harness can't shape) and tell you to re-run `pitstop pen`.
+
 ## [1.4.1] - 2026-08-15
 
 Dogfooding fixes. Running the 1.4.0 scanner against axios, preact and requests

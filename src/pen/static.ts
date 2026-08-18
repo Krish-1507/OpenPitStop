@@ -329,6 +329,80 @@ const TYPES_WITH_RE = new Map(
   STATIC_RULES.filter((r) => r.type !== "no-rate-limit").map((r) => [r.type, r]),
 );
 
+/* ------------------------------------------------------------------ */
+/* 4b. P1 advanced heuristics (race / IDOR / price / XXE / deserialize / JWT) */
+/* ------------------------------------------------------------------ */
+
+const ADV_RULES: Record<string, StaticRule> = {
+  "race-condition": {
+    type: "race-condition",
+    severity: "high",
+    confidence: "heuristic",
+    title: "non-atomic read-modify-write (TOCTOU race)",
+    describe: () =>
+      "A read (findOne / find / SELECT / readFile) is followed by a write (save / updateOne / insert / " +
+      "writeFile) without a transaction or atomic compare-and-swap. Concurrent requests can race: double-spend, " +
+      "double-redeem, lost updates, or a skipped rate-limit count.",
+    fix: "Wrap the read-modify-write in a DB transaction with row locking (SELECT … FOR UPDATE), or use an atomic " +
+      "operator ($inc / $set with a conditional). For files, write to a temp name then atomically rename.",
+  },
+  idor: {
+    type: "idor",
+    severity: "high",
+    confidence: "indicated",
+    title: "object accessed by id without an ownership check (IDOR / BOLA)",
+    describe: () =>
+      "A route loads or mutates an object by a client-supplied id (req.params.id) but no code asserts the object " +
+      "belongs to the caller. Any authenticated user can read or modify other users' data by guessing ids.",
+    fix: "After loading the resource assert ownership: `if (doc.ownerId !== req.user.id) return res.sendStatus(403);`. " +
+      "Prefer scoping the query by owner: `Model.findOne({ _id, ownerId: req.user.id })`.",
+  },
+  "price-tampering": {
+    type: "price-tampering",
+    severity: "critical",
+    confidence: "indicated",
+    title: "client-supplied price/amount trusted in order/payment",
+    describe: () =>
+      "An order/payment/charge handler reads amount/price/quantity/total from the request body instead of the " +
+      "server-side catalog. An attacker sets the price to 0.01 and checks out.",
+    fix: "Never trust client prices. Re-fetch the item price from the database by SKU/id server-side, compute the " +
+      "total on the server, and treat any client total as untrusted.",
+  },
+  xxe: {
+    type: "xxe",
+    severity: "high",
+    confidence: "indicated",
+    title: "XML parsing without entity hardening (XXE)",
+    describe: () =>
+      "An XML parser (xml2js / fast-xml-parser / libxmljs / DOMParser) is used without disabling external entities / " +
+      "DTDs. A crafted <!ENTITY> can read local files or trigger SSRF from the server.",
+    fix: "Disable DTDs and external entities: configure the parser with `forbidUnknownContent` / `noEnt:false` / " +
+      "`disallowDoctype`. Better: accept JSON instead of XML.",
+  },
+  "insecure-deserialization": {
+    type: "insecure-deserialization",
+    severity: "critical",
+    confidence: "indicated",
+    title: "untrusted data passed to a deserializer",
+    describe: () =>
+      "Data reaching node-serialize / unserialize / funcster / flatted-with-functions is attacker-controllable. " +
+      "Insecure deserialization can yield RCE or object injection.",
+    fix: "Never deserialize untrusted input. Use JSON.parse with a strict schema (zod) and no function/reviver " +
+      "tricks. If you must, pin a safe library and validate structurally first.",
+  },
+  "jwt-weak-secret": {
+    type: "jwt-weak-secret",
+    severity: "high",
+    confidence: "indicated",
+    title: "JWT verified/signed without explicit algorithms or a weak secret",
+    describe: () =>
+      "jsonwebtoken is used without passing `algorithms` (enabling alg=none / algorithm confusion) and/or the HMAC " +
+      "secret is a short/guessable literal. Attackers can forge tokens.",
+    fix: "Always pass `{ algorithms: [\"HS256\"] }` to verify; keep the secret in an env var with >= 32 random bytes; " +
+      "rotate periodically. For higher assurance use RS256/ES256 (asymmetric).",
+  },
+};
+
 interface PatternEntry {
   type: string;
   re: RegExp;
@@ -492,6 +566,7 @@ export function analyzeStatic(repo: string): PenStaticOutcome {
   }
 
   const seenPattern = new Set<string>();
+  const seenAdv = new Set<string>();
   for (const entry of PATTERNS) {
     for (const { file, line, text } of codeLines) {
       if (!entry.re.test(text)) continue;
@@ -602,6 +677,59 @@ export function analyzeStatic(repo: string): PenStaticOutcome {
         });
       }
     }
+
+      /* ---- P1 advanced heuristics (whole-file; honest: heuristic/indicated) ---- */
+      {
+        const rel = path.relative(repo, file).replace(/\\/g, "/");
+        const adv = (type: string, lineRe: RegExp) => {
+          const rule = ADV_RULES[type];
+          if (!rule) return;
+          const key = `${type}|${rel}`;
+          if (seenAdv.has(key)) return;
+          seenAdv.add(key);
+          const line = findLineOf(c, lineRe) || 1;
+          push({
+            type: rule.type,
+            severity: rule.severity,
+            confidence: rule.confidence,
+            title: rule.title,
+            description: rule.describe(file, line, null as never) + ` (${rel}:${line})`,
+            file,
+            line,
+            repro: `open ${rel}:${line}`,
+            fix: rule.fix,
+          });
+        };
+
+        // race-condition: a read close above a write, no transaction.
+        if (/(?:findOne|find\b|readFileSync|SELECT\s+[^;]*\bFROM|getBalance|balance\s*[+\-]?=)[\s\S]{0,600}?(?:\.save\(|updateOne|update\(|writeFileSync|writeFile|insertOne|insert\(|transfer|decrement|increment)/i.test(c)) {
+          adv("race-condition", /findOne|readFileSync|SELECT|balance/i);
+        }
+        // idor: load/mutate by id with no ownership check.
+        if (/(?:req\.params\.id|params\.id|\.params\[['"]id['"]\])/i.test(c) && /(?:findById|findOne|findOneAndDelete|findOneAndUpdate|deleteOne|delete\(|updateOne|update\(|remove\()/i.test(c) && !/(?:req\.user(?:\.\w+)?\s*===|\.ownerId\s*===|\.userId\s*===|createdBy\s*===|scope\s*[:=]|where\(\{[^}]*ownerId|authorize|isOwner|owns|canAccess)/i.test(c)) {
+          adv("idor", /params\.id|req\.params\.id/i);
+        }
+        // price-tampering: client money field in an order/payment path.
+        if (/(?:req\.body\.(?:amount|price|total|cost|quantity)|(?:amount|price|total|cost)\s*[:=]\s*req\.(?:body|query))/i.test(c) && /(charge|payment|order|checkout|cart|invoice|purchase|subscribe|buy)/i.test(c)) {
+          adv("price-tampering", /amount|price|total|cost|quantity/i);
+        }
+        // xxe: XML parser without entity hardening.
+        if (/(?:parseString|xml2js|fast-xml-parser|libxmljs|new\s+DOMParser|sax\s*\.|require\(['"](?:xml2js|fast-xml-parser|libxmljs|@xmldom)['"]\))/i.test(c) && !/(?:forbidUnknownContent|forbidDTD|noEnt\s*:\s*false|processEntities\s*:\s*false|disallowDoctype|DTD\s*:\s*false|XMLParser\([^)]*noEnt)/i.test(c)) {
+          adv("xxe", /parseString|xml2js|fast-xml-parser|libxmljs|DOMParser/i);
+        }
+        // insecure-deserialization.
+        if (/unserialize\(|serialize\.unserialize|node-serialize|funcster|\bflatted\b[\s\S]{0,40}\.parse|require\(['"]node-serialize['"]\)/i.test(c) && !/node_modules|\.test\.|spec\./i.test(file)) {
+          adv("insecure-deserialization", /unserialize|node-serialize|funcster/i);
+        }
+        // jwt: verify/sign without algorithms or with a weak/short secret literal.
+        if (/(?:jsonwebtoken|require\(['"]jsonwebtoken['"]\)|\bjwt\b)\.(?:verify|sign)\s*\(/i.test(c)) {
+          const verifyCalls = c.match(/\.verify\s*\([^;]*?\)/g) || [];
+          const missingAlgs = verifyCalls.some((call) => !/algorithms\s*:/.test(call));
+          const weakSecret =
+            /secret\s*[:=]\s*["'][^"']{0,15}["']/i.test(c) || /jwt\.sign\s*\([^,]+,\s*["'][^"']{0,15}["']/.test(c);
+          if (missingAlgs || weakSecret) adv("jwt-weak-secret", /\.verify|\.sign/i);
+        }
+      }
   }
 
   // no-rate-limit: package-level rule.

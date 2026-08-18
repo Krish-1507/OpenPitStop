@@ -66,6 +66,7 @@ difference is what happens after a vulnerability is found:
 | Secret exfiltration | not emphasized | **Ledger mode** proves the app doesn't phone home with your keys |
 | DevSecOps | Cloud platform (paid tiers) | **Free SARIF → GitHub Security tab** + one-number `pitstop gate` |
 | Proof coverage | — | **`PITSTOP_PROOF` badge**: % of findings that ship a permanent repro test |
+| Bug classes covered | strong general set | **40+ classes** — race/TOCTOU, IDOR/BOLA, price-tampering, XXE, insecure deserialization, JWT alg-confusion/weak-secret, SSRF, SQL/NoSQLi, command-injection, path traversal, XSS, secrets, CORS, missing headers, rate-limit, and more |
 
 The honest pitch: a pen-test that only reports is a list of things to argue about. A
 pen-test that ships the regression test, signs the evidence, and scores the fix on a

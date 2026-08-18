@@ -101,6 +101,16 @@ function assertionBody(f: PenFinding, marker: string): string[] {
         `const missing = want.filter((h) => !res.headers[h]);`,
         `assert.ok(missing.length < 2, "security headers missing: " + missing.join(", "));`,
       ];
+    case "price-tampering":
+      return [
+        `assert.ok(!/"(?:amount|total|price)"\\s*:\\s*("?0\\.01"?)/.test(res.body), "the server reflected the tampered 0.01 total — client-supplied price is trusted: " + res.body.slice(0, 200));`,
+      ];
+    case "insecure-deserialization":
+      return [
+        `await sleep(400);`,
+        `const spawns = readOutbound(outboundPath).filter((e) => e.kind === "spawn" && e.cmd && e.cmd.includes(${J(marker)}));`,
+        `assert.equal(spawns.length, 0, "the sandbox recorded a spawn from a deserialization gadget: insecure deserialization is live: " + JSON.stringify(spawns.map((e) => e.cmd)));`,
+      ];
     default:
       return [];
   }
@@ -123,6 +133,17 @@ function secretGuardBody(f: PenFinding, fileRel: string): string[] {
 export function generatePenRepro(repo: string, f: PenFinding): ReproOutcome {
   const isDynamic = f.source === "pen-dynamic" || (f.runtimeProof === "proven" && !!f.attack);
   const isStaticSecret = f.type === "hardcoded-secret" && f.file;
+
+  // These live findings need a request shape the generic node:test harness
+  // can't express (an XML body for XXE, an Authorization header for JWT). The
+  // pen phase verifies them live; re-run `pitstop pen` to re-check.
+  if (f.type === "xxe" || f.type === "jwt-weak-secret") {
+    return {
+      ok: false,
+      reason:
+        "this live finding needs a request shape the generic repro harness can't build (XML body / Authorization header) — re-run `pitstop pen` to re-verify it after a change.",
+    };
+  }
 
   if (!isDynamic && !isStaticSecret) {
     return {

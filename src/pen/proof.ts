@@ -47,6 +47,12 @@ const CLASS_TO_DYNAMIC: Record<string, string[]> = {
   "missing-security-headers": ["missing-security-headers"],
   "info-leak-header": ["info-leak-header"],
   "no-rate-limit": ["no-rate-limit"],
+  "race-condition": ["race-condition"],
+  idor: ["idor"],
+  "price-tampering": ["price-tampering"],
+  xxe: ["xxe"],
+  "insecure-deserialization": ["insecure-deserialization"],
+  "jwt-weak-secret": ["jwt-weak-secret"],
 };
 
 interface ProofInput {
