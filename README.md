@@ -20,25 +20,42 @@ know it's actually done.
 
 ---
 
-## Try it in 30 seconds
+## Quick install
 
-No install, no config, no signup. Point it at any repo (including this one) and get a real score
-back in a couple of seconds:
+Two ways to run it. No account, no config, no SaaS.
 
+**Zero install, try it now:**
 ```bash
 npx openpitstop try .
 ```
+Scores any repo in about two seconds of scanning. The first run downloads the
+package once, after that it is instant.
 
-Want to see the whole story before you point it at your own code? This scaffolds a broken demo
-app in a temp folder and runs the referee on it, end to end:
-
+**Install it globally (recommended for daily use):**
 ```bash
-npx openpitstop@latest demo
+npm install -g openpitstop
+openpitstop --help
 ```
+Now every command starts with `openpitstop` instead of `npx openpitstop`.
 
-That is the entire pitch in two commands. It scans your code, it attacks your app inside a
-sandbox, it seals the evidence so the numbers can't be edited after the fact, and it tells your
-AI agent when the job is actually done. The rest of this page explains how, and why it matters.
+Requires **Node.js 22+**, that is the only dependency. For the full setup
+(slash command, pre-commit hook, CI), see [Install](#install).
+
+## Use-Cases
+
+- **You ship with an AI agent and want proof it actually finished.** The gate and
+  `verify` turn "the agent says done" into a pass or fail you can block a build on.
+- **You want a security scan that proves findings, not just guesses.** `pen` attacks
+  your app in a sandbox and labels each issue PROVEN, indicated, or unproven.
+- **You are tired of agents quietly deleting a failing test.** `integrity` and the
+  gate catch focused, deleted, or rewritten tests and exit 2 (confirmed cheat).
+- **You want CI to fail on a regression, not just a new bug.** Drift compares every
+  `pen` run to the last sealed one and goes red on a NEW finding.
+- **You need a score you can show your team or an auditor.** `report` and `honesty`
+  produce a sealed HTML report and an honesty certificate.
+- **You already pay for a pen tool and want continuous proof for free.** OpenPitStop
+  keeps a running ledger of proof in your repo. See the OpenPitStop vs Strix
+  comparison above.
 
 ---
 
@@ -62,7 +79,7 @@ your agent.
 
 | Jump to | |
 |---|---|
-| [Feature tour](#feature-tour) — the 13 demos | [Install](#install) · [Usage](#usage) · [Tool support](#tool-support) |
+| [Feature tour](#feature-tour) — every feature, in plain English | [Install](#install) · [Usage](#usage) · [Tool support](#tool-support) |
 | [See it in 90 seconds](#see-it-in-90-seconds) | [What OpenPitStop actually does](#what-openpitstop-actually-does) · [Every command](#every-command) |
 | [Architecture](#architecture) | [Known limitations](#known-limitations) · [Contributing](#contributing) · [License](#license) |
 
@@ -101,72 +118,52 @@ loop — and it's the reason to choose the referee over the hacker.
 
 ## Feature tour
 
-Every clip below is real opencode output, captured from a live agent session —
-the only thing trimmed is dead time.
+Every feature below is explained in plain English: what it does, and how it
+works. Most of it needs nothing more than a `pitstop scan` first.
 
 ### The scan
 
-`pitstop scan` — every check runs at once, one box, one score.
-
-<p align="center">
-  <img src="docs/media/pitstop-scan.gif" alt="pitstop scan — boxed report with the OpenPitStop Score" width="700">
-</p>
+`pitstop scan` runs every check at once, in parallel, and prints one box with a
+single **OpenPitStop Score** (0 to 100, A to F). It looks at circular imports,
+security issues, duplicated code, test results, build speed, accessibility and
+code quality. Each check gives a real number or prints `skipped` with a hint on
+how to install the tool it needs. It never makes up a number.
 
 ### Security fixes
 
-`pitstop scan` — and below the box, the indicated fixes, with a concrete
-`fix:` line for each finding.
-
-<p align="center">
-  <img src="docs/media/pitstop-security.gif" alt="pitstop scan — the indicated security fixes, each with a concrete fix" width="700">
-</p>
+Under the scan box, every security finding ships with a concrete `fix:` line, so
+you get a worklist, not just a list of problems. Findings are labeled
+`[indicated]` with the exact code and the fix. The full matrix is in
+[docs/security.md](docs/security.md).
 
 ### Try it on your repo
 
-`pitstop try .` — score any repo in ~2 seconds of scanning, no setup, no config.
-(First `npx openpitstop …` on a machine downloads the package once — a few seconds;
-`npm i -g openpitstop` makes even that instant.)
-
-<p align="center">
-  <img src="docs/media/pitstop-try.gif" alt="pitstop try — zero-setup score on any repo" width="700">
-</p>
+`pitstop try .` scores any repo in about two seconds, no setup, no config. It is
+the fastest first look, and it seeds a baseline your later runs build on.
 
 ### The test pyramid
 
-`pitstop test` — unit, integration and e2e layers run separately, so a
-suite that "passes" can't hide a missing layer. One failing layer means
-**DO NOT SHIP**.
-
-<p align="center">
-  <img src="docs/media/pitstop-pyramid.gif" alt="pitstop test — the pyramid verdict: DO NOT SHIP on a failing e2e layer" width="700">
-</p>
+`pitstop test` runs your **unit, integration and e2e** layers separately, so a
+suite that passes cannot hide a missing layer. It names every failing test. One
+failing layer and it prints **DO NOT SHIP** and exits 1.
 
 ### The gate
 
-`pitstop gate` — the score plus the integrity check, exit 0/1/2:
-clean / suspicious / confirmed cheat.
-
-<p align="center">
-  <img src="docs/media/pitstop-gate.gif" alt="pitstop gate — GATE FAIL on a confirmed cheat, exit 2" width="700">
-</p>
+`pitstop gate` is the contract for CI and pre-commit hooks. It checks the score,
+regression risk and diff integrity, then exits `0` (clean), `1` (issues) or `2`
+(confirmed cheat). The exit code is the truth a build can block on.
 
 ### Integrity
 
-`pitstop integrity` — diff against the sealed baseline, hunting cheat
-patterns: focused tests, deleted tests, rewritten tests.
-
-<p align="center">
-  <img src="docs/media/pitstop-integrity.gif" alt="pitstop integrity — CONFIRMED_CHEAT: test file deleted" width="700">
-</p>
+`pitstop integrity` diffs your change against the sealed baseline and hunts cheat
+patterns: focused tests, deleted tests, rewritten tests, swallowed errors,
+hardcoded-to-pass values. It exits `0/1/2` the same way.
 
 ### The pen test
 
-`pitstop pen` — boots your app in a sandbox, attacks it, and writes PROVEN
-verdicts — plus repro tests and a patch with `--fix`.
-
-<p align="center">
-  <img src="docs/media/pitstop-pen.gif" alt="pitstop pen — sandboxed attacks with runtime-proof verdicts" width="700">
-</p>
+`pitstop pen` boots your app in a sandbox and fires real attack traffic, so a
+finding is **PROVEN** by a live attack, not just guessed. With `--fix` it writes a
+failing-first repro test and a safe patch. Nothing reaches the real network.
 
 ### Drift (the permanent referee)
 
@@ -186,52 +183,119 @@ fix can never silently rot back into a bug.
 
 ### Honesty
 
-`pitstop honesty` — an honest assessment of what this tool can't do.
-
-<p align="center">
-  <img src="docs/media/pitstop-honesty.gif" alt="pitstop honesty — an honest self-assessment certificate" width="700">
-</p>
+`pitstop honesty` prints an honest self-assessment of what the tool cannot do, with
+the evidence chain behind every number. No SaaS, no telemetry, no dashboard, no
+fixing your code: it tells you its limits in plain words.
 
 ### Verify
 
-`pitstop verify` — re-scan after a change and see exactly how the score moved. Also checks your diff for cheat patterns.
+`pitstop verify` re-scans after a change and shows exactly how the score moved, and
+it checks your diff for cheat patterns. The numbers cannot be argued with.
 
 ### Trends
 
-`pitstop trends` — per-category sparklines from your scan history.
+`pitstop trends` turns your saved scan history into per-category sparklines and a
+score trend, so you can watch a repo actually improve over time.
 
 ### Inspect
 
-`pitstop inspect <finding-id>` — open up one finding: the code snippet, the root cause, whether a repro test exists, and what OpenPitStop remembers about these files.
+`pitstop inspect <finding-id>` opens one finding: the code snippet, the root
+cause, whether a repro test exists, and what OpenPitStop remembers about these
+files.
 
 ### Repro
 
-`pitstop repro <finding-id>` — every fix starts with a failing test. The test is written to fail *now* and pass after the fix.
+`pitstop repro <finding-id>` turns any finding into a regression test that FAILS
+while the bug is live and must PASS after the fix. Proof first, fix second.
 
 ### Report
 
-`pitstop report --html` — one self-contained HTML report, sealed with an evidence signature.
+`pitstop report --html` writes one self-contained HTML report, sealed with an
+evidence signature, plus a README-ready score badge (`PITSTOP_BADGE.svg`).
 
 ### Share
 
-`pitstop share` — one-card summary, easy to paste into a PR or a demo chat.
+`pitstop share` renders a single share card (score, trend, top findings) you can
+screenshot and post, or paste into a PR.
 
 ### The live shield
 
-`pitstop watch` — re-scans the moment a file changes and prints the score delta.
+`pitstop watch` sits in a terminal and re-scans the moment you save a file, printing
+the score delta so you see problems as you type.
+
+### Drive the agent
+
+`pitstop drive <finding-id>` hands one finding to your own agent with explicit orders:
+write the failing repro first, fix it, make the repro pass, then verify.
+OpenPitStop referees the result and never edits your code.
+
+### The next step
+
+`pitstop next` reads the sealed artifacts and prints the single best next command plus
+a checklist of everything still open, so you always know where you are.
+
+### Ask in plain English
+
+`pitstop ask "make this safe"` (or `/pitstop make this safe`) maps a plain-English
+request to the right command. No need to memorize flags.
+
+### Autopilot fix
+
+`pitstop fix` chains **scan to pen --fix to verify to gate** and shows the `next` card
+after each hop, so a clean repo is reachable without touching the agent.
+
+### Memory and budget
+
+`pitstop memory` is a repo scratchpad for decisions and rejected approaches that
+survive across sessions. `pitstop budget` shows the token and compute bill of your
+scans and reproves, so a fix loop stays cheap.
+
+### The slash command
+
+`/pitstop` in Claude Code, Cursor, OpenCode, Codex and more runs the full loop
+immediately. `pitstop install` writes it into your tools; `pitstop prompt` shows the
+exact prompt it expands to. See [Install](#install).
 
 ### The GitHub Action
 
-`uses: openpitstop/action` (or `Krish-1507/OpenPitStop@main` today) — every PR
-gets the gate as a comment and a failing check when it matters. No wiring by
-hand; the badge in your README regenerates itself. [Setup & badge loop →
-](docs/github-action.md)
+`uses: openpitstop/action` (or `Krish-1507/OpenPitStop@main`) puts the gate on every PR
+as a comment and a failing check when it matters. No wiring by hand. See
+[docs/github-action.md](docs/github-action.md).
 
 ### The pre-commit hook
 
-`npx openpitstop install --hooks` — the gate one step earlier: the commit
-can't land until the gate passes. Caught it before it shipped. [Real blocked
-commits → ](docs/caught-in-the-wild.md#bonus-the-same-catches-as-a-pre-commit-hook)
+`npx openpitstop install --hooks` installs the gate one step earlier: the commit
+cannot land until the gate passes. See
+[docs/caught-in-the-wild.md](docs/caught-in-the-wild.md).
+
+### The demo
+
+`npx openpitstop demo` scaffolds an intentionally broken app in a temp folder and runs
+the whole referee on it, so you can watch the story end to end with zero risk.
+
+### Ledger mode (payment proof)
+
+`pitstop scan --ledger` boots your app with every outbound HTTP call rerouted to a mock
+gateway, then replays the classic payment bugs (duplicate webhook, concurrent
+double-submit, delayed retry). If the mock shows more than one charge per idempotency
+key, that is a **proven double-charge**, not a guess.
+
+### CI reports
+
+`pitstop ci` runs a CI-friendly scan plus verify against the base branch and writes a
+PR-ready markdown report, the gate as a PR comment. This is the engine behind the
+GitHub Action.
+
+### Ready-check and doctor
+
+`pitstop ready-check` answers "is it worth scanning again?" and reuses the baseline when
+nothing changed. `pitstop doctor` explains why a category shows `skipped` and prints
+copy-paste install hints for the tools you are missing.
+
+### Digest (progress story)
+
+`pitstop digest` turns your history into a plain-English progress story: how the score
+moved, what got fixed, what regressed, and every cheat it caught.
 
 ---
 
@@ -677,6 +741,25 @@ how to open a PR. For the launch notes and the "why", read [LAUNCH.md](LAUNCH.md
 ## License
 
 [MIT](LICENSE)
+
+## Support the project
+
+OpenPitStop is free, open source (MIT), and built to be audited. If it saved you
+from shipping a bug your agent swore was fixed, here is how to help it grow:
+
+- **Star it on GitHub**: the cheapest signal that this matters.
+  https://github.com/Krish-1507/OpenPitStop
+- **Try it and tell someone**: run `npx openpitstop try .` on your repo and post
+  the score. A screenshot beats a paragraph.
+- **File issues and ideas**: bugs, false positives, new bug classes. The tool gets
+  better when real repos break it: https://github.com/Krish-1507/OpenPitStop/issues
+- **Spread the word**: share it with a team that ships with agents. The more agents
+  it referees, the better the rules get.
+- **Contribute**: adding an analyzer is a small, well-scoped change. See
+  [CONTRIBUTING.md](CONTRIBUTING.md).
+
+No donation button, no paywall, no telemetry. The best support is a repo it
+refereed and a star on GitHub.
 
 ---
 
