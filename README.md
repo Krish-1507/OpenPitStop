@@ -22,7 +22,8 @@ know it's actually done.
 
 ## Quick install
 
-Two ways to run it. No account, no config, no SaaS.
+**Start here:** `npx openpitstop try .` scores any repo in about two seconds with zero
+install, or `npm i -g openpitstop` for daily use. No account, no config, no SaaS.
 
 **Zero install, try it now:**
 ```bash
@@ -56,6 +57,9 @@ Requires **Node.js 22+**, that is the only dependency. For the full setup
 - **You already pay for a pen tool and want continuous proof for free.** OpenPitStop
   keeps a running ledger of proof in your repo. See the OpenPitStop vs Strix
   comparison above.
+
+**Ready to try it?** Run `npx openpitstop try .` on any repo and get your score in
+about two seconds.
 
 ---
 
@@ -451,19 +455,29 @@ writes into your tool configs (that stays an explicit `pitstop install`).
 
 | Tool | Installed to | Status |
 |------|--------------|--------|
-| Claude Code | `.claude/commands/pitstop.md` (project + user), plus a Skill at `.claude/skills/pitstop/SKILL.md` | Full support |
+| Claude Code | `.claude/commands/pitstop.md` (project + user), plus a Skill at `.claude/skills/pitstop/SKILL.md | Full support |
 | Cursor | `.cursor/commands/pitstop.md` (project + user) | Full support |
 | OpenCode | `.opencode/commands/pitstop.md` (project), `~/.config/opencode/commands/` (user) | Full support |
 | Kilo Code | `.kilo/commands/pitstop.md` (project), `~/.config/kilo/commands/` (user) | Full support |
 | Antigravity | `.agent/workflows/pitstop.md` (project + user) | Full support |
 | Gemini CLI | `.gemini/commands/pitstop.toml` (project + user) | Full support |
 | Codex CLI | `~/.codex/prompts/pitstop.md` | Full support |
+| FreeBuff CLI | portable `pitstop.md` in your tool's commands folder | Full support (portable) |
+| Grok Build CLI | portable `pitstop.md` in your tool's commands folder | Full support (portable) |
+| MUSE Code CLI | portable `pitstop.md` in your tool's commands folder | Full support (portable) |
+| Any other agent CLI | portable `pitstop.md` (drop it in the commands folder) | Full support (portable) — see below |
 | Codex App / VS Code extension | — (no file written) | **Not supported** — OpenAI hasn't shipped custom slash commands there; install prints a manual-copy note instead |
 | GitHub Action (PRs) | `uses: Krish-1507/OpenPitStop@main` | **Full support** — gate verdict as a PR comment + failing check; see [docs/github-action.md](docs/github-action.md) |
 | git pre-commit hook | `.git/hooks/pre-commit` (installed with `--hooks`) | **Full support** — the gate blocks the commit before it lands |
 
-Legacy/alternate locations are also written where tool docs are inconsistent across versions
-(see `src/installer/targets.ts`). Existing files are never overwritten unless you pass
+**Works with any agent CLI.** OpenPitStop's `/pitstop` is a portable command file:
+run `pitstop prompt` to print the exact instruction text, then paste it as a custom
+slash command in any coding CLI that supports them (FreeBuff, Grok Build, MUSE Code and
+others included above). The CLIs listed by name also get a dedicated path written
+automatically by `pitstop install` when their commands-folder convention is known. Tell
+us your CLI and we'll add it to the auto-install list. Legacy/alternate locations are
+also written where tool docs are inconsistent across versions (see
+`src/installer/targets.ts`). Existing files are never overwritten unless you pass
 `-y`/`--force`; `npx openpitstop install --uninstall` removes everything.
 
 ## What OpenPitStop actually does
@@ -684,14 +698,12 @@ cheat its own referee. That separation is the product.
 
 ## Known limitations
 
-- **Windows** is CI-verified on every push (build + smoke on `ubuntu-latest` and
-  `windows-latest`), and the Windows-specific bugs were reproduced and fixed on a real
-  Windows host during development. `watch`, `pen`, `pen --fix` and `scan --ledger` have
-  additionally been run end-to-end on a real Windows host against the demo repos: a live
-  watch delta, PROVEN ledger double-charges with sealed evidence, and honest pen
-  verdicts (including the honest "0 patches" case) all verified. The one remaining
-  caveat is breadth, not correctness: not every exotic repo shape has been manually
-  exercised on Windows.
+- **Windows** is a first-class, CI-verified platform (build + smoke on `ubuntu-latest`
+  and `windows-latest` every push). `watch`, `pen`, `pen --fix` and `scan --ledger` were
+  each run end-to-end on a real Windows host against the demo repos, with a live watch
+  delta, PROVEN ledger double-charges (sealed evidence) and honest pen verdicts
+  (including the honest "0 patches" case) all verified. The only open caveat is breadth,
+  not correctness: not every exotic repo shape has been hand-exercised on Windows yet.
 - **Codex App / VS Code extension** isn't supported and won't be until OpenAI ships custom
   slash commands; use Codex CLI for `/pitstop`.
 - **Graceful degradation:** duplication (`jscpd`), secrets/code scanning (`gitleaks`,
@@ -744,22 +756,14 @@ how to open a PR. For the launch notes and the "why", read [LAUNCH.md](LAUNCH.md
 
 ## Support the project
 
-OpenPitStop is free, open source (MIT), and built to be audited. If it saved you
-from shipping a bug your agent swore was fixed, here is how to help it grow:
+If OpenPitStop saved you from shipping a bug your agent swore was fixed, the best
+support is a star and a real repo:
 
-- **Star it on GitHub**: the cheapest signal that this matters.
-  https://github.com/Krish-1507/OpenPitStop
-- **Try it and tell someone**: run `npx openpitstop try .` on your repo and post
-  the score. A screenshot beats a paragraph.
-- **File issues and ideas**: bugs, false positives, new bug classes. The tool gets
-  better when real repos break it: https://github.com/Krish-1507/OpenPitStop/issues
-- **Spread the word**: share it with a team that ships with agents. The more agents
-  it referees, the better the rules get.
-- **Contribute**: adding an analyzer is a small, well-scoped change. See
-  [CONTRIBUTING.md](CONTRIBUTING.md).
+- **Star** it: https://github.com/Krish-1507/OpenPitStop
+- **Report issues or ideas**: https://github.com/Krish-1507/OpenPitStop/issues
+- **Contribute** an analyzer (small, well-scoped): see [CONTRIBUTING.md](CONTRIBUTING.md)
 
-No donation button, no paywall, no telemetry. The best support is a repo it
-refereed and a star on GitHub.
+No donation, no paywall, no telemetry.
 
 ---
 
