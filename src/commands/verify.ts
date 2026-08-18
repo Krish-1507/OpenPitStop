@@ -1,6 +1,7 @@
 import { Command } from "commander";
 import chalk from "chalk";
 import boxen from "boxen";
+import { printNextCard } from "./next.js";
 import Table from "cli-table3";
 import path from "node:path";
 import fs from "node:fs";
@@ -497,6 +498,8 @@ export const verify = new Command("verify")
     );
 
     console.log(chalk.dim(`\nReport written to ${outcome.file}\n`));
+    // Pure-CLI users get the sticky-loop card too — no agent required.
+    await printNextCard(repo);
 
     const summary = outcome.blocked
       ? `verify BLOCKED (integrity ${outcome.integrity.verdict})`

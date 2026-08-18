@@ -1,0 +1,24 @@
+{
+  "name": "minishop-fixed",
+  "version": "1.1.0",
+  "private": true,
+  "description": "DEMO ONLY — fixed MiniShop web app after OpenPitStop. See demo/DEMO_SCRIPT.md",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "jest"
+  },
+  "dependencies": {
+    "express": "4.21.2",
+    "lodash": "4.17.21",
+    "jsonwebtoken": "9.0.2",
+    "mysql2": "3.11.0",
+    "cors": "2.8.5",
+    "helmet": "7.1.0",
+    "bcryptjs": "2.4.3",
+    "express-rate-limit": "7.4.0"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
+  }
+}

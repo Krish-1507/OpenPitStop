@@ -5,6 +5,7 @@ import boxen from "boxen";
 import type { ScanResult, Cluster } from "../analyzers/types.js";
 import type { IntegrityFinding, Verdict } from "../analyzers/integrity/types.js";
 import { computeScore, gradeColor, gradeHex, gradeOf, renderBadgeSvg } from "./score.js";
+import { brandBarHtml, PRODUCT, TAGLINE } from "../brand.js";
 
 export interface VerifyMetrics {
   tests: { total: number; passed: number; failed: number; durationMs: number; coverage?: number };
@@ -629,7 +630,9 @@ function notesSection(): string[] {
 
 export function renderMarkdown(model: ReportModel, opts: MarkdownOptions = {}): string {
   const out: string[] = [];
-  out.push(`# PITSTOP — ${opts.title ?? "Repository Analysis Complete"}`);
+  out.push(`# ${PRODUCT} — ${opts.title ?? "Repository Analysis Complete"}`);
+  out.push("");
+  out.push(`_${TAGLINE}_`);
   out.push("");
   out.push(`_Generated ${model.generatedAt}_  `);
   out.push(`_Repo: \`${model.repo}\` · ${model.scansCount} scan(s), ${model.verifiesCount} verify(ies)_`);
@@ -782,40 +785,48 @@ export function renderHtml(model: ReportModel): string {
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>PITSTOP — ${escapeHtml(model.repo)}</title>
 <style>
-  :root{color-scheme:dark}
-  *{box-sizing:border-box}
-  body{background:#0d1117;color:#e6edf3;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;margin:0;padding:32px 16px}
-  .wrap{max-width:860px;margin:0 auto}
-  h1{font-size:20px;margin:0 0 4px}
-  .muted{color:#8b949e;font-size:13px}
-  .sub{color:#8b949e;font-size:13px;margin-bottom:24px}
-  .hero{display:flex;align-items:center;gap:20px;background:#161b22;border:1px solid #30363d;border-radius:12px;padding:24px;margin-bottom:24px;flex-wrap:wrap}
-  .score{font-size:56px;font-weight:800;line-height:1;color:${heroColor}}
-  .grd{font-size:22px;font-weight:700;color:${heroColor}}
-  .badge{margin-top:4px}
-  h2{font-size:16px;border-bottom:1px solid #30363d;padding-bottom:8px;margin:32px 0 12px;color:#f0f6fc}
-  table{width:100%;border-collapse:collapse;font-size:13px;margin-bottom:8px}
-  th,td{text-align:left;padding:7px 10px;border-bottom:1px solid #21262d}
-  th{color:#8b949e;font-weight:600}
-  .label{font-weight:600;color:#c9d1d9}
-  code{background:#21262d;padding:1px 6px;border-radius:5px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px}
-  .card{background:#161b22;border:1px solid #30363d;border-radius:10px;padding:16px 20px;margin-bottom:16px}
-  .card h3{margin:0 0 8px;font-size:14px}
-  .card p{margin:4px 0;font-size:13px}
-  .card ul{margin:6px 0 0;padding-left:20px;font-size:13px}
-  .card li{margin:2px 0}
-  .chip{background:#21262d;border-radius:20px;padding:1px 10px;font-size:12px;margin-left:8px;font-weight:600}
-  .verdict{display:inline-block;border-radius:20px;padding:2px 10px;font-size:12px;font-weight:700;margin:2px 4px 2px 0}
-  .trend .card{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
-  .trend .card h3{min-width:180px;margin:0}
-  .trend .card div{flex:1;min-width:260px}
-  .footer{color:#8b949e;font-size:12px;margin-top:40px;text-align:center}
-  a{color:#58a6ff}
-</style>
-</head>
-<body><div class="wrap">
-  <h1>PITSTOP — Repository Analysis</h1>
-  <p class="sub">${escapeHtml(model.repo)} · generated ${time} · ${model.scansCount} scan(s), ${model.verifiesCount} verify(ies)</p>
+   :root{color-scheme:dark}
+   *{box-sizing:border-box}
+   body{background:#0d1117;color:#e6edf3;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;margin:0;padding:32px 16px}
+   .wrap{max-width:860px;margin:0 auto}
+   .topbar{height:4px;background:linear-gradient(90deg,#58a6ff,#3fb950);border-radius:4px;margin-bottom:24px}
+   .brand{display:flex;align-items:center;gap:14px;margin-bottom:6px}
+   .brand svg{flex:none;filter:drop-shadow(0 2px 6px rgba(88,166,255,.25))}
+   .brand-text{display:flex;flex-direction:column;line-height:1.15}
+   .brand-name{font-size:22px;font-weight:800;letter-spacing:.2px;background:linear-gradient(90deg,#58a6ff,#3fb950);-webkit-background-clip:text;background-clip:text;color:transparent}
+   .brand-tag{font-size:12.5px;color:#8b949e}
+   h1{font-size:20px;margin:0 0 4px}
+   .muted{color:#8b949e;font-size:13px}
+   .sub{color:#8b949e;font-size:13px;margin-bottom:24px}
+   .hero{display:flex;align-items:center;gap:20px;background:#161b22;border:1px solid #30363d;border-radius:12px;padding:24px;margin-bottom:24px;flex-wrap:wrap;box-shadow:0 1px 0 rgba(255,255,255,.02) inset}
+   .score{font-size:56px;font-weight:800;line-height:1;color:${heroColor}}
+   .grd{font-size:22px;font-weight:700;color:${heroColor}}
+   .badge{margin-top:4px}
+   h2{font-size:16px;border-bottom:1px solid #30363d;padding-bottom:8px;margin:32px 0 12px;color:#f0f6fc}
+   table{width:100%;border-collapse:collapse;font-size:13px;margin-bottom:8px}
+   th,td{text-align:left;padding:7px 10px;border-bottom:1px solid #21262d}
+   th{color:#8b949e;font-weight:600}
+   .label{font-weight:600;color:#c9d1d9}
+   code{background:#21262d;padding:1px 6px;border-radius:5px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px}
+   .card{background:#161b22;border:1px solid #30363d;border-radius:10px;padding:16px 20px;margin-bottom:16px}
+   .card h3{margin:0 0 8px;font-size:14px}
+   .card p{margin:4px 0;font-size:13px}
+   .card ul{margin:6px 0 0;padding-left:20px;font-size:13px}
+   .card li{margin:2px 0}
+   .chip{background:#21262d;border-radius:20px;padding:1px 10px;font-size:12px;margin-left:8px;font-weight:600}
+   .verdict{display:inline-block;border-radius:20px;padding:2px 10px;font-size:12px;font-weight:700;margin:2px 4px 2px 0}
+   .trend .card{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+   .trend .card h3{min-width:180px;margin:0}
+   .trend .card div{flex:1;min-width:260px}
+   .footer{color:#8b949e;font-size:12px;margin-top:40px;text-align:center;border-top:1px solid #21262d;padding-top:16px}
+   .footer b{color:#c9d1d9}
+   a{color:#58a6ff}
+   </style>
+   </head>
+   <body><div class="wrap">
+   <div class="topbar"></div>
+   ${brandBarHtml()}
+   <p class="sub">${escapeHtml(model.repo)} · generated ${time} · ${model.scansCount} scan(s), ${model.verifiesCount} verify(ies)</p>
 
   <div class="hero">
     ${sc ? `<div><div class="score">${sc.score}<span style="font-size:20px">/100</span></div><div class="grd">${sc.grade}</div></div>` : `<div class="score" style="font-size:24px">no scan yet</div>`}
@@ -862,6 +873,6 @@ export function renderHtml(model: ReportModel): string {
     ${model.proofs.length === 0 ? `<p class="muted">No pitstop-repro-*.test.* files are committed.</p>` : `<table><thead><tr><th>Finding</th><th>Proved by</th></tr></thead><tbody>${model.proofs.map((p) => `<tr><td><code>${escapeHtml(p.findingId ?? "?")}</code></td><td><code>${escapeHtml(p.file)}</code></td></tr>`).join("")}</tbody></table>`}
   </div>
 
-  <div class="footer">Generated by openpitstop · every figure read from .pitstop/scan-*.json and .pitstop/verify-*.json</div>
+   <div class="footer">${PRODUCT} — <b>the honest referee for AI coding agents</b> · every figure read from <code>.pitstop/scan-*.json</code> and <code>.pitstop/verify-*.json</code></div>
 </div></body></html>`;
 }

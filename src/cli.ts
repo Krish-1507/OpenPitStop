@@ -26,6 +26,9 @@ import { budgetCmd } from "./commands/budget.js";
 import { watch } from "./commands/watch.js";
 import { drive } from "./commands/drive.js";
 import { testCmd } from "./commands/test.js";
+import { nextCmd } from "./commands/next.js";
+import { fix } from "./commands/fix.js";
+import { askCmd } from "./commands/ask.js";
 import { guidedFirstRun } from "./firstRun.js";
 
 /**
@@ -104,5 +107,8 @@ program.addCommand(budgetCmd);
 program.addCommand(watch);
 program.addCommand(drive);
 program.addCommand(testCmd);
+program.addCommand(nextCmd);
+program.addCommand(fix);
+program.addCommand(askCmd);
 
 program.parseAsync(process.argv);

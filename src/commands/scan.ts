@@ -1,6 +1,7 @@
 import { Command } from "commander";
 import chalk, { type ChalkInstance } from "chalk";
 import boxen from "boxen";
+import { printNextCard } from "./next.js";
 import path from "node:path";
 import fs from "node:fs";
 import { runAllAnalyzers } from "../analyzers/index.js";
@@ -466,5 +467,7 @@ export const scan = new Command("scan")
       console.log(renderBox(result));
       console.log(renderSecurityFixes(result));
       console.log(chalk.dim(`\nReports written to ${file}\n`));
+      // Pure-CLI users get the sticky-loop card too — no agent required.
+      await printNextCard(repo);
     },
   );

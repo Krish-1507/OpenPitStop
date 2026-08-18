@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>MiniShop</title>
+    <script src="/app.js"></script>
+  </head>
+  <body>
+    <!-- FIXED: image has descriptive alt text -->
+    <img src="/logo.png" alt="MiniShop logo" />
+    <h1>MiniShop</h1>
+
+    <!-- FIXED: every input has an associated label -->
+    <form onsubmit="return false;">
+      <label for="username">Username</label>
+      <input id="username" type="text" name="username" placeholder="username" />
+      <label for="password">Password</label>
+      <input id="password" type="password" name="password" />
+      <button type="submit">Login</button>
+    </form>
+
+    <div id="profile"></div>
+
+    <!-- FIXED: button has an accessible name -->
+    <button type="button" aria-label="Reload profile" onclick="loadProfile()">Reload</button>
+  </body>
+</html>

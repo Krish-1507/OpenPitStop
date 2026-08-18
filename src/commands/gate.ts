@@ -17,7 +17,7 @@ import { runVerify, type VerifyOutcome } from "./verify.js";
  * baseline, then `pitstop gate` every step of a fix loop — also usable as a
  * pre-commit hook or the last line of a CI job.
  */
-function gateOutcome(o: VerifyOutcome, threshold: number): {
+export function gateOutcome(o: VerifyOutcome, threshold: number): {
   pass: boolean;
   exitCode: number;
   reasons: string[];
@@ -67,7 +67,7 @@ function gateOutcome(o: VerifyOutcome, threshold: number): {
   return { pass: exitCode === 0, exitCode, reasons };
 }
 
-function renderGateBox(o: VerifyOutcome, gate: ReturnType<typeof gateOutcome>, threshold: number): string {
+export function renderGateBox(o: VerifyOutcome, gate: ReturnType<typeof gateOutcome>, threshold: number): string {
   const score = o.currentScore;
   const scorePaint = score.score >= threshold ? chalk.greenBright : chalk.red;
 

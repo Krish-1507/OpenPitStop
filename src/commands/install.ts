@@ -6,7 +6,8 @@ import fs from "node:fs";
 import path from "node:path";
 import {
   getTargets,
-  resolveTemplatePath,
+  getSubcommandTargets,
+  resolveCommandTemplatePath,
   renderContent,
 } from "../installer/targets.js";
 
@@ -63,7 +64,7 @@ exit "\$CODE"
 `;
 
 export const install = new Command("install")
-  .description("Install the pitstop slash-command into Claude Code, Cursor, OpenCode, Antigravity, Kilo Code, Gemini CLI, Codex (--hooks also adds the git pre-commit gate)")
+  .description("Install the pitstop slash-command (and pitstop-menu / pitstop-scan / … subcommands) into Claude Code, Cursor, OpenCode, Antigravity, Kilo Code, Gemini CLI, Codex (--hooks also adds the git pre-commit gate)")
   .argument("[repo]", "target repo (defaults to cwd)", ".")
   .option("--force", "overwrite existing pitstop files", false)
   .option("-y, --yes", "same as --force (re-runnable one-liner: npx openpitstop@latest install -y)", false)
@@ -75,8 +76,9 @@ export const install = new Command("install")
   )
   .action(async (repoArg: string, opts: any) => {
     const cwd = path.resolve(repoArg);
-    const targets = getTargets(cwd);
-    const codexNote = targets.find((t) => t.note)?.note;
+    const mains = getTargets(cwd);
+    const subs = getSubcommandTargets(cwd);
+    const codexNote = mains.find((t) => t.note)?.note;
     const force = Boolean(opts.force || opts.yes);
 
     if (opts.uninstall) {
@@ -85,7 +87,7 @@ export const install = new Command("install")
         style: { head: ["cyan"], border: [] },
       });
       let removed = 0;
-      for (const t of targets) {
+      for (const t of [...mains, ...subs]) {
         if (fs.existsSync(t.path)) {
           fs.rmSync(t.path);
           table.push([t.tool, t.path, chalk.red("🗑️  removed")]);
@@ -145,7 +147,9 @@ export const install = new Command("install")
       }
     }
 
-    const templateText = fs.readFileSync(resolveTemplatePath(), "utf8");
+    // The slash-command file the user SEES is the short pointer; the full SOP
+    // lives behind `pitstop prompt` so the chat only shows `/pitstop <args>`.
+    const templateText = fs.readFileSync(resolveCommandTemplatePath(), "utf8");
 
     const table = new Table({
       head: ["Tool", "Path", "Status"],
@@ -153,7 +157,11 @@ export const install = new Command("install")
     });
     let installed = 0;
     let skipped = 0;
-    for (const t of targets) {
+    let subInstalled = 0;
+    let subSkipped = 0;
+    // Main commands go in the table; generated subcommands (pitstop-scan,
+    // pitstop-menu, …) are written silently and summarized below.
+    for (const t of mains) {
       fs.mkdirSync(path.dirname(t.path), { recursive: true });
       const exists = fs.existsSync(t.path);
       if (exists && !force) {
@@ -165,6 +173,15 @@ export const install = new Command("install")
       table.push([t.tool, t.path, chalk.green("✅ Installed")]);
       installed++;
     }
+    for (const t of subs) {
+      fs.mkdirSync(path.dirname(t.path), { recursive: true });
+      if (fs.existsSync(t.path) && !force) {
+        subSkipped++;
+        continue;
+      }
+      fs.writeFileSync(t.path, renderContent(t, t.inlineBody ?? templateText));
+      subInstalled++;
+    }
     // Codex App / Codex VS Code extension: no custom slash commands exist yet,
     // so there is deliberately NO file written for them — only an honest status.
     table.push([
@@ -174,6 +191,18 @@ export const install = new Command("install")
     ]);
 
     console.log(table.toString());
+    if (subInstalled > 0) {
+      console.log(
+        chalk.green(
+          `✅ Installed ${subInstalled} subcommand(s) — pitstop-menu, pitstop-scan, pitstop-pen, pitstop-fix, pitstop-verify, pitstop-gate, pitstop-report, pitstop-honesty, pitstop-watch, pitstop-memory, pitstop-next, pitstop-ask, pitstop-install`,
+        ),
+      );
+      console.log(
+        chalk.dim(
+          "   Type /pitstop in your tool to see the clickable dropdown, or run /pitstop menu for an interactive card.",
+        ),
+      );
+    }
     console.log(chalk.yellow(CODEX_APP_MESSAGE));
     if (codexNote) {
       console.log(chalk.dim(`Note: ${codexNote}.`));
