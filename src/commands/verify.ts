@@ -19,6 +19,7 @@ import { getDiff } from "../analyzers/integrity/git.js";
 import { buildIntegrityReport } from "../graph/integrity.js";
 import type { IntegrityFinding, Verdict } from "../analyzers/integrity/types.js";
 import { seal, checkEvidence, type EvidenceCheck, type OpenPitStopEvidence } from "../evidence.js";
+import { computeHonesty, type HonestyScore } from "../verify/honesty.js";
 
 interface IntegrityGate {
   verdict: Verdict;
@@ -46,6 +47,8 @@ export interface VerifyOutcome {
   scoreDelta: number;
   exitCode: number;
   file?: string;
+  /** 0-100 trust rating: did the agent (or auto-fix) fake the result? */
+  honesty?: HonestyScore;
 }
 
 /**
@@ -154,7 +157,7 @@ function currentScoreOf(
 export async function runVerify(repo: string): Promise<VerifyOutcome> {
   const baselineResult = readBaseline(repo);
   if (!baselineResult) {
-    return {
+    const outcome: VerifyOutcome = {
       repo,
       missingBaseline: true,
       stale: false,
@@ -192,6 +195,7 @@ export async function runVerify(repo: string): Promise<VerifyOutcome> {
       scoreDelta: 0,
       exitCode: 1,
     };
+    return { ...outcome, honesty: computeHonesty(outcome) };
   }
 
   // Evidence signature: recompute the digest of the stored scan and compare.
@@ -242,16 +246,20 @@ export async function runVerify(repo: string): Promise<VerifyOutcome> {
   fs.mkdirSync(outDir, { recursive: true });
   const ts = new Date().toISOString().replace(/[:.]/g, "-");
   const file = path.join(outDir, `verify-${ts}.json`);
-  const report = {
-    timestamp: new Date().toISOString(),
+
+  const honesty = computeHonesty({
     repo,
-    baselineTimestamp: baselineResult.timestamp,
-    risk,
-    blocked,
+    missingBaseline: false,
     stale,
-    staleNote: stale ? staleNote : undefined,
-    evidence,
-    status: blocked ? "BLOCKED" : evidence.status === "tampered" ? "SUSPICIOUS_EVIDENCE" : "OK",
+    risk,
+    integrity,
+    blocked,
+    current,
+    baseline,
+    deltas: d,
+    baselineScore,
+    currentScore,
+    scoreDelta,
     exitCode: blocked
       ? integrity.verdict === "CONFIRMED_CHEAT"
         ? 2
@@ -259,20 +267,9 @@ export async function runVerify(repo: string): Promise<VerifyOutcome> {
       : risk === "High"
         ? 1
         : 0,
-    integrity,
-    deltas: d,
-    baseline,
-    current,
-    score: {
-      baseline: baselineScore.score,
-      current: currentScore.score,
-      delta: scoreDelta,
-      grade: currentScore.grade,
-    },
-  };
-  fs.writeFileSync(file, JSON.stringify(seal(report, `pitstop verify result for ${repo}`), null, 2));
+  } as VerifyOutcome);
 
-  return {
+  const outcome: VerifyOutcome = {
     repo,
     missingBaseline: false,
     baselineTimestamp: baselineResult.timestamp,
@@ -296,7 +293,35 @@ export async function runVerify(repo: string): Promise<VerifyOutcome> {
         ? 1
         : 0,
     file,
+    honesty,
   };
+
+  const report = {
+    timestamp: new Date().toISOString(),
+    repo,
+    baselineTimestamp: baselineResult.timestamp,
+    risk,
+    blocked,
+    stale,
+    staleNote: stale ? staleNote : undefined,
+    evidence,
+    status: blocked ? "BLOCKED" : evidence.status === "tampered" ? "SUSPICIOUS_EVIDENCE" : "OK",
+    exitCode: outcome.exitCode,
+    integrity,
+    deltas: d,
+    baseline,
+    current,
+    score: {
+      baseline: baselineScore.score,
+      current: currentScore.score,
+      delta: scoreDelta,
+      grade: currentScore.grade,
+    },
+    honesty,
+  };
+  fs.writeFileSync(file, JSON.stringify(seal(report, `pitstop verify result for ${repo}`), null, 2));
+
+  return outcome;
 }
 
 function fmtBundle(b?: number): string {
@@ -455,6 +480,21 @@ function renderVerifyBox(o: VerifyOutcome): { text: string; color: string } {
 
   if (o.stale) contentParts.push("");
   contentParts.push(...integrityParts, riskLine);
+
+  if (o.honesty) {
+    const hc =
+      o.honesty.rating === "TRUSTWORTHY"
+        ? chalk.green
+        : o.honesty.rating === "QUESTIONABLE"
+          ? chalk.yellow
+          : chalk.red;
+    contentParts.push(
+      hc(`Honesty Score: ${o.honesty.score}/100 · ${o.honesty.rating}`),
+    );
+    if (o.honesty.rating !== "TRUSTWORTHY") {
+      for (const r of o.honesty.reasons) contentParts.push(chalk.dim(`  · ${r}`));
+    }
+  }
   contentParts.push("", table.toString());
   const content = contentParts.join("\n");
 

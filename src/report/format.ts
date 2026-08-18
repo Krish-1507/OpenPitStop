@@ -6,6 +6,8 @@ import type { ScanResult, Cluster } from "../analyzers/types.js";
 import type { IntegrityFinding, Verdict } from "../analyzers/integrity/types.js";
 import { computeScore, gradeColor, gradeHex, gradeOf, renderBadgeSvg } from "./score.js";
 import { brandBarHtml, PRODUCT, TAGLINE } from "../brand.js";
+import { loadPenLatest } from "../pen/store.js";
+import type { HonestyScore } from "../verify/honesty.js";
 
 export interface VerifyMetrics {
   tests: { total: number; passed: number; failed: number; durationMs: number; coverage?: number };
@@ -40,6 +42,8 @@ export interface VerifyReport {
     findings: IntegrityFinding[];
     summary: { confirmed: number; suspicious: number; total: number };
   };
+  /** 0-100 trust rating from `pitstop verify` — did the fix fake it? */
+  honesty?: HonestyScore;
 }
 
 export interface History {
@@ -163,6 +167,12 @@ export interface ReportModel {
   hasVerify: boolean;
   /** Committed repro tests that permanently prove each fix. */
   proofs: ReproProof[];
+  /**
+   * Proof coverage: of the findings a pen test surfaced, how many ship with a
+   * permanent failing-first repro test. This is the number that answers
+   * "vs Strix, do you just report, or do you prove?" — higher is better.
+   */
+  proofCoverage?: { total: number; covered: number; pct: number; hasPen: boolean };
   /**
    * Aggregated Phase 16 integrity evidence from every `pitstop verify` (and
    * `pitstop integrity`) run in `.pitstop/`. A "catch" is any non-CLEAN
@@ -353,6 +363,17 @@ export function buildModel(repo: string): ReportModel {
     });
   }
 
+  const proofCoverage = (() => {
+    const pen = loadPenLatest(repo);
+    const proofs = loadProofs(repo);
+    if (pen && pen.findings.length > 0) {
+      const total = pen.findings.length;
+      const covered = Math.min(proofs.length, total);
+      return { total, covered, pct: Math.round((covered / total) * 100), hasPen: true };
+    }
+    return { total: 0, covered: 0, pct: 0, hasPen: false };
+  })();
+
   return {
     repo,
     generatedAt: new Date().toISOString(),
@@ -365,6 +386,7 @@ export function buildModel(repo: string): ReportModel {
     hasVerify: !!latestVerify,
     proofs: loadProofs(repo),
     integrity,
+    proofCoverage,
   };
 }
 
@@ -394,10 +416,13 @@ export function renderTerminal(model: ReportModel): string {
     return `  ${chalk.bold(l.label.padEnd(24))}: ${colorFn(l.value)}`;
   });
 
+  const pc = model.proofCoverage;
   const proofLine =
-    model.proofs.length > 0
-      ? `  ${chalk.bold("Permanent proof".padEnd(24))}: ${chalk.green(`${model.proofs.length} repro test(s) shipped with fixes`)}`
-      : `  ${chalk.bold("Permanent proof".padEnd(24))}: ${chalk.yellow("none — no pitstop-repro-*.test.* committed")}`;
+    pc && pc.hasPen
+      ? `  ${chalk.bold("Proof coverage".padEnd(24))}: ` +
+        (pc.pct >= 80 ? chalk.green(`${pc.pct}%`) : pc.pct >= 50 ? chalk.yellow(`${pc.pct}%`) : chalk.red(`${pc.pct}%`)) +
+        chalk.dim(` — ${pc.covered}/${pc.total} finding(s) ship a permanent repro test`)
+      : `  ${chalk.bold("Proof coverage".padEnd(24))}: ${chalk.yellow("no pen run — run `pitstop pen --fix` to generate repro tests")}`;
 
   const header = `${chalk.dim(`repo: ${model.repo}`)}  ·  ${chalk.dim(`${model.scansCount} scan(s), ${model.verifiesCount} verify(ies)`)}`;
   const contentParts = [header, "", ...lines, proofLine];
@@ -532,10 +557,15 @@ function beforeAfterSection(model: ReportModel): string[] {
   return out;
 }
 
-function proofSection(proofs: ReproProof[]): string[] {
+function proofSection(proofs: ReproProof[], coverage?: ReportModel["proofCoverage"]): string[] {
   const out: string[] = [];
   out.push(`## Fixes shipped with permanent proof`);
   out.push("");
+  if (coverage && coverage.hasPen) {
+    const badge = coverage.pct >= 80 ? "✅" : coverage.pct >= 50 ? "⚠️" : "❌";
+    out.push(`**Proof coverage: ${badge} ${coverage.pct}%** — ${coverage.covered} of ${coverage.total} pen-test findings ship with a permanent failing-first repro test. This is the number that separates "we reported a vuln" from "we proved the fix" — Strix stops at the report; OpenPitStop ships the regression test.`);
+    out.push("");
+  }
   if (proofs.length === 0) {
     out.push(`No \`pitstop-repro-*.test.*\` files are committed. Every fix in the loop is`);
     out.push(`supposed to ship with a permanent repro test that proves it — their absence is a`);
@@ -652,8 +682,16 @@ export function renderMarkdown(model: ReportModel, opts: MarkdownOptions = {}): 
   }
 
   out.push(...beforeAfterSection(model));
-  out.push(...proofSection(model.proofs));
+  out.push(...proofSection(model.proofs, model.proofCoverage));
   out.push(...integritySection(model));
+  if (model.latestVerify?.honesty) {
+    const h = model.latestVerify.honesty;
+    out.push(`## Honesty Score`);
+    out.push("");
+    out.push(`**${h.score}/100 · ${h.rating}** — did the agent (or an auto-fix PR) fake the result?`);
+    for (const r of h.reasons) out.push(`- ${r}`);
+    out.push("");
+  }
   out.push(...notesSection());
 
   return out.join("\n");
@@ -669,6 +707,28 @@ export function escapeHtml(s: string): string {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
+}
+
+/** README/CI badge: proof coverage of pen-test findings that ship a repro test. */
+export function renderProofBadgeSvg(pct: number): string {
+  const color = pct >= 80 ? "#3fb950" : pct >= 50 ? "#d29922" : "#f85149";
+  const left = "PROOF";
+  const right = pct >= 80 ? `${pct}% proven` : `${pct}%`;
+  const wLeft = Math.round(left.length * 7.4 + 14);
+  const wRight = Math.round(right.length * 7.4 + 14);
+  const w = wLeft + wRight;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="20" role="img" aria-label="OpenPitStop proof coverage ${pct}%">
+  <linearGradient id="pg" x1="0" y1="0" x2="1" y2="0">
+    <stop offset="0%" stop-color="#5c5c5c" stop-opacity="0.95"/>
+    <stop offset="100%" stop-color="#3a3a3a" stop-opacity="0.95"/>
+  </linearGradient>
+  <rect width="${w}" height="20" rx="3" fill="url(#pg)"/>
+  <rect x="${wLeft}" width="${wRight}" height="20" fill="${color}"/>
+  <g fill="#fff" font-family="Verdana,DejaVu Sans,sans-serif" font-size="11" text-anchor="middle">
+    <text x="${wLeft / 2}" y="14">${left}</text>
+    <text x="${wLeft + wRight / 2}" y="14">${right}</text>
+  </g>
+</svg>`;
 }
 
 /** Minimal inline-SVG line chart for a metric across scans. */
@@ -868,10 +928,13 @@ export function renderHtml(model: ReportModel): string {
       .join("<br/>")}</p></div>`
     : ""}
 
-  <h2>Fixes shipped with permanent proof</h2>
-  <div class="card">
-    ${model.proofs.length === 0 ? `<p class="muted">No pitstop-repro-*.test.* files are committed.</p>` : `<table><thead><tr><th>Finding</th><th>Proved by</th></tr></thead><tbody>${model.proofs.map((p) => `<tr><td><code>${escapeHtml(p.findingId ?? "?")}</code></td><td><code>${escapeHtml(p.file)}</code></td></tr>`).join("")}</tbody></table>`}
-  </div>
+   <h2>Fixes shipped with permanent proof</h2>
+   <div class="card">
+     ${model.proofCoverage && model.proofCoverage.hasPen ? `<p><b style="color:${model.proofCoverage.pct >= 80 ? "#3fb950" : model.proofCoverage.pct >= 50 ? "#d29922" : "#f85149"}">Proof coverage: ${model.proofCoverage.pct}%</b> — ${model.proofCoverage.covered} of ${model.proofCoverage.total} pen-test findings ship a permanent failing-first repro test. Strix stops at the report; OpenPitStop ships the regression test.</p>` : ""}
+     ${model.proofs.length === 0 ? `<p class="muted">No pitstop-repro-*.test.* files are committed.</p>` : `<table><thead><tr><th>Finding</th><th>Proved by</th></tr></thead><tbody>${model.proofs.map((p) => `<tr><td><code>${escapeHtml(p.findingId ?? "?")}</code></td><td><code>${escapeHtml(p.file)}</code></td></tr>`).join("")}</tbody></table>`}
+   </div>
+
+   ${model.latestVerify?.honesty ? `<h2>Honesty Score</h2><div class="card"><p style="color:${model.latestVerify.honesty.rating === "TRUSTWORTHY" ? "#3fb950" : model.latestVerify.honesty.rating === "QUESTIONABLE" ? "#d29922" : "#f85149"}"><b>${model.latestVerify.honesty.score}/100 · ${model.latestVerify.honesty.rating}</b></p><ul>${model.latestVerify.honesty.reasons.map((r) => `<li>${escapeHtml(r)}</li>`).join("")}</ul></div>` : ""}
 
    <div class="footer">${PRODUCT} — <b>the honest referee for AI coding agents</b> · every figure read from <code>.pitstop/scan-*.json</code> and <code>.pitstop/verify-*.json</code></div>
 </div></body></html>`;

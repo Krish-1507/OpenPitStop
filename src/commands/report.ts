@@ -2,19 +2,21 @@ import { Command } from "commander";
 import path from "node:path";
 import fs from "node:fs";
 import chalk from "chalk";
-import { buildModel, renderTerminal, renderMarkdown, renderHtml } from "../report/format.js";
+import { buildModel, renderTerminal, renderMarkdown, renderHtml, renderProofBadgeSvg } from "../report/format.js";
 import { computeScore, renderBadgeSvg } from "../report/score.js";
+import { buildSarif } from "../report/sarif.js";
 
 export const report = new Command("report")
   .description("Generate a repository analysis report from scan/verify history")
   .argument("[repo]", "path to the repo to report on", ".")
   .option("--html", "also write a self-contained PITSTOP_REPORT.html (zero external assets)")
+  .option("--sarif", "also write PITSTOP_REPORT.sarif — upload to GitHub code scanning (Security tab)")
   .option(
     "--badge-json",
     "also write PITSTOP_BADGE.json — a shields.io `endpoint`-schema badge you can host " +
       "(https://img.shields.io/endpoint?url=<hosted.json>)",
   )
-  .action(async (repoArg: string, options: { html?: boolean; badgeJson?: boolean }) => {
+  .action(async (repoArg: string, options: { html?: boolean; sarif?: boolean; badgeJson?: boolean }) => {
     const repo = path.resolve(repoArg);
     console.log(chalk.cyan(`\nGenerating report for ${repo} ...\n`));
 
@@ -50,7 +52,27 @@ export const report = new Command("report")
       }
     }
 
+    // Proof-coverage badge — the "we prove, not just report" signal for README/CI.
+    if (model.proofCoverage?.hasPen) {
+      const proofBadge = path.join(repo, "PITSTOP_PROOF.svg");
+      fs.writeFileSync(proofBadge, renderProofBadgeSvg(model.proofCoverage.pct));
+      console.log(
+        chalk.dim(`Proof-coverage badge written to ${proofBadge}`) +
+          chalk.dim(` — embed: ![OpenPitStop proof](PITSTOP_PROOF.svg)\n`),
+      );
+    }
+
     console.log(chalk.dim(`\nReport written to ${mdPath}\n`));
+
+    if (options.sarif) {
+      const sarif = buildSarif(repo, model);
+      const sarifPath = path.join(repo, "PITSTOP_REPORT.sarif");
+      fs.writeFileSync(sarifPath, JSON.stringify(sarif, null, 2));
+      console.log(
+        chalk.dim(`SARIF written to ${sarifPath}`) +
+          chalk.dim(` — upload to GitHub: gh api /repos/<owner>/<repo>/code-scanning/sarifs\n`),
+      );
+    }
 
     if (options.html) {
       const htmlPath = path.join(repo, "PITSTOP_REPORT.html");

@@ -50,6 +50,30 @@ your agent.
 
 ---
 
+## OpenPitStop vs Strix — why teams pick the referee
+
+Strix is a great *finder*. OpenPitStop is the *referee*. Both pen-test your app; the
+difference is what happens after a vulnerability is found:
+
+> **Strix finds. OpenPitStop proves.**
+
+| | [Strix](https://github.com/usestrix/strix) | **OpenPitStop** |
+|---|---|---|
+| What it produces | Findings + a PoC *report* | Findings + a **failing-first regression test** (`pitstop pen --fix`) |
+| Trust in the fix | One-click auto-fix PR | **Honesty Score (0–100)** + integrity gate that catches deleted tests, hardcoded passes, reverted baselines |
+| How it runs | Docker + LLM key, non-deterministic | **Zero infra, deterministic, no LLM bill** — runs in any CI |
+| Evidence | `strix_runs/` logs | **Tamper-evident, signed `.pitstop/` artifacts** you can audit |
+| Secret exfiltration | not emphasized | **Ledger mode** proves the app doesn't phone home with your keys |
+| DevSecOps | Cloud platform (paid tiers) | **Free SARIF → GitHub Security tab** + one-number `pitstop gate` |
+| Proof coverage | — | **`PITSTOP_PROOF` badge**: % of findings that ship a permanent repro test |
+
+The honest pitch: a pen-test that only reports is a list of things to argue about. A
+pen-test that ships the regression test, signs the evidence, and scores the fix on a
+gate your CI can block on is something you can actually ship. That's the OpenPitStop
+loop — and it's the reason to choose the referee over the hacker.
+
+---
+
 ## Feature tour
 
 Every clip below is real opencode output, captured from a live agent session —
