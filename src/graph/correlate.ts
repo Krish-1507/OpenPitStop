@@ -39,8 +39,16 @@ export function collectFindings(repo: string, r: ScanResult): ClusterFinding[] {
   // Analyzers disagree: some emit absolute paths, some emit paths relative to
   // the repo. Normalize once here — path.relative(repo, alreadyRelativePath)
   // would resolve against the CWD and break on any cross-drive scan.
-  const relOf = (f: string | undefined): string =>
-    f ? path.relative(repo, path.isAbsolute(f) ? f : path.join(repo, f)) : "";
+  // A Windows drive prefix (e.g. `Q:/...`) must be neutralized so a
+  // cross-drive absolute path still resolves to a repo-relative one on every OS.
+  const stripDrive = (p: string): string => p.replace(/^[A-Za-z]:/, "").replace(/\\/g, "/");
+  const relOf = (f: string | undefined): string => {
+    if (!f) return "";
+    if (path.isAbsolute(f) || /^[A-Za-z]:/.test(f)) {
+      return path.relative(stripDrive(repo), stripDrive(f));
+    }
+    return path.relative(repo, path.join(repo, f));
+  };
 
   for (const i of r.security.issues) {
     findings.push({
