@@ -84,7 +84,6 @@ your agent.
 | Jump to | |
 |---|---|
 | [Feature tour](#feature-tour) — every feature, in plain English | [Install](#install) · [Usage](#usage) · [Tool support](#tool-support) |
-| [See it in 90 seconds](#see-it-in-90-seconds) | [What OpenPitStop actually does](#what-openpitstop-actually-does) · [Every command](#every-command) |
 | [Architecture](#architecture) | [Known limitations](#known-limitations) · [Contributing](#contributing) · [License](#license) |
 
 **Straight to one feature:** [The scan](#the-scan) · [Security fixes](#security-fixes) · [Try it on your repo](#try-it-on-your-repo) · [The test pyramid](#the-test-pyramid) · [The gate](#the-gate) · [Integrity](#integrity) · [The pen test](#the-pen-test) · [Honesty](#honesty) · [Verify](#verify) · [Trends](#trends) · [Inspect](#inspect) · [Repro](#repro) · [Report](#report) · [Share](#share) · [The live shield](#the-live-shield) · [The GitHub Action](#the-github-action) · [The pre-commit hook](#the-pre-commit-hook)
@@ -272,11 +271,6 @@ as a comment and a failing check when it matters. No wiring by hand. See
 cannot land until the gate passes. See
 [docs/caught-in-the-wild.md](docs/caught-in-the-wild.md).
 
-### The demo
-
-`npx openpitstop demo` scaffolds an intentionally broken app in a temp folder and runs
-the whole referee on it, so you can watch the story end to end with zero risk.
-
 ### Ledger mode (payment proof)
 
 `pitstop scan --ledger` boots your app with every outbound HTTP call rerouted to a mock
@@ -303,55 +297,6 @@ moved, what got fixed, what regressed, and every cheat it caught.
 
 ---
 
-## See it in 90 seconds
-
-Two commands. First, a real broken repo — scanned, scored and reported in seconds:
-
-```bash
-npx openpitstop@latest demo
-```
-
-Then the part that gets the *wow*: a scripted arc where a lazy agent tries to make the
-failing suite green without fixing the bug — and the gate catches both attempts:
-
-```bash
-node scripts/cheat-demo.cjs                             # from a OpenPitStop repo checkout
-node node_modules/openpitstop/scripts/cheat-demo.cjs   # from any project that installed it
-```
-
-Set `PITSTOP_CLI="node /path/to/dist/cli.js"` to run it against a local build instead
-of the registry. For a tight re-record, `node scripts/cheat-demo.cjs --fast --no-pitch`
-reuses the cached `node_modules` (skips `npm install`) and ends the arc on the
-CONFIRMED_CHEAT box — no pitch, no dead air.
-
-```
-ACT 1  honest baseline              →  1 failed test, scanned and sealed
-ACT 2  agent focuses passing tests  →  GATE: SUSPICIOUS     (exit 1) — blocked
-ACT 3  agent deletes the test       →  GATE: CONFIRMED_CHEAT (exit 2) — blocked
-       (tamper-evident evidence chain verifies the whole way)
-```
-
-<p align="center">
-  <img src="docs/media/pitstop-gate.gif" alt="The cheat-catch in the real TUI: the gate reads the diff against the sealed baseline and blocks a CONFIRMED_CHEAT with exit 2 — on real opencode output." width="780">
-</p>
-
-Deterministic, safe to run in a live room, and it's the whole product in miniature:
-**OpenPitStop measures, your agent edits, and the numbers can't be cheated.**
-
-Not even 90 seconds? Point it at **your own repo** — zero setup, no install, no config:
-
-```bash
-npx openpitstop try .
-```
-
-Two seconds of scanning, your repo, your score (plus a one-time package download on the
-first-ever `npx` run — see the speed tip in [Install](#install)). Everything else can wait.
-
-Real catches — focused tests, deleted tests, edited assertions, tampered baselines — with
-verbatim gate output you can screenshot and share: [Caught in the wild](docs/caught-in-the-wild.md).
-
----
-
 ## Install
 
 One command, that's it:
@@ -361,9 +306,9 @@ npx openpitstop
 ```
 
 No arguments needed: the CLI detects your AI tools, and asks what you want —
-install `/pitstop` into them, score *this* repo (`try .`), or watch the 90-second
-demo. Pick, and it does it. (In a non-interactive terminal it skips the
-questions and prints the one-line menu instead.)
+install `/pitstop` into them, or score *this* repo (`try .`). Pick, and it does it.
+(In a non-interactive terminal it skips the questions and prints the one-line menu
+instead.)
 
 Or go straight to the files:
 
@@ -424,7 +369,6 @@ that:
 | `/pitstop` (bare) | **default full loop** | Scans right away, prints the boxed report, one confirmation pause, then the autonomous fix loop — repeat until clean. |
 | `/pitstop --menu` | menu | Prints the full mode list below and **waits** — handy if you forgot the flags. |
 | `/pitstop --scan-only` | scan-only | Runs `openpitstop scan`, prints the entire boxed report verbatim, and stops — no fixes, no commentary. |
-| `/pitstop --demo` | demo | Scaffolds OpenPitStop's seeded broken demo repo into a temp dir, then runs the default full loop there. |
 | `/pitstop --ledger` | ledger | Runs `openpitstop scan --ledger` (boots the app with every outbound HTTP call intercepted and replays duplicate-webhook / double-submit / retry traffic), then runs the loop restricted to the payment findings. |
 | `/pitstop --integrity-only` | integrity-only | Runs `openpitstop integrity`, prints the boxed verdict verbatim, and stops — no scanning, no fixes. |
 | `/pitstop --pen` | pen | Live penetration test with proof — see [The pen test](#the-pen-test). |
@@ -435,9 +379,8 @@ For reference, `/pitstop --menu` shows this list:
 ```
 OpenPitStop modes:
  (enter) — full autonomous loop (scan, confirm, fix, verify, repeat)
- --scan-only — scan and report, no fixes
- --demo — run against OpenPitStop's own seeded demo repo
- --ledger — payment idempotency fuzzing only
+  --scan-only — scan and report, no fixes
+  --ledger — payment idempotency fuzzing only
  --integrity-only — re-check the last commit for cheat patterns, no scanning
  --pen — penetration test: live attacks + proof + fixes (regression tests, patches)
  (your own ask) — reply with anything else, e.g. "check the security of this app"
@@ -446,10 +389,6 @@ OpenPitStop modes:
 A flag after `/pitstop` picks a specific mode; any free-form text after it becomes a scoped
 custom ask; bare `/pitstop` is the full loop. If a tool ever fails to substitute arguments,
 `/pitstop` behaves as bare — the default full loop — rather than guessing.
-
-No repo handy? `npx openpitstop@latest demo` scaffolds a broken demo repo in a temp dir so
-you can watch the whole loop — self-contained, no installs on the hot path, and it never
-writes into your tool configs (that stays an explicit `pitstop install`).
 
 ## Tool support
 
@@ -605,10 +544,9 @@ one-shot.
 | Command | What it does |
 |---|---|
 | `pitstop install` / `install --uninstall` | Writes `/pitstop` into every supported tool (project + user level). `--uninstall` removes it all. `--hooks` also installs (or with `--uninstall`, removes) the git pre-commit gate. |
-| `pitstop` (no args) | The guided first-run: detects your AI tools and git repo, then offers to install, score this repo (`try .`), or run the demo. Non-TTY prints the one-line menu instead. |
+| `pitstop` (no args) | The guided first-run: detects your AI tools and git repo, then offers to install or score this repo (`try .`). Non-TTY prints the one-line menu instead. |
 | `pitstop doctor` | Explains why categories show `skipped`: checks your toolchain (Node, git, jscpd, gitleaks, semgrep, pa11y) and prints copy-paste install hints. |
 | `pitstop prompt [--args …]` | Prints the exact prompt your AI tool expands `/pitstop` into, with your arguments filled in — full transparency into what the agent was told. |
-| `pitstop demo [demo]` | Scaffolds an intentionally-broken demo repo into a fresh temp dir (`demo-repo`, `demo-repo-integrity`, `demo-repo-fintech`, `demo-repo-generators`), initializes git, and scans it immediately. |
 
 ### The score & badge
 
@@ -654,8 +592,7 @@ shows zero clusters (hard limits: 10 fix rounds or 45 minutes), ending with a
 gateway**, then replays the three classic payment bugs: duplicate webhook, concurrent
 double-submit, delayed retry. If the mock gateway's own receipt log shows more than one
 charge per idempotency key, that's a **proven double-charge** — not a guess. The shipped
-`demo-repo-fintech` fixture produces three such PROVEN findings because its charge and
-webhook endpoints have no idempotency guard. If the sandbox can't intercept some traffic,
+If the sandbox can't intercept some traffic,
 the run aborts (`exit 77`); nothing ever reaches a real gateway.
 
 **Which stacks are covered?** Node/JS apps run under the nock preload, which intercepts
@@ -678,14 +615,6 @@ value edited to match the buggy output. A caught cheat looks like this: change
 `assert.equal(round2(8.075), 8.08)` to expect `8.07` with nothing else in the diff →
 `CONFIRMED_CHEAT`, the change is blocked, and a human reviews it (verified against
 `fixtures/assertion-literal-tamper/`). An honest app-side fix sails through `CLEAN`.
-
-### Cheat-catch demo
-
-Want to *see* it? The scripted arc from **[See it in 90 seconds](#see-it-in-90-seconds)**
-is `scripts/cheat-demo.cjs` — a fully deterministic SUSPICIOUS → CONFIRMED_CHEAT
-sequence against a real repo with a real failing jest test. Point it at a build with
-`PITSTOP_CLI="node /path/to/dist/cli.js"`, or let it use `npx openpitstop`. Great for a
-video or a live judge's demo.
 
 ## Architecture
 

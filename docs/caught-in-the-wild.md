@@ -3,7 +3,7 @@
 Real catches, real gate output. Every block below is verbatim output from the
 current OpenPitStop CLI — the only edits are redacting the temp paths
 (`<repo>`) and timestamps (`<timestamp>`). Regenerate any of them yourself with
-the [90-second demo](../README.md#see-it-in-90-seconds) arc, or against your own
+the `scripts/cheat-demo.cjs` arc, or against your own
 repo:
 
 ```bash
