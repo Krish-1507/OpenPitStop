@@ -12,11 +12,33 @@ know it's actually done.
 [![CI](https://github.com/Krish-1507/OpenPitStop/actions/workflows/ci.yml/badge.svg)](https://github.com/Krish-1507/OpenPitStop/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-> AI coding agents are brilliant at fixing things — and equally brilliant at *saying they
+> AI coding agents are brilliant at fixing things, and just as brilliant at *saying they
 > did* when they didn't. OpenPitStop measures your repo with scans, seals every number so it
-> can't be edited later, attacks your app with a live penetration test, and checks every
-> change your agent makes. The exit codes tell you the truth: `0` clean · `1` suspicious ·
+> can't be edited later, attacks your own app with a live penetration test, and checks every
+> change your agent makes. The exit codes tell you the truth: `0` clean, `1` suspicious,
 > `2` confirmed cheat.
+
+---
+
+## Try it in 30 seconds
+
+No install, no config, no signup. Point it at any repo (including this one) and get a real score
+back in a couple of seconds:
+
+```bash
+npx openpitstop try .
+```
+
+Want to see the whole story before you point it at your own code? This scaffolds a broken demo
+app in a temp folder and runs the referee on it, end to end:
+
+```bash
+npx openpitstop@latest demo
+```
+
+That is the entire pitch in two commands. It scans your code, it attacks your app inside a
+sandbox, it seals the evidence so the numbers can't be edited after the fact, and it tells your
+AI agent when the job is actually done. The rest of this page explains how, and why it matters.
 
 ---
 
@@ -145,6 +167,22 @@ verdicts — plus repro tests and a patch with `--fix`.
 <p align="center">
   <img src="docs/media/pitstop-pen.gif" alt="pitstop pen — sandboxed attacks with runtime-proof verdicts" width="700">
 </p>
+
+### Drift (the permanent referee)
+
+`pitstop pen` remembers. Every run seals its verdicts and compares them to the last one, so you
+see exactly what changed between today and last week:
+
+- **NEW** — a finding appeared (or escalated from indicated to proven). This is a regression, so the
+  gate exits `1` and your CI goes red.
+- **RESOLVED** — a finding is gone because the fix worked. This is the "prove my fix" loop, and it is
+  the most satisfying thing here: run `pitstop repro <id>` to turn a finding into a failing test, ship
+  the patch, run `pitstop pen` again, and watch it flip to resolved.
+- **ESCALATIONS** — something that was only *indicated* by static analysis is now *proven* by a live
+  attack.
+
+Strix, the enterprise tool, runs a one-off scan. OpenPitStop keeps a running ledger of proof, so a
+fix can never silently rot back into a bug.
 
 ### Honesty
 

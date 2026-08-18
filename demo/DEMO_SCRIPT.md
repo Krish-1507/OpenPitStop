@@ -169,6 +169,38 @@ to your agent. The agent produces exactly the changes in
 
 ---
 
+## 4b. Drift — prove the fix stuck (the permanent referee) — `pitstop pen`
+
+Run `pen` again, this time on the *fixed* app:
+
+```bash
+cd demo/web-app-fixed
+pitstop pen
+```
+
+This run is compared against the last sealed pen run from `web-app-broken`. You
+see the delta, not just a fresh score:
+
+```
+PEN DRIFT  vs .pitstop/pen-latest.json
+  ◐ RESOLVED  pen-… : command-injection (was PROVEN, now gone)
+  ◐ RESOLVED  pen-… : sql-injection
+  (+ any still-open classes, and ESCALATIONS if a static
+   indication became a live proof)
+```
+
+**Why this matters on camera:** most scanners give you a one-off report and walk
+away. OpenPitStop keeps a running ledger of proof. A finding that flips from
+PROVEN to RESOLVED is evidence the fix worked, not hope. And if someone
+reintroduces the bug later, the next `pen` run prints `+1 NEW` and the gate
+exits `1`, so the regression can't sneak into main.
+
+**On-camera:** "Most scanners hand you a PDF and leave. OpenPitStop remembers.
+Watch this finding flip from proven to resolved, and if it ever comes back, the
+gate goes red. That's a referee, not a report."
+
+---
+
 ## 5. Verify it didn't fake it — `pitstop verify`
 
 ```bash

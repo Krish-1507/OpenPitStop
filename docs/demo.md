@@ -73,6 +73,21 @@ For each route it records *proof* — the exact request and the app's response.
     (missing `helmet()`, `x-powered-by` leaks) — every patch passes
     `git apply --check` (regression-tested in CI).
 
+### Act 2b — the proof that sticks (drift)
+
+Run `pen` again after a fix:
+
+```bash
+npx openpitstop pen
+```
+
+This run is compared against the last sealed pen run. You see the delta, not
+just a fresh score: a finding that was PROVEN and is now gone shows as
+**RESOLVED** (the fix worked), a regression shows as **NEW** and fails the gate,
+and a static indication that became a live proof shows as an **ESCALATION**.
+Most scanners hand you a one-off report. This one keeps a running ledger of
+proof, so a fix can't silently rot back into a bug.
+
 ## Act 3 — the agent fixes it, and we verify it didn't fake it (1:20–2:00)
 
 ```bash

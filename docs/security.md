@@ -192,6 +192,32 @@ Fix:
 - httpOnly + Secure + SameSite cookie for the session.
 - Commit source (with maps/signatures), delete backups, `gitignore` `*.bak`.
 
+## The live pen test — proof, not just a report
+
+The static pass above says where a bug *probably* is. `pitstop pen` proves it by
+booting your app in a sandbox and firing real attack traffic. Verdicts are
+PROVEN (a live attack succeeded), INDICATED (static only), or CLEAN. `--fix`
+writes a repro test that FAILS while the bug is live, then a patch. Every run
+also produces a **drift** delta against the last sealed run (NEW / RESOLVED /
+ESCALATIONS) so a fix is verifiable and a regression can't reach main.
+
+The classes `pen` attacks live, the ones a scanner alone can never confirm:
+
+| Class | What the live attack proves | The fix it hands you |
+|---|---|---|
+| `race-condition` (TOCTOU) | Two concurrent requests both pass a check that should be exclusive (double-spend, double-submit) | server-side lock / atomic `UPDATE ... WHERE` / unique constraint |
+| `idor` (BOLA) | Guessing another user's object id returns their data | per-request ownership check on every object route |
+| `price-tampering` | A client-supplied price or quantity is accepted server-side and the order total is wrong | compute totals server-side from the catalog, never trust the body |
+| `xxe` | A crafted XML upload reads a local file or makes an outbound call | disable external entities, or use a safe parser |
+| `insecure-deserialization` | A poisoned payload triggers code execution or object injection | sign and encrypt the token, or use JSON; never `eval`/`pickle`/`unserialize` on input |
+| `jwt-weak-secret` | The token is signed with a guessable secret, so a forged token validates | `jwt.sign(payload, process.env.JWT_SECRET)` with a long random env secret |
+
+The first two (race-condition, idor) are detected statically and proven live; the
+rest are confirmed by a live attack. xxe and jwt-weak-secret are marked
+non-replayable, because their repro is the live attack itself rather than a saved
+test. Run `pitstop repro <id>` to turn any replayable finding into a failing
+test, then watch it flip to RESOLVED on the next `pen` run.
+
 ## The test pyramid — unit, integration and e2e
 
 `pitstop test [path] [--unit] [--integration] [--e2e]` discovers and runs all
