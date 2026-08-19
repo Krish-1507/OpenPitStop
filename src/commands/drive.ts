@@ -5,10 +5,13 @@ import path from "node:path";
 import fs from "node:fs";
 import { fileURLToPath } from "node:url";
 import { execa } from "execa";
+import { execSync } from "node:child_process";
 import { loadScan, repro } from "../repro/index.js";
 import { resolveFinding, findingIdFor } from "../repro/ids.js";
 import { loadPenLatest, resolvePenFinding } from "../pen/store.js";
 import { analyzeSecurity } from "../analyzers/security.js";
+import { analyzeAccessibility } from "../analyzers/accessibility.js";
+import { analyzeDevex } from "../analyzers/devex.js";
 import { runVerify } from "./verify.js";
 import { computeNext, celebrateCard, printNextCard } from "./next.js";
 
@@ -32,6 +35,65 @@ import { computeNext, celebrateCard, printNextCard } from "./next.js";
  */
 
 const cliPath = fileURLToPath(new URL("../cli.js", import.meta.url));
+
+/**
+ * Auto-detect a usable agent so `/pitstop-drive` works without manual setup.
+ * Falls back to PITSTOP_AGENT, then probes common CLIs (claude, codex, opencode,
+ * aider, gemini) for one that exists on PATH.
+ */
+function commandExists(bin: string): boolean {
+  try {
+    if (process.platform === "win32") execSync(`where ${bin}`, { stdio: "ignore" });
+    else execSync(`command -v ${bin}`, { stdio: "ignore" });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+const AGENT_CANDIDATES: { bin: string; cmd: string }[] = [
+  { bin: "claude", cmd: 'claude -p "{prompt}"' },
+  { bin: "codex", cmd: 'codex exec -- "{prompt}"' },
+  { bin: "opencode", cmd: 'opencode run "{prompt}"' },
+  { bin: "aider", cmd: 'aider --message "{prompt}"' },
+  { bin: "gemini", cmd: 'gemini -p "{prompt}"' },
+];
+
+function resolveAgentCmd(provided?: string): { cmd: string; detected?: string } {
+  if (provided) return { cmd: provided };
+  const env = process.env.PITSTOP_AGENT;
+  if (env) return { cmd: env };
+  for (const c of AGENT_CANDIDATES) {
+    if (commandExists(c.bin)) return { cmd: c.cmd, detected: c.bin };
+  }
+  return { cmd: "" };
+}
+
+/**
+ * Re-run the analyzer that owns `finding`'s source and confirm the finding id is
+ * gone. Returns true (present), false (confirmed absent), or null (no applicable
+ * analyzer — fall back to the repro gate). This is what lets `drive` verify fixes
+ * for a11y / devex / security findings, not just runtime repro-able ones.
+ */
+async function freshScanStillHas(repo: string, finding: Finding): Promise<boolean | null> {
+  try {
+    if (finding.source === "security") {
+      const r = await analyzeSecurity(repo);
+      return (r.issues ?? []).some((i) => findingIdFor("security", i.type, i.file, i.description) === finding.id);
+    }
+    if (finding.source === "a11y") {
+      const r = analyzeAccessibility(repo);
+      return (r.issues ?? []).some((i) => findingIdFor("a11y", i.type, i.file, i.description) === finding.id);
+    }
+    if (finding.source === "devex") {
+      const r = analyzeDevex(repo);
+      return (r.unusedExports ?? []).some((i) => findingIdFor("devex", i.type, i.file, i.description) === finding.id);
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
 
 const DRIVEN_PATH = (repo: string) => path.join(repo, ".pitstop", "driven.json");
 
@@ -166,23 +228,13 @@ async function loopDriveFinding(
 
     // Acceptance gate: the bug must actually be gone, not merely "no regression".
     //  1) a failing-first repro that now PASSES (gold standard), or
-    //  2) a fresh security re-scan that no longer contains this finding id.
+    //  2) the owning analyzer's fresh re-scan no longer contains this finding id.
     const r = await repro(repo, finding.id);
     const ran = r.status === "generated-and-ran";
     const reproPassed = ran && r.ran?.passed === true;
 
-    let stillThere = false;
-    try {
-      const fresh = await analyzeSecurity(repo);
-      stillThere = (fresh.issues ?? []).some(
-        (i) => findingIdFor("security", i.type, i.file, i.description) === finding.id,
-      );
-    } catch {
-      /* analyzer unavailable — fall through to repro/verify evidence */
-    }
-    // The fresh re-scan only proves a *security* finding is gone; pen/runtime
-    // findings rely on the repro gate above.
-    const freshScanGone = !stillThere && finding.source === "security";
+    const still = await freshScanStillHas(repo, finding);
+    const freshScanGone = still === false; // confirmed absent by the relevant analyzer
 
     let accepted = reproPassed || freshScanGone;
     if (accepted) {
@@ -192,8 +244,10 @@ async function loopDriveFinding(
     }
 
     const v = await runVerify(repo);
+    const stillTxt =
+      still === null ? "re-scan n/a for this source" : still ? "finding still present in re-scan" : "finding gone from re-scan";
     lastFailure =
-      `repro ${ran ? (r.ran?.passed ? "passed" : "still FAILS") : "unavailable (" + (r.reason ?? r.status) + ")"}${stillThere ? "; finding still present in re-scan" : ""}` +
+      `repro ${ran ? (r.ran?.passed ? "passed" : "still FAILS") : "unavailable (" + (r.reason ?? r.status) + ")"}${still ? "; " + stillTxt : ""}` +
       ` · pitstop verify exited ${v.exitCode} (risk ${v.risk}, integrity ${v.integrity.verdict})`;
     trajectory.push(`attempt ${attempt}: agent exited ${agentCode} → ${lastFailure}`);
     console.log(chalk.yellow(`  ${lastFailure}\n  feeding evidence back into the next attempt…\n`));
@@ -370,13 +424,15 @@ export const drive = new Command("drive")
     ) => {
       const repo = path.resolve(repoArg);
       const maxAttempts = Math.max(1, Math.floor(Number(options.maxAttempts) || 5));
-      const agentCmd = options.agent ?? process.env.PITSTOP_AGENT ?? "";
+      const agent = resolveAgentCmd(options.agent);
+      const agentCmd = agent.cmd;
 
       if (!agentCmd) {
         console.log(
           boxen(
             `pitstop drive${findingId ? " " + findingId : ""}\n\n` +
               `${chalk.yellow("no agent command configured")}\n\n` +
+              `OpenPitStop auto-looked for claude / codex / opencode / aider / gemini on your PATH and found none.\n` +
               `Pass one with --agent (use {prompt} as the placeholder) or export PITSTOP_AGENT.\n\n` +
               `Examples:\n` +
               `  --agent 'claude -p "{prompt}"'\n` +
@@ -393,6 +449,7 @@ export const drive = new Command("drive")
         );
         return;
       }
+      if (agent.detected) console.log(chalk.dim(`(auto-detected agent: ${agent.detected})\n`));
 
       // No id → drive the whole repo to fully-fixed.
       if (!findingId) {

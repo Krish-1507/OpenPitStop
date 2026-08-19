@@ -371,6 +371,21 @@ function buildPlan(
     });
   }
 
+  // Proactive catch: if the static scan found no security issues and no red tests,
+  // adversarially red-team the running app to surface runtime bugs the static
+  // analyzers cannot see (authz bypasses, race conditions, logic flaws).
+  if (
+    (scan.security?.issues?.length ?? 0) === 0 &&
+    (scan.tests?.failed ?? 0) === 0 &&
+    !signals.penDone
+  ) {
+    add({
+      command: `pitstop pen`,
+      priority: P_PEN,
+      why: `${ctx.stackSummary}: no static issues caught — adversarially red-team the app with pitstop pen to find runtime/authorization bugs the scan can't see.`,
+    });
+  }
+
   // Dependency / circular / orphan graph problems → supply-chain hardening.
   const circular = scan.dependencyGraph?.circular?.length ?? 0;
   const orphans = scan.dependencyGraph?.orphans?.length ?? 0;
