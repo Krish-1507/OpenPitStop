@@ -7,11 +7,14 @@ import { fileURLToPath } from "node:url";
 import { execa } from "execa";
 import { execSync } from "node:child_process";
 import { loadScan, repro } from "../repro/index.js";
-import { resolveFinding, findingIdFor } from "../repro/ids.js";
+import { resolveFinding, findingIdFor, ledgerFindingId } from "../repro/ids.js";
 import { loadPenLatest, resolvePenFinding } from "../pen/store.js";
 import { analyzeSecurity } from "../analyzers/security.js";
 import { analyzeAccessibility } from "../analyzers/accessibility.js";
 import { analyzeDevex } from "../analyzers/devex.js";
+import { analyzeDuplication } from "../analyzers/duplication.js";
+import { analyzeReliability } from "../analyzers/reliability.js";
+import { runLedgerAnalyzer } from "../analyzers/ledger/index.js";
 import { runVerify } from "./verify.js";
 import { computeNext, celebrateCard, printNextCard } from "./next.js";
 
@@ -88,6 +91,29 @@ async function freshScanStillHas(repo: string, finding: Finding): Promise<boolea
     if (finding.source === "devex") {
       const r = analyzeDevex(repo);
       return (r.unusedExports ?? []).some((i) => findingIdFor("devex", i.type, i.file, i.description) === finding.id);
+    }
+    if (finding.source === "duplication") {
+      const r = analyzeDuplication(repo);
+      return (r.clones ?? []).some(
+        (c) => findingIdFor("duplication", "duplication", c.files[0], `${c.lines}`) === finding.id,
+      );
+    }
+    if (finding.source === "reliability") {
+      // runs:1 keeps the acceptance re-check cheap; race-smell greps still run.
+      const r = await analyzeReliability(repo, { runs: 1 });
+      const flaky = (r.flakyTests ?? []).some((f) => findingIdFor("reliability", "flaky-test", f.file, f.name) === finding.id);
+      const race = (r.raceSmells ?? []).some(
+        (i) => findingIdFor("reliability", "race-condition", i.file, i.description) === finding.id,
+      );
+      return flaky || race;
+    }
+    if (finding.source === "ledger") {
+      // Ledger analysis boots the app and fires live traffic — only re-run it when the
+      // user already opted in via `pitstop scan --ledger` (a ledger baseline exists).
+      const base = loadScan(repo);
+      if (!base?.ledger?.evidence?.length) return null;
+      const r = await runLedgerAnalyzer(repo);
+      return (r.evidence ?? []).some((e) => ledgerFindingId(e) === finding.id);
     }
   } catch {
     return null;
