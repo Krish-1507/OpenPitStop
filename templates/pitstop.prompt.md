@@ -226,6 +226,19 @@ fixes, do not touch anything yet.
 
 For each iteration, do all of (a)–(m) without asking for confirmation again:
 
+**a0. Loop-engineering shortcut (preferred for a single finding).** You can delegate one
+finding to OpenPitStop, which will run the full repro→fix→verify loop *for you, looping until
+the fix is actually verified* (the repro passes, or `pitstop verify` is clean) — up to 5
+attempts, feeding each failure back into the next attempt:
+
+`!npx openpitstop drive <finding-id>`
+
+Use this for a single confirmed root cause instead of hand-running (d)–(j). When it returns
+VERIFIED, the finding is solved and recorded as driven; move to the next cluster. If it returns
+NOT VERIFIED after the attempts, fix by hand or report "requires human review". To drive the
+*whole* repo to fully-fixed with no id: `!npx openpitstop drive` (it repeatedly runs the next
+command from the plan below until nothing remains).
+
 **a. Pick the cluster.** Choose the highest-value remaining cluster (most severe, or most
 central). Skip any the user excluded.
 
@@ -272,6 +285,11 @@ Read the result, especially the **Integrity gate** line, the Regression Risk, an
 columns. This verify run is also the integrity gate: it diffs your uncommitted change against
 HEAD and runs the AI-agent-cheat detectors (deleted/loosened tests, swallowed errors,
 suppressions, hardcoded-to-pass values, forced exits).
+
+> After every `pitstop` command OpenPitStop prints a **Next card** with a repo-aware
+> remediation **plan** (it inspects this repo's language, package manager, frameworks, test
+> runner, CI and env files to recommend the exact next commands, in order). Follow its `Next`
+> command — do not guess.
 
 **h. Integrity gate — mandatory, never skippable.** Inspect the "Integrity gate:" verdict
 in the verify box and branch exactly like this:
