@@ -1,6 +1,6 @@
 {
   "name": "openpitstop",
-  "version": "1.7.0",
+  "version": "1.8.0",
   "description": "Deterministic scans + your coding agent's own reasoning, in one autonomous quality loop. Adds a /pitstop slash-command to any AI coding tool.",
   "license": "MIT",
   "author": "Krish-1507",
