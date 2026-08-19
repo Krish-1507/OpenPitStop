@@ -38,5 +38,9 @@ jobs:
       # The smoke test is the regression guard for the Windows bugs fixed in
       # 0.1.0/0.1.1: execa-based tool spawning (npm.cmd/.cmd shim resolution)
       # and repo-relative test paths (8.3 short-path jest rootDir mismatch).
+      # It also asserts the built CLI actually produced a real scan result, not
+      # just that it exited 0 — a crash-mid-scan would otherwise slip through.
       - name: Smoke test (scan demo-repo)
-        run: node dist/cli.js scan demo-repo
+        run: |
+          node dist/cli.js scan demo-repo
+          node -e "const j=require('./demo-repo/.pitstop/scan-latest.json'); if(!j||!j.security){throw new Error('scan produced no security results');} console.log('smoke OK — scan status:', j.security.status);"
