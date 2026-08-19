@@ -17,6 +17,7 @@ import { analyzeReliability } from "../analyzers/reliability.js";
 import { runLedgerAnalyzer } from "../analyzers/ledger/index.js";
 import { runVerify } from "./verify.js";
 import { computeNext, celebrateCard, printNextCard } from "./next.js";
+import type { ScanIssue } from "../analyzers/types.js";
 
 /**
  * `pitstop drive <finding-id>` — hand a finding to YOUR agent, then verify.
@@ -148,6 +149,8 @@ type Finding = {
   description: string;
   file?: string;
   line?: number;
+  fix?: string;
+  category?: string;
 };
 
 function missionPrompt(
@@ -173,6 +176,8 @@ ${
     ``,
     `Finding: ${finding.id} (${finding.source}/${finding.type}, severity ${finding.severity})`,
     `Description: ${finding.description}`,
+    finding.category ? `Category: ${finding.category}` : "",
+    finding.fix ? `Recommended fix: ${finding.fix}` : "",
     finding.file ? `Location: ${finding.file}${finding.line ? ":" + finding.line : ""}` : "",
     loopSection,
     ``,
@@ -299,6 +304,8 @@ function resolveById(
           description: hit.description,
           file: hit.file,
           line: hit.line,
+          fix: (hit.data as ScanIssue | undefined)?.fix,
+          category: (hit.data as ScanIssue | undefined)?.category,
         },
         fromPen: false,
         reproHint: `The repro generator exists for ${hit.source}/${hit.type} — use it as your contract.`,

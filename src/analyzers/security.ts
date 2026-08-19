@@ -80,10 +80,9 @@ export async function analyzeSecurity(repo: string): Promise<SecurityResult> {
     }
   }
 
-  if (commandExists("semgrep")) {
-    const r = await safeExecAsync("semgrep", ["--config", "auto", "--json"], repo, 180000);
-    if (r.stdout) issues.push(...parseSemgrep(r.stdout));
-  }
+  const semgrep = await analyzeSecuritySemgrep(repo);
+  if (semgrep.error) depNote = depNote ? `${depNote}; ${semgrep.error}` : semgrep.error;
+  else issues.push(...semgrep.issues);
 
   if (issues.length === 0 && lang === "unknown") {
     return {
@@ -367,7 +366,63 @@ function parseGitleaks(stdout: string): ScanIssue[] {
   return issues;
 }
 
-function parseSemgrep(stdout: string): ScanIssue[] {
+/**
+ * Deeper SAST via Semgrep, wired behind the same scan/drive loop.
+ *
+ * Defaults to the free Semgrep Registry rules (`--config auto`) which cover a
+ * broad, actively-maintained set of injection / crypto / auth / secrets / OWASP
+ * checks across many languages. Override with:
+ *   - PITSTOP_SEMGREP        path to the semgrep binary
+ *   - PITSTOP_SEMGREP_CONFIG space/comma separated --config values (e.g.
+ *                            "p/security-audit p/owasp-top-ten ./my-rules")
+ *
+ * Findings carry the rule's own remediation when available (extra.fix /
+ * metadata.fix) so `pitstop drive` can actually solve them, and a stable
+ * (check_id + message) description so they survive re-scans for verification.
+ * Degrades gracefully: a missing binary or a failed run reports no findings
+ * (with an honest depNote) rather than faking "clean".
+ */
+async function analyzeSecuritySemgrep(
+  repo: string,
+): Promise<{ issues: ScanIssue[]; error: string | null }> {
+  const bin = process.env.PITSTOP_SEMGREP?.trim() || (commandExists("semgrep") ? "semgrep" : null);
+  if (!bin) return { issues: [], error: null };
+
+  const configEnv = process.env.PITSTOP_SEMGREP_CONFIG?.trim();
+  const configs = configEnv ? configEnv.split(/[\s,]+/).filter(Boolean) : ["auto"];
+  const args = [
+    "scan",
+    ...configs.flatMap((c) => ["--config", c]),
+    "--json",
+    "--quiet",
+    "--metrics", "off",
+    "--disable-version-check",
+    "--timeout", "30",
+    "--exclude", "node_modules",
+    "--exclude", ".git",
+    "--exclude", ".pitstop",
+    "--exclude", "dist",
+    "--exclude", "build",
+    "--exclude", "vendor",
+    "--exclude", ".next",
+    "--exclude", "coverage",
+    repo,
+  ];
+
+  const r = await safeExecAsync(bin, args, repo, 240000);
+  if (!r.stdout) {
+    const why = (r.stderr || "").split(/\r?\n/).map((l) => l.trim()).filter(Boolean)[0];
+    return {
+      issues: [],
+      error: why
+        ? `semgrep failed (${why}) — deep SAST skipped`
+        : "semgrep produced no output — deep SAST skipped",
+    };
+  }
+  return { issues: parseSemgrep(r.stdout, repo), error: null };
+}
+
+export function parseSemgrep(stdout: string, repo: string): ScanIssue[] {
   const issues: ScanIssue[] = [];
   let json: any;
   try {
@@ -376,12 +431,26 @@ function parseSemgrep(stdout: string): ScanIssue[] {
     return issues;
   }
   for (const r of json?.results ?? []) {
+    const checkId: string = r.check_id ?? "semgrep";
+    const msg: string = (r.extra?.message ?? "").toString().trim() || checkId;
+    const rawPath: string = r.path ?? "";
+    const rel = path.isAbsolute(rawPath) ? path.relative(repo, rawPath) : rawPath;
+    if (!rel) continue;
+    const sevRaw = (r.extra?.severity ?? "WARNING").toString().toUpperCase();
+    const severity = sevRaw === "ERROR" ? "high" : sevRaw === "INFO" ? "low" : "medium";
+    const meta = r.extra?.metadata ?? {};
+    const fix: string =
+      r.extra?.fix ??
+      meta?.fix ??
+      `Review Semgrep rule '${checkId}' and apply its documented remediation (see the rule reference for details).`;
     issues.push({
       type: "code",
-      severity: r.extra?.severity ?? "medium",
-      file: r.path,
+      severity,
+      category: checkId,
+      file: rel,
       line: r.start?.line,
-      description: r.extra?.message ?? r.check_id ?? "finding",
+      description: `${checkId}: ${msg}`,
+      fix,
     });
   }
   return issues;
