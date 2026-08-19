@@ -385,11 +385,22 @@ function parseGitleaks(stdout: string): ScanIssue[] {
 async function analyzeSecuritySemgrep(
   repo: string,
 ): Promise<{ issues: ScanIssue[]; error: string | null }> {
-  const bin = process.env.PITSTOP_SEMGREP?.trim() || (commandExists("semgrep") ? "semgrep" : null);
-  if (!bin) return { issues: [], error: null };
-
   const configEnv = process.env.PITSTOP_SEMGREP_CONFIG?.trim();
-  const configs = configEnv ? configEnv.split(/[\s,]+/).filter(Boolean) : ["auto"];
+  // Optional, opt-in only: Semgrep is NOT a default part of the scan. It runs
+  // solely when the user enables it (PITSTOP_SEMGREP_CONFIG), so it never fires
+  // just because the binary happens to be on PATH — no surprise network calls or
+  // slow scans for people who don't need it.
+  if (!configEnv) return { issues: [], error: null };
+
+  const bin = process.env.PITSTOP_SEMGREP?.trim() || (commandExists("semgrep") ? "semgrep" : null);
+  if (!bin) {
+    return {
+      issues: [],
+      error:
+        "PITSTOP_SEMGREP_CONFIG is set but the semgrep binary was not found — run `pip install semgrep` to enable the deeper SAST engine",
+    };
+  }
+  const configs = configEnv.split(/[\s,]+/).filter(Boolean);
   const args = [
     "scan",
     ...configs.flatMap((c) => ["--config", c]),

@@ -110,7 +110,7 @@ difference is what happens after a vulnerability is found:
 | Proof coverage | — | **`PITSTOP_PROOF` badge**: % of findings that ship a permanent repro test |
 | Continuous proof (drift) | report only — re-run and hope | **Drift gate**: every `pitstop pen` compares to the last sealed run, *proves a fix* (finding gone) and *fails the CI gate* on a new high/critical regression or a hypothesis the live attack just confirmed |
 | Prove-my-fix loop | manual | **`pitstop repro <id>`** re-runs the exact attack and asserts the safe outcome — a PASS means the fix is real, a deleted repro test is flagged as a cheat |
-| Bug classes covered | strong general set | **40+ classes** — race/TOCTOU, IDOR/BOLA, price-tampering, XXE, insecure deserialization, JWT alg-confusion/weak-secret, SSRF, SQL/NoSQLi, command-injection, path traversal, XSS, secrets, CORS, missing headers, rate-limit, and more |
+| Bug classes covered | strong general set | **30+ vulnerability classes** — race/TOCTOU, IDOR/BOLA, price-tampering, XXE, insecure deserialization, JWT alg-confusion/weak-secret, SSRF, SQL/NoSQLi, command-injection, path traversal, XSS, secrets, CORS, missing headers, rate-limit, and more (plus an optional Semgrep engine you can bolt on) |
 
 The honest pitch: a pen-test that only reports is a list of things to argue about. A
 pen-test that ships the regression test, signs the evidence, and scores the fix on a
@@ -442,7 +442,7 @@ functions).
 Security is two layers:
 
 1. **Dependency audits** — `npm audit`, plus `pip-audit`/`osv-scanner` for Python and
-   other stacks, and `gitleaks`/`semgrep` when installed. A failed audit is reported as
+   other stacks, and `gitleaks` for committed secrets. A failed audit is reported as
    `skipped` with a repair hint — deps that were never scanned are never reported as clean.
 2. **The static vulnerability pass** (fully offline, every language, no tooling needed) —
    the classic classes plus the full posture: **SQL injection** (concatenated/
@@ -465,6 +465,19 @@ Every static finding is labeled `[indicated]` and ships with its exact **fix**; 
 and `try` print the complete identify-and-solve list under the score box, so the report
 is a worklist, not a scare. The full matrix — every detection and every fix — is in
 [docs/security.md](docs/security.md).
+
+**Optional deeper SAST (Semgrep).** OpenPitStop's built-in static pass needs no extra
+tooling. For a second, cross-language engine you can bolt on [Semgrep](https://semgrep.dev)
+— it is **off by default** and only runs when you opt in. Install it (`pip install
+semgrep`) and set one variable:
+
+```bash
+export PITSTOP_SEMGREP_CONFIG=auto          # the free Semgrep Registry rules
+pitstop scan                                # Semgrep is picked up automatically
+```
+
+Point it at your own rules any time: `PITSTOP_SEMGREP_CONFIG="p/security-audit p/owasp-top-ten ./my-rules"`.
+With nothing set, no Semgrep process ever runs — no surprise network calls, no slow scans.
 
 Each check either contributes a real number, or prints `skipped` with a one-line hint on
 how to install the tool it needs — it never makes up a number. Everything adds up to one
@@ -545,7 +558,7 @@ one-shot.
 |---|---|
 | `pitstop install` / `install --uninstall` | Writes `/pitstop` into every supported tool (project + user level). `--uninstall` removes it all. `--hooks` also installs (or with `--uninstall`, removes) the git pre-commit gate. |
 | `pitstop` (no args) | The guided first-run: detects your AI tools and git repo, then offers to install or score this repo (`try .`). Non-TTY prints the one-line menu instead. |
-| `pitstop doctor` | Explains why categories show `skipped`: checks your toolchain (Node, git, jscpd, gitleaks, semgrep, pa11y) and prints copy-paste install hints. |
+| `pitstop doctor` | Explains why categories show `skipped`: checks your toolchain (Node, git, jscpd, gitleaks, pa11y) and prints copy-paste install hints. Semgrep is optional and opt-in, so doctor won't flag its absence. |
 | `pitstop prompt [--args …]` | Prints the exact prompt your AI tool expands `/pitstop` into, with your arguments filled in — full transparency into what the agent was told. |
 
 ### The score & badge
@@ -629,16 +642,19 @@ cheat its own referee. That separation is the product.
 
 - **Windows** is a first-class, CI-verified platform (build + smoke on `ubuntu-latest`
   and `windows-latest` every push). `watch`, `pen`, `pen --fix` and `scan --ledger` were
-  each run end-to-end on a real Windows host against the demo repos, with a live watch
-  delta, PROVEN ledger double-charges (sealed evidence) and honest pen verdicts
+   each run end-to-end on a real Windows host against sample apps, with a live watch
+   delta, PROVEN ledger double-charges (sealed evidence) and honest pen verdicts
   (including the honest "0 patches" case) all verified. The only open caveat is breadth,
   not correctness: not every exotic repo shape has been hand-exercised on Windows yet.
 - **Codex App / VS Code extension** isn't supported and won't be until OpenAI ships custom
   slash commands; use Codex CLI for `/pitstop`.
-- **Graceful degradation:** duplication (`jscpd`), secrets/code scanning (`gitleaks`,
-  `semgrep`), dependency CVEs (`pip-audit`, `osv-scanner`), and accessibility runtime
-  checks (`pa11y`/`axe`) run only when that tool is installed locally. The scan reports
-  `skipped` for those categories and works fine without them.
+- **Graceful degradation:** duplication (`jscpd`), secret scanning (`gitleaks`),
+  dependency CVEs (`pip-audit`, `osv-scanner`), and accessibility runtime checks
+  (`pa11y`/`axe`) run only when that tool is installed locally. The scan reports
+  `skipped` for those categories and works fine without them. **Semgrep is an opt-in
+  deeper engine** (see [Security fixes](#security-fixes)): it only runs when you set
+  `PITSTOP_SEMGREP_CONFIG`, so it never runs just because the binary happens to be on
+  PATH — no surprise network calls or slow scans.
 - Requires **Node.js 22+** (the CLI depends on execa 10, which uses ES2024 `Set.union`).
 - **Multi-stack honesty:** test runs (JS, Python, Go, Rust, Flutter, .NET, Java via Maven
   or Gradle), dependency CVEs, and the `pen`/`ledger` sandboxes are real for Node/JS and
