@@ -702,6 +702,117 @@ applyPayload(payload);
 `,
     },
   },
+  {
+    name: "crypto-weakness: md5 hashing",
+    category: "crypto-weakness",
+    vulnerable: {
+      "hash.js": `const h = crypto.createHash("md5").update(pw).digest("hex");`,
+    },
+    fixed: {
+      "hash.js": `const h = crypto.createHash("sha256").update(pw).digest("hex");`,
+    },
+  },
+  {
+    name: "insecure-deserialization: pickle.loads",
+    category: "insecure-deserialization",
+    vulnerable: {
+      "load.py": `obj = pickle.loads(request.body)`,
+    },
+    fixed: {
+      "load.py": `obj = json.loads(request.body)`,
+    },
+  },
+  {
+    name: "open-redirect: redirect to user-supplied next",
+    category: "open-redirect",
+    vulnerable: {
+      "web.js": `app.get("/go", (req, res) => res.redirect(req.query.next));`,
+    },
+    fixed: {
+      "web.js": `
+const ALLOWED = ["/home", "/dashboard"];
+app.get("/go", (req, res) => {
+  const dest = ALLOWED.includes(req.query.next) ? req.query.next : "/";
+  res.redirect(dest);
+});`,
+    },
+  },
+  {
+    name: "mass-assignment: update with req.body",
+    category: "mass-assignment",
+    vulnerable: {
+      "user.js": `User.findByIdAndUpdate(id, req.body);`,
+    },
+    fixed: {
+      "user.js": `
+const dto = { name: req.body.name, email: req.body.email };
+User.findByIdAndUpdate(id, dto);`,
+    },
+  },
+  {
+    name: "nosql-injection: find with req.body",
+    category: "nosql-injection",
+    vulnerable: {
+      "user.js": `const u = User.find(req.body);`,
+    },
+    fixed: {
+      "user.js": `const u = User.find({ _id: req.body._id });`,
+    },
+  },
+  {
+    name: "ssti: render_template_string with request",
+    category: "ssti",
+    vulnerable: {
+      "view.py": `return render_template_string(request.args.get("tpl"))`,
+    },
+    fixed: {
+      "view.py": `return render_template("home.html", name=request.args.get("name"))`,
+    },
+  },
+  {
+    name: "xxe: lxml resolve_entities True",
+    category: "xxe",
+    vulnerable: {
+      "xml.py": `parser = etree.XMLParser(resolve_entities=True)`,
+    },
+    fixed: {
+      "xml.py": `parser = etree.XMLParser(resolve_entities=False)`,
+    },
+  },
+  {
+    name: "cors: reflected origin",
+    category: "cors",
+    vulnerable: {
+      "server.js": `app.use(cors({ origin: req.headers.origin }));`,
+    },
+    fixed: {
+      "server.js": `app.use(cors({ origin: ["https://app.example.com"] }));`,
+    },
+  },
+  {
+    name: "debug-mode: flask debug True",
+    category: "debug-mode",
+    vulnerable: {
+      "app.py": `app.run(debug=True)`,
+    },
+    fixed: {
+      "app.py": `app.run(debug=False)`,
+    },
+  },
+  {
+    name: "csrf: csrf_exempt decorator",
+    category: "csrf",
+    vulnerable: {
+      "views.py": `@csrf_exempt
+def transfer(request):
+    ...`,
+    },
+    fixed: {
+      "views.py": `@app.route("/transfer")
+def transfer(request):
+    ...`,
+    },
+  },
 ];
 
 test("the 5 mandated vulnerability classes + extras: detection", () => {

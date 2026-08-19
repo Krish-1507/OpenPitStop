@@ -589,6 +589,154 @@ export const STATIC_SECURITY_RULES: StaticRule[] = [
       "session/access token kept in localStorage — readable by any XSS, exfiltrated by the next compromised script tag",
     fix: "httpOnly + secure + SameSite cookie for the session; never localStorage for credentials",
   },
+
+  /* --------------------- Cryptographic weakness ----------------- */
+  {
+    category: "crypto-weakness",
+    severity: "high",
+    re: /\bcrypto\.createHash\s*\(\s*["'](?:md5|sha1)["']\s*\)|\bhashlib\.(?:md5|sha1)\s*\(/g,
+    describe: () =>
+      "weak hash (md5/sha1) used for integrity or password-adjacent data — collisions are trivial and brute-force is instant",
+    fix: "use SHA-256+ for integrity; for passwords use bcrypt/argon2/scrypt. Never md5/sha1 for anything security-relevant",
+  },
+  {
+    category: "crypto-weakness",
+    severity: "high",
+    re: /\bcrypto\.create(?:Cipher|Decipher)\s*\(/g,
+    describe: () =>
+      "crypto.createCipher/createDecipher — deprecated: derives the key from the password with no IV and a weak KDF",
+    fix: "use crypto.createCipheriv/createDecipheriv with an explicit random IV and a strong key (scrypt/argon2-derived)",
+  },
+  {
+    category: "crypto-weakness",
+    severity: "medium",
+    re: /\baes-?256-?ecb\b|\baes-?128-?ecb\b|\bAES\.MODE_ECB\b|\baes_ecb\b/gi,
+    describe: () =>
+      "ECB cipher mode — identical plaintext blocks produce identical ciphertext, leaking structure (images, PDFs, tokens)",
+    fix: "use an authenticated mode: AES-256-GCM, or AES-256-CBC with a random IV + HMAC",
+  },
+  {
+    category: "crypto-weakness",
+    severity: "medium",
+    re: /\b(?:iv|salt|nonce|seed)\s*[:=][^;\n]{0,40}\bMath\.random\s*\(\)|\bpseudoRandomBytes\s*\(/g,
+    describe: () =>
+      "IV/salt/nonce (or crypto.pseudoRandomBytes) seeded from Math.random — predictable, breaking the crypto guarantee",
+    fix: 'derive IV/salt/nonce from crypto.randomBytes / WebCrypto getRandomValues — never Math.random or pseudoRandomBytes',
+  },
+
+  /* ------------------- Insecure deserialization ---------------- */
+  {
+    category: "insecure-deserialization",
+    severity: "high",
+    re: /\bpickle\.loads?\s*\(|\bcPickle\.load|\byaml\.load\s*\(/g,
+    describe: () =>
+      "pickle/cPickle/yaml.load on untrusted data — deserializing attacker-controlled bytes executes arbitrary code",
+    fix: "use json.loads for data; for YAML use yaml.safe_load (never yaml.load without an explicit SafeLoader)",
+  },
+  {
+    category: "insecure-deserialization",
+    severity: "high",
+    re: /\bunserialize\s*\(|require\s*\(\s*["']node-serialize["']\s*\)/g,
+    describe: () =>
+      "PHP-style unserialize() or node-serialize — reconstructing objects from untrusted input is RCE",
+    fix: "parse with JSON.parse and validate against a schema; never unserialize untrusted payloads",
+  },
+
+  /* ----------------------- Open redirect ----------------------- */
+  {
+    category: "open-redirect",
+    severity: "medium",
+    re: /\bres\.redirect\s*\([^;]{0,120}(?:req\.(?:query|body|params)\.[A-Za-z0-9_]+)/g,
+    describe: () =>
+      "redirect target taken from user input — open redirect to phishing, and a step toward SSRF/SSO token theft",
+    fix: "allowlist redirect destinations (constant allowlist or same-origin check) before calling res.redirect",
+  },
+  {
+    category: "open-redirect",
+    severity: "medium",
+    re: /\bredirect\s*\([^;]{0,120}request\.(?:args|form|values)\.get/g,
+    describe: () =>
+      "Flask redirect() fed by request data — open redirect to external/phishing destinations",
+    fix: "validate the target against an allowlist or same-origin host before redirect()",
+  },
+
+  /* ---------------------- Mass assignment ---------------------- */
+  {
+    category: "mass-assignment",
+    severity: "high",
+    re: /\b(?:findByIdAndUpdate|findOneAndUpdate|updateOne|updateMany|update|replaceOne|findOneAndReplace)\s*\([^)]{0,80}?req\.(?:body|query)/g,
+    describe: () =>
+      "ORM/Mongo update called with the raw request body — attackers set arbitrary fields (role=admin, isVerified=true)",
+    fix: "never pass req.body to an update: build a whitelisted DTO (const dto = { name, email }; Model.update(id, dto))",
+  },
+
+  /* ------------------- NoSQL / template injection ------------- */
+  {
+    category: "nosql-injection",
+    severity: "high",
+    re: /\.(?:find|findOne|findOneAndRemove|findOneAndUpdate|findOneAndReplace|aggregate)\s*\(\s*(?:req\.(?:body|query|params)|userInput|payload)\b/g,
+    describe: () =>
+      "entire request object passed into a Mongo query — operator injection ($gt, $regex, $ne) bypasses filters and auth",
+    fix: "pass only validated scalars: Model.find({ _id: req.body._id }) — never the whole req.body/req.query",
+  },
+  {
+    category: "ssti",
+    severity: "high",
+    re: /\brender_template_string\s*\([^)]{0,120}request|\bjinja2?\.Template\s*\([^)]{0,120}request|\bTemplate\s*\([^)]{0,120}(?:request|req\.)/g,
+    describe: () =>
+      "template rendered from user-controlled string (render_template_string/Template with request data) — SSTI = RCE",
+    fix: "render fixed template files with data passed as variables; never build template source from user input",
+  },
+
+  /* -------------------- XML external entity -------------------- */
+  {
+    category: "xxe",
+    severity: "high",
+    re: /\bresolve_entities\s*=\s*True\b|\bXMLParser\s*\([^)]*resolve_entities\s*=\s*True/g,
+    describe: () =>
+      "XML parser resolves external entities (XXE) — reads local files or reaches internal network from parsed XML",
+    fix: "disable external entity resolution: lxml etree.XMLParser(resolve_entities=False); or use defusedxml",
+  },
+
+  /* ----------------------- CORS reflection --------------------- */
+  {
+    category: "cors",
+    severity: "medium",
+    re: /\borigin\s*:\s*req\.headers\.origin|\borigin\s*:\s*function\s*\([^)]*\)\s*\{[^}]{0,160}?req\.headers\.origin/g,
+    describe: () =>
+      "CORS origin reflected from the request — any site can make credentialed cross-origin requests on behalf of victims",
+    fix: "allowlist exact trusted origins: cors({ origin: ['https://app.example.com'] }) — never echo req.headers.origin",
+  },
+
+  /* ----------------------- Debug mode -------------------------- */
+  {
+    category: "debug-mode",
+    severity: "medium",
+    re: /\bDEBUG\s*=\s*True\b|\bapp\.debug\s*=\s*True|\.run\s*\([^)]{0,80}debug\s*=\s*True/g,
+    describe: () =>
+      "debug mode enabled (DEBUG=True / app.debug=True / debug=True) — exposes the interactive debugger, stack traces and env",
+    fix: "DEBUG=False in production; serve via a real WSGI/ASGI server and gate debug behind an env flag off in prod",
+  },
+
+  /* --------------------- CSRF disabled ------------------------- */
+  {
+    category: "csrf",
+    severity: "medium",
+    re: /\bcsrf_exempt\b/g,
+    describe: () =>
+      "CSRF protection explicitly disabled (@csrf_exempt) on a view — reachable cross-site from a victim's browser",
+    fix: "remove @csrf_exempt and use the framework CSRF token; if an API truly needs it, require an auth header + same-site cookie",
+  },
+
+  /* ------------------- Extended secret formats ----------------- */
+  {
+    category: "secret",
+    severity: "high",
+    re: /\bya29\.[A-Za-z0-9_-]{20,}\b|\bglpat-[A-Za-z0-9_-]{20,}\b/g,
+    describe: () =>
+      "Google OAuth (ya29) or GitLab PAT (glpat-) token committed in source — a live credential leak",
+    fix: "revoke the token now, then read it from the environment (process.env / os.environ), never from source",
+  },
 ];
 
 /**
