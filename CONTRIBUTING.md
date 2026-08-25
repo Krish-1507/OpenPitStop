@@ -14,7 +14,7 @@ npm run build      # tsc â†’ dist/  (the CLI runs from dist/, not src/)
 npm run dev        # tsx watch src/cli.ts â€” live-reloading entry point
 ```
 
-The CLI's own regression suite is `node:test` (160 tests, real filesystem + git
+The CLI's own regression suite is `node:test` (181 tests, real filesystem + git
 fixtures): `npm test`. Verification is both automated and hands-on: `npm run build`,
 `npm test`, then run the real commands against a test repo (see [Testing](#testing)).
 
@@ -205,7 +205,7 @@ present in `pitstop ci` and the GitHub Action comment automatically.
 ## Testing
 
 ```bash
-npm test                              # 160 node:test regression tests (real fs + git fixtures)
+npm test                              # 181 node:test regression tests (real fs + git fixtures)
 npm run typecheck                     # tsc --noEmit for src and test
 npm run build
 node dist/cli.js scan .              # scan this repo (a11y/perf will skip â€” that's correct)
@@ -218,7 +218,7 @@ The deep-verification mechanisms each carry their own integration suites
 (`test/baselineVerify.test.ts`, `test/stateVerify.test.ts`,
 `test/verifierCheck.test.ts`, `test/holdoutVerify.test.ts`,
 `test/acceptanceVerify.test.ts`, `test/regressionCheck.test.ts`,
-`test/chain.test.ts`) built on real temp
+`test/chain.test.ts`, `test/gateMatrix.test.ts`) built on real temp
 git repositories â€” if you touch `src/verify/` or `src/evidence.ts`, those are
 the contract: verdicts must stay honest (a known-bad state must FAIL, tampered
 evidence must be reported), and worktrees/temp dirs must be cleaned up on every

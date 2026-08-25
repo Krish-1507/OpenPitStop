@@ -156,13 +156,18 @@ failing layer and it prints **DO NOT SHIP** and exits 1.
 
 ### The gate
 
-`pitstop gate` is the contract for CI and pre-commit hooks. It checks the score,
-regression risk and diff integrity, then exits `0` (clean), `1` (issues) or `2`
-(confirmed cheat). It also folds in the newest sealed `baseline-verify`,
-`state-verify` and `verifier-check` reports — a fix that merely passes without
-baseline evidence is reported as less trustworthy than one with a sealed
-`VERIFIED` chain, and tampered evidence from any of them hard-blocks. The exit
-code is the truth a build can block on.
+`pitstop gate` is the final independent verification authority. It does not ask the agent
+whether it's done — it reasons over the **evidence model**: the live scan (score, tests,
+regression risk), the integrity diff, the baseline evidence signature, and every sealed
+deep-verification layer (baseline-aware, state, acceptance, regression, security/pen drift,
+holdout, verifier health). A deterministic decision matrix — evaluated strictly in order —
+produces the verdict: **CHEAT** (manipulated evidence, CONFIRMED_CHEAT) → **BLOCKED**
+(critical regression, proven critical security, drift) → **FAILED** (required verification
+failed) → **UNPROVEN** (insufficient evidence) → **VERIFIED** (strong evidence, all clear).
+Layers that never ran are rendered `NOT_CONFIGURED` — never faked into a pass. Configure
+mandatory layers with `--require baseline,acceptance,holdout`. Exit codes: `0` pass, `1`
+fail, `2` cheat. The old single-box output and `gateOutcome` remain for backward
+compatibility.
 
 ### Integrity
 

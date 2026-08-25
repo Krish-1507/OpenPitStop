@@ -100,6 +100,27 @@ say "verified" more often; it was to make the referee able to say NO.
   SKIPPED, tampered/malformed evidence is TAMPERED and blocks; the chain
   itself is sealed and serializes deterministically.
   (`src/verify/chain.ts`, `src/commands/explain.ts`, 11 tests.)
+- **The gate is now the final independent verification authority.** `pitstop
+  gate` reasons over the EVIDENCE MODEL via a deterministic decision matrix
+  (evaluated strictly in order): CHEAT (manipulated evidence, CONFIRMED_CHEAT)
+  > BLOCKED (critical regression, proven critical security, drift) > FAILED
+  (tests/acceptance/holdout/baseline/state failed) > UNPROVEN (insufficient
+  evidence) > VERIFIED (strong evidence, all clear). The output is a per-layer
+  matrix — state, baseline, acceptance, tests, regression, security,
+  integrity, holdout, verifier health — showing only layers that actually
+  ran; never-run layers are NOT_CONFIGURED, never faked into a pass. New
+  `--require <layers>` makes specified layers mandatory for VERIFIED. Exit
+  codes stay backward compatible (0 pass, 1 fail, 2 cheat) and `gateOutcome`
+  is preserved; the legacy reasons are folded into the matrix output.
+  (`src/verify/gateMatrix.ts`, 21 decision-matrix tests.)
+- **Evidence-integrity fix (seal-key collision).** `seal()` stores its block
+  under the key `evidence`, which `canonicalize` excludes from the tamper
+  digest — documents that used `evidence` as a CONTENT field (acceptance
+  criteria arrays, baseline-verify per-side evidence checks, the verify
+  report's baseline evidence check) were silently outside tamper protection
+  and were clobbered on persist. Those fields are renamed (`criteria`,
+  `evidenceChecks`, `baselineEvidence`) so every evidence byte is inside the
+  protected digest.
 - **Regression verification (`pitstop regression-check`).** A fix must not
   break previously working behavior. Per-check comparison (per-test names from
   TAP/spec/jest/pytest/go output, suite-level fallback) between a baseline and

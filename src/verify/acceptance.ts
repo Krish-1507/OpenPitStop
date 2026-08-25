@@ -532,7 +532,10 @@ export function sealAcceptanceResult(result: AcceptanceResult): AcceptanceResult
     candidate: { ref: result.candidateRef, sha: result.candidateSha },
     baseline: { ref: result.baselineRef, sha: result.baselineSha },
     requirements: result.requirements,
-    evidence: result.evidence,
+    // named `criteria` (NOT `evidence`): the seal block is stored under the key
+    // `evidence`, and canonicalize EXCLUDES that key from the digest — a field
+    // named `evidence` would be silently outside tamper protection.
+    criteria: result.evidence,
     verdict: result.verdict,
     reasons: result.reasons,
     notes: result.notes,

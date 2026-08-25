@@ -83,7 +83,8 @@ const CATEGORIES: {
   { id: "holdout", category: "HOLDOUT", prefix: "holdout-", label: "holdout verification" },
 ];
 
-function latestDoc(dir: string, prefix: string, exclude: string[] = []): { file: string; doc: any; check: EvidenceCheck } | null {
+/** Latest sealed evidence document for a prefix (exported for the gate matrix). */
+export function latestPitstopDoc(dir: string, prefix: string, exclude: string[] = []): { file: string; doc: any; check: EvidenceCheck } | null {
   if (!fs.existsSync(dir)) return null;
   let latest: string | null = null;
   let latestMtime = 0;
@@ -109,6 +110,10 @@ function latestDoc(dir: string, prefix: string, exclude: string[] = []): { file:
     // unreadable/malformed evidence is an integrity problem, not a silent skip
     return { file: latest, doc: null, check: { status: "tampered", digest: "", reason: `unreadable or malformed: ${e.message}` } };
   }
+}
+
+function latestDoc(dir: string, prefix: string, exclude: string[] = []): { file: string; doc: any; check: EvidenceCheck } | null {
+  return latestPitstopDoc(dir, prefix, exclude);
 }
 
 function pickSha(doc: any): string | undefined {
@@ -243,7 +248,7 @@ export function buildEvidenceChain(repo: string): EvidenceChain {
         status = "PASS";
         reason = "integrity gate CLEAN — no cheat patterns in the diff";
       }
-      if (doc.evidence?.status === "tampered") {
+      if (doc.baselineEvidence?.status === "tampered") {
         status = "TAMPERED";
         reason = "the verify report's baseline evidence was edited after OpenPitStop signed it";
       }

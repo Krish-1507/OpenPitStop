@@ -441,7 +441,10 @@ export async function baselineAwareVerify(opts: {
       baseline: baselineExec,
       candidate: candidateExec,
       integrity: result.integrity,
-      evidence: {
+      // named `evidenceChecks` (NOT `evidence`): the seal block occupies the
+      // `evidence` key, which is excluded from the tamper digest — per-side
+      // evidence checks must stay INSIDE the protected content.
+      evidenceChecks: {
         baseline: (baselineSealed as any).evidence,
         candidate: (candidateSealed as any).evidence,
       },

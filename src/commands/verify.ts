@@ -304,7 +304,10 @@ export async function runVerify(repo: string): Promise<VerifyOutcome> {
     blocked,
     stale,
     staleNote: stale ? staleNote : undefined,
-    evidence,
+    // named `baselineEvidence` (NOT `evidence`): the seal block occupies the
+    // `evidence` key, which is excluded from the tamper digest — the baseline
+    // evidence check must stay INSIDE the protected content.
+    baselineEvidence: evidence,
     status: blocked ? "BLOCKED" : evidence.status === "tampered" ? "SUSPICIOUS_EVIDENCE" : "OK",
     exitCode: outcome.exitCode,
     integrity,

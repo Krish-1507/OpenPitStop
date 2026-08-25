@@ -5,6 +5,7 @@ import boxen from "boxen";
 import path from "node:path";
 import { runVerify, type VerifyOutcome } from "./verify.js";
 import { checkEvidence } from "../evidence.js";
+import { evaluateGate, renderGateMatrix } from "../verify/gateMatrix.js";
 
 /**
  * `pitstop gate` — the agentless, CI-usable gate. One command answers "is this
@@ -276,9 +277,10 @@ function exitCodeColor(code: number): "red" | "yellow" {
 
 export const gate = new Command("gate")
   .description(
-    "Agentless commit gate: verifies score vs threshold, regression risk, integrity diff and " +
-      "the baseline evidence signature — exit 0=PASS, 1=FAIL, 2=CONFIRMED_CHEAT. CI and " +
-      "pre-commit ready; no AI tool required.",
+    "Final independent verification authority: reasons over the EVIDENCE MODEL (scan score/risk, " +
+      "integrity, plus every sealed deep-verification layer: baseline, state, acceptance, " +
+      "regression, security/drift, holdout, verifier health) — never the agent's self-report. " +
+      "Deterministic matrix: CHEAT > BLOCKED > FAILED > UNPROVEN > VERIFIED. Exit 0=pass, 1=fail, 2=cheat.",
   )
   .argument("[repo]", "path to the repo to gate (default: current dir)", ".")
   .option(
@@ -286,49 +288,99 @@ export const gate = new Command("gate")
     "minimum OpenPitStop Score required to pass (default 60; 0 disables the score check)",
     "60",
   )
+  .option(
+    "--require <layers>",
+    "comma-separated verification layers that MUST have passing evidence for VERIFIED (e.g. baseline,acceptance,holdout,regression,state)",
+    "",
+  )
   .option("--json", "print a machine-readable gate result")
-  .action(async (repoArg: string, options: { score?: string; json?: boolean }) => {
+  .action(async (repoArg: string, options: { score?: string; require?: string; json?: boolean }) => {
     const repo = path.resolve(repoArg);
     const threshold = Math.max(0, Math.min(100, Math.floor(Number(options.score) || 60)));
+    const requireLayers = (options.require ?? "").split(",").map((s) => s.trim()).filter(Boolean);
 
     if (!options.json) {
       console.log(chalk.cyan(`\nGating ${repo} (score >= ${threshold}/100) ...\n`));
     }
 
     const outcome = await runVerify(repo);
-    const gateResult = gateOutcome(outcome, threshold);
+    const gateResult = gateOutcome(outcome, threshold); // legacy reasons (backward-compatible contract)
+
+    const decision = evaluateGate(
+      repo,
+      {
+        missingBaseline: outcome.missingBaseline,
+        blocked: outcome.blocked,
+        integrityVerdict: outcome.missingBaseline ? "CLEAN" : outcome.integrity.verdict,
+        evidenceStatus: outcome.evidence?.status ?? "missing",
+        risk: outcome.missingBaseline ? "Low" : outcome.risk,
+        currentScore: outcome.missingBaseline ? 0 : outcome.currentScore.score,
+        currentGrade: outcome.missingBaseline ? "F" : outcome.currentScore.grade,
+        testsPassed: outcome.current.tests.passed,
+        testsFailed: outcome.current.tests.failed,
+        stale: outcome.stale,
+        staleNote: outcome.staleNote,
+      },
+      { threshold, require: requireLayers },
+    );
+    // fold legacy gate reasons that the matrix cannot see (staleness note etc.)
+    for (const r of gateResult.reasons) {
+      if (r.startsWith("⚠") && !decision.reasons.some((x) => x.includes(r.slice(1).trim().slice(0, 40)))) {
+        decision.reasons.push(r);
+      }
+    }
 
     if (options.json) {
       console.log(
         JSON.stringify(
           {
             repo,
-            pass: gateResult.pass,
-            exitCode: gateResult.exitCode,
-            reasons: gateResult.reasons,
-            threshold,
-            score: outcome.missingBaseline ? null : outcome.currentScore.score,
-            grade: outcome.missingBaseline ? null : outcome.currentScore.grade,
-            risk: outcome.missingBaseline ? null : outcome.risk,
-            integrity: outcome.missingBaseline ? null : outcome.integrity.verdict,
-            evidence: outcome.evidence?.status ?? "missing",
-            stale: outcome.stale,
-            baselineTimestamp: outcome.baselineTimestamp ?? null,
+            verdict: decision.verdict,
+            pass: decision.exitCode === 0,
+            exitCode: decision.exitCode,
+            layers: decision.layers,
+            reasons: decision.reasons,
+            summary: decision.summary,
+            // legacy fields (backward compatible)
+            legacy: {
+              pass: gateResult.pass,
+              exitCode: gateResult.exitCode,
+              reasons: gateResult.reasons,
+              threshold,
+              score: outcome.missingBaseline ? null : outcome.currentScore.score,
+              grade: outcome.missingBaseline ? null : outcome.currentScore.grade,
+              risk: outcome.missingBaseline ? null : outcome.risk,
+              integrity: outcome.missingBaseline ? null : outcome.integrity.verdict,
+              evidence: outcome.evidence?.status ?? "missing",
+              stale: outcome.stale,
+              baselineTimestamp: outcome.baselineTimestamp ?? null,
+            },
           },
           null,
           2,
         ),
       );
-    } else if (outcome.missingBaseline) {
-      console.log(
-        chalk.red(`no baseline found — run \`pitstop scan\` (or \`pitstop try\`) once to create one`),
-      );
     } else {
-      console.log(renderGateBox(outcome, gateResult, threshold));
-      if (outcome.file) {
+      const matrix = renderGateMatrix(decision);
+      console.log(
+        boxen(matrix, {
+          title: " OPENPITSTOP GATE ",
+          titleAlignment: "center",
+          borderStyle: decision.verdict === "VERIFIED" ? "round" : "double",
+          padding: 1,
+          borderColor: decision.verdict === "VERIFIED" ? "green" : decision.exitCode >= 2 ? "red" : "yellow",
+        }),
+      );
+      if (decision.reasons.length > 0) {
+        console.log("");
+        for (const r of decision.reasons) console.log(r.startsWith("⚠") ? chalk.yellow(r) : chalk.red(`✗ ${r}`));
+      }
+      if (outcome.missingBaseline) {
+        console.log(chalk.red(`\nno baseline found — run \`pitstop scan\` (or \`pitstop try\`) once to create one`));
+      } else if (outcome.file) {
         console.log(chalk.dim(`\nVerify report written to ${outcome.file}\n`));
       }
     }
 
-    process.exitCode = gateResult.exitCode;
+    process.exitCode = decision.exitCode;
   });
