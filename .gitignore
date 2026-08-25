@@ -13,8 +13,11 @@ PITSTOP_PEN_REPORT.html
 PITSTOP_PEN_FIXES.md
 *.tgz
 docs/Marketing plan.txt
+docs/marketing-assets.md
+docs/ScreenRecScript.txt
 ScreenRecScript.txt
 demo/
+scripts/__pycache__/
 
 # AI coding tool command/hook configs written by `pitstop install`
 .opencode/

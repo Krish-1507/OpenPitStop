@@ -2,6 +2,90 @@
 
 All notable changes to this project are documented here.
 
+## [Unreleased]
+
+The **deep verification suite** — three independent mechanisms that make a
+`VERIFIED` verdict harder to obtain and more trustworthy. The goal was never to
+say "verified" more often; it was to make the referee able to say NO.
+
+### Added
+
+- **Baseline-aware verification (`pitstop baseline-verify`).** A passing
+  verification after an agent's fix proves nothing unless the same verification
+  demonstrably FAILED on the broken state. The new command runs the SAME
+  verification against a known-bad baseline commit (must FAIL, evidence sealed)
+  and the candidate commit (must PASS) in isolated detached git worktrees, then
+  compares verification identity (command + participating file hashes + env).
+  Verdicts: `VERIFIED` / `FAILED` / `UNPROVEN` / `INTEGRITY_FAILURE`. Without an
+  explicit `expectedFailure` predicate, a non-zero baseline exit is explicitly
+  reported as insufficient (environment-vs-intended-bug is not knowable) and
+  downgraded to `UNPROVEN`. Evidence is sealed with the standard
+  `pitstop-canonical-sha256-v1` digest. (`src/verify/baseline.ts`,
+  `src/commands/baselineVerify.ts`, 15 tests.)
+- **External state verification (`pitstop state-verify`).** Do not trust the
+  agent's claim about what it did. Structured claims
+  (`--claim created|modified|deleted:<path>`) are checked against the actual
+  filesystem and git: existence, sha256 content hash, size, line count,
+  `git status --porcelain`, HEAD content (read byte-exact). Sealed BEFORE
+  snapshots (`--snapshot`) give a strong before/after comparison; tracked files
+  fall back to HEAD as the before-state. Detects: claimed-but-unchanged files,
+  empty writes, reverts, wrong-file changes (with an "other changes observed"
+  context list), whitespace-only edits, unprovable untracked modifications.
+  Verdicts: `STATE_VERIFIED` / `STATE_MISMATCH` / `UNPROVEN` /
+  `INTEGRITY_FAILURE`. Explicitly NOT semantic verification: it proves a state
+  change occurred, never that the code is correct. (`src/verify/state.ts`,
+  `src/commands/stateVerify.ts`, 28 tests.)
+- **Verifier health / falsifiability (`pitstop verifier-check`).** A referee
+  that cannot say NO is not a referee. The new command validates a verification
+  mechanism itself: known-good state must PASS, controlled known-bad state
+  (explicit `--bad-ref` or declared mutations, applied only inside temp
+  worktrees) must FAIL. `VERIFIER_VALID` = falsifiable; `VERIFIER_WEAK` = the
+  seeded fault passed; `VERIFIER_BROKEN` = a correct state failed. Mutations
+  that touch the verification's own files are flagged honestly; unexpected
+  verifier drift between the two runs is `INTEGRITY_FAILURE`. Commit references
+  are resolved with `git rev-parse --verify` (a fabricated 40-hex string can no
+  longer masquerade as resolvable — hardening shared with baseline-verify).
+  (`src/verify/verifier.ts`, `src/commands/verifierCheck.ts`, 17 tests.)
+- **Gate integration.** `pitstop gate` now folds in the newest sealed
+  `baseline-verify`, `state-verify` and `verifier-check` reports: mismatches,
+  unproven results and weak/broken verifiers are surfaced as gate reasons;
+  tampered evidence from any of them hard-blocks. Backward compatible — with no
+  such reports the gate behaves exactly as before.
+- **Docs:** `docs/baseline-verify.md`, `docs/state-verify.md`,
+  `docs/verifier-check.md`.
+- **Tests:** 60 → 105, all passing (`npm test`, node:test on real filesystem +
+  git fixtures — no mocks for the new mechanisms).
+
+## [1.8.1] - 2026-08-19
+
+- **Semgrep is opt-in, documented as such.** The deeper SAST engine only runs
+  when `PITSTOP_SEMGREP_CONFIG` is set — it never runs just because the binary
+  is on PATH (no surprise network calls, no slow scans). README accuracy pass
+  ("sample apps", doctor note).
+
+## [1.8.0] - 2026-08-19
+
+- **Semgrep wired as a deeper SAST engine** behind `scan`/`drive`: stable
+  finding ids, `fix` hints carried into the drive mission prompt, configurable
+  config, graceful behavior when Semgrep is absent.
+
+## [1.7.0] - 2026-08-19
+
+- **Broadened static security rules** — ten new classes: crypto weakness
+  (md5/sha1, ECB, weak RNG), insecure deserialization, open redirect,
+  mass assignment, NoSQL injection, SSTI, XXE, CORS reflection, debug mode,
+  CSRF-exempt routes, plus extended secret formats (ya29, glpat). Every rule
+  keeps the detect-and-clear regression contract.
+
+## [1.6.0] - 2026-08-19
+
+- **Repo-aware `next` plan + looping `drive`.** `pitstop next` detects
+  language/framework/tests/CI and prints the single best next command;
+  `pitstop drive` loops the agent until the acceptance gate passes (failing-first
+  repro or a fresh re-scan confirming the finding is gone), auto-detects the
+  agent CLI, and verifies duplication/reliability/ledger/a11y/devex fixes via
+  re-scan.
+
 ## [1.5.2] - 2026-08-18
 
 P2 of the "beat usestrix/Strix" security push — the **permanent referee**: drift

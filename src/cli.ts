@@ -29,6 +29,9 @@ import { testCmd } from "./commands/test.js";
 import { nextCmd } from "./commands/next.js";
 import { fix } from "./commands/fix.js";
 import { askCmd } from "./commands/ask.js";
+import { baselineVerify } from "./commands/baselineVerify.js";
+import { stateVerify } from "./commands/stateVerify.js";
+import { verifierCheck } from "./commands/verifierCheck.js";
 import { guidedFirstRun } from "./firstRun.js";
 
 /**
@@ -110,5 +113,8 @@ program.addCommand(testCmd);
 program.addCommand(nextCmd);
 program.addCommand(fix);
 program.addCommand(askCmd);
+program.addCommand(baselineVerify);
+program.addCommand(stateVerify);
+program.addCommand(verifierCheck);
 
 program.parseAsync(process.argv);

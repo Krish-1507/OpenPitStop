@@ -50,6 +50,10 @@ Requires **Node.js 22+**, that is the only dependency. For the full setup
   your app in a sandbox and labels each issue PROVEN, indicated, or unproven.
 - **You are tired of agents quietly deleting a failing test.** `integrity` and the
   gate catch focused, deleted, or rewritten tests and exit 2 (confirmed cheat).
+- **You want proof a fix is real, not just a green suite.** `baseline-verify` proves the
+  verification FAILED on the broken state and PASSES after the fix; `state-verify` proves the
+  changes your agent *claimed* actually landed on disk and in git; `verifier-check` proves the
+  referee itself can still say NO.
 - **You want CI to fail on a regression, not just a new bug.** Drift compares every
   `pen` run to the last sealed one and goes red on a NEW finding.
 - **You need a score you can show your team or an auditor.** `report` and `honesty`
@@ -86,7 +90,7 @@ your agent.
 | [Feature tour](#feature-tour) — every feature, in plain English | [Install](#install) · [Usage](#usage) · [Tool support](#tool-support) |
 | [Architecture](#architecture) | [Known limitations](#known-limitations) · [Contributing](#contributing) · [License](#license) |
 
-**Straight to one feature:** [The scan](#the-scan) · [Security fixes](#security-fixes) · [Try it on your repo](#try-it-on-your-repo) · [The test pyramid](#the-test-pyramid) · [The gate](#the-gate) · [Integrity](#integrity) · [The pen test](#the-pen-test) · [Honesty](#honesty) · [Verify](#verify) · [Trends](#trends) · [Inspect](#inspect) · [Repro](#repro) · [Report](#report) · [Share](#share) · [The live shield](#the-live-shield) · [The GitHub Action](#the-github-action) · [The pre-commit hook](#the-pre-commit-hook)
+**Straight to one feature:** [The scan](#the-scan) · [Security fixes](#security-fixes) · [Try it on your repo](#try-it-on-your-repo) · [The test pyramid](#the-test-pyramid) · [The gate](#the-gate) · [Integrity](#integrity) · [Baseline-aware verification](#baseline-aware-verification) · [State verification](#state-verification-dont-trust-the-claim) · [Verifier health](#verifier-health-falsifiability) · [The pen test](#the-pen-test) · [Honesty](#honesty) · [Verify](#verify) · [Trends](#trends) · [Inspect](#inspect) · [Repro](#repro) · [Report](#report) · [Share](#share) · [The live shield](#the-live-shield) · [The GitHub Action](#the-github-action) · [The pre-commit hook](#the-pre-commit-hook)
 
 **Receipts:** [Caught in the wild](docs/caught-in-the-wild.md) — real gate output, screenshot-ready.
 
@@ -154,13 +158,50 @@ failing layer and it prints **DO NOT SHIP** and exits 1.
 
 `pitstop gate` is the contract for CI and pre-commit hooks. It checks the score,
 regression risk and diff integrity, then exits `0` (clean), `1` (issues) or `2`
-(confirmed cheat). The exit code is the truth a build can block on.
+(confirmed cheat). It also folds in the newest sealed `baseline-verify`,
+`state-verify` and `verifier-check` reports — a fix that merely passes without
+baseline evidence is reported as less trustworthy than one with a sealed
+`VERIFIED` chain, and tampered evidence from any of them hard-blocks. The exit
+code is the truth a build can block on.
 
 ### Integrity
 
 `pitstop integrity` diffs your change against the sealed baseline and hunts cheat
 patterns: focused tests, deleted tests, rewritten tests, swallowed errors,
 hardcoded-to-pass values. It exits `0/1/2` the same way.
+
+### Baseline-aware verification
+
+`pitstop baseline-verify` closes the hole in "the test passed, so it's fixed." A passing
+verification proves nothing unless the *same* verification demonstrably FAILED on the
+broken state — otherwise the agent is grading its own homework. So OpenPitStop runs the
+verification against a known-bad baseline commit (must FAIL, evidence sealed), then against
+the candidate (must PASS), and only calls it `VERIFIED` when both hold, the verification
+identity (command + file hashes) is identical on both sides, and nothing was tampered with.
+Anything less is honestly `FAILED`, `UNPROVEN`, or `INTEGRITY_FAILURE`. It runs in isolated
+git worktrees, so your working tree is never touched. Full semantics:
+[docs/baseline-verify.md](docs/baseline-verify.md).
+
+### State verification (don't trust the claim)
+
+`pitstop state-verify` never reads the agent's natural-language summary — it inspects the
+actual filesystem and git. You give it structured claims (`--claim modified:src/auth.ts`,
+`--claim created:x`, `--claim deleted:y`) and it independently checks existence, content
+hashes, line counts, `git status`/HEAD, catching the classic failures: the tool returned
+HTTP 200 but the file never changed, was written empty, was reverted, or a *different*
+file changed. Verdicts: `STATE_VERIFIED`, `STATE_MISMATCH`, `UNPROVEN`,
+`INTEGRITY_FAILURE`. This proves **that** a change occurred — never whether the code is
+correct. Full semantics: [docs/state-verify.md](docs/state-verify.md).
+
+### Verifier health (falsifiability)
+
+`pitstop verifier-check` asks the referee's own question: **can this verification actually
+say NO?** It runs the verification on a known-good state (must PASS) and a controlled
+known-bad state — an explicit bad ref or your declared mutation, applied in a temp worktree
+(must FAIL). `VERIFIER_VALID` means the verification demonstrated falsifiability and its
+PASS carries information; `VERIFIER_WEAK` means the seeded fault sailed through;
+`VERIFIER_BROKEN` means it fails even when things are correct. A referee that cannot fail
+is not a referee. Full semantics: [docs/verifier-check.md](docs/verifier-check.md).
 
 ### The pen test
 
@@ -502,7 +543,7 @@ test"` to a repo and it is picked up automatically on the next run.)
 
 ## Every command
 
-All 24 commands, grouped by job. Run them from inside a repo as `pitstop …` (CLI) or
+All 30 commands, grouped by job. Run them from inside a repo as `pitstop …` (CLI) or
 `npx openpitstop …` (one-off); `/pitstop` in a tool drives the loop, the rest are
 one-shot.
 
@@ -531,9 +572,17 @@ one-shot.
 
 | Command | What it does |
 |---|---|
-| `pitstop gate [--score 60]` | A commit gate for CI, pre-commit hooks or PRs: score threshold + regression risk + diff integrity + evidence signature. **Exit 0 = PASS · 1 = FAIL · 2 = CONFIRMED_CHEAT.** |
+| `pitstop gate [--score 60]` | A commit gate for CI, pre-commit hooks or PRs: score threshold + regression risk + diff integrity + evidence signature + the newest baseline-verify / state-verify / verifier-check reports. **Exit 0 = PASS · 1 = FAIL · 2 = CONFIRMED_CHEAT.** |
 | `pitstop integrity [path]` | Checks the latest commit or working tree for cheat patterns *without* a full scan: deleted or neutered tests, swallowed errors, suppression comments, hardcoded-to-pass values, mocked modules, forced exits. **Exit 0 = CLEAN · 1 = SUSPICIOUS · 2 = CONFIRMED_CHEAT.** |
 | `pitstop ci [path]` | CI-friendly scan + verify against the base branch → a PR-ready markdown report — the gate as a PR comment. It only reports; fixes stay local via `/pitstop`. Wired into the [GitHub Action](docs/github-action.md), which comments the gate on every PR and fails the check when it fails. |
+
+**Deep verification — can the referee say NO?**
+
+| Command | What it does |
+|---|---|
+| `pitstop baseline-verify --baseline <ref> --command <cmd> …` | Proves a fix is real: runs the SAME verification on a known-baseline commit (must FAIL) and the candidate (must PASS), in isolated git worktrees, with sealed tamper-evident evidence and a verification-identity hash. `VERIFIED` only when both hold and nothing changed; otherwise `FAILED` / `UNPROVEN` / `INTEGRITY_FAILURE`. Exit 0/1/2/3. See [docs/baseline-verify.md](docs/baseline-verify.md). |
+| `pitstop state-verify --claim modified:src/auth.ts …` | Independent external state check: verifies the agent's structured claims against the actual filesystem + git (existence, content hashes, line counts, porcelain status, HEAD). Catches "HTTP 200 but nothing changed", empty writes, reverts, wrong-file changes, whitespace-only edits. `STATE_VERIFIED` / `STATE_MISMATCH` / `UNPROVEN` / `INTEGRITY_FAILURE`. Exit 0/1/2/3. See [docs/state-verify.md](docs/state-verify.md). |
+| `pitstop verifier-check --command <cmd> --mutate …` | Verifier self-test: runs the verification on a known-good state (must PASS) and a controlled known-bad state (must FAIL) in temp worktrees. `VERIFIER_VALID` = falsifiable; `VERIFIER_WEAK` = the seeded fault sailed through; `VERIFIER_BROKEN` = fails a correct state. Never mutates your working tree. See [docs/verifier-check.md](docs/verifier-check.md). |
 
 **Penetration test — attack your own app**
 
@@ -678,6 +727,19 @@ cheat its own referee. That separation is the product.
 - **`drive` verdicts** for runtime pen findings come from the repro test (FAIL first, PASS
   after the fix), not from the static score — the static gate has nothing to say about a
   runtime-only finding.
+- **Baseline-aware verification honesty:** without an explicit `expectedFailure` predicate,
+  a non-zero baseline exit cannot prove the failure was the *intended* bug rather than a
+  broken environment — such results are downgraded to `UNPROVEN`, never `VERIFIED`. The
+  verification identity covers only the files you declare (`--test-file`/`--config`).
+  See [docs/baseline-verify.md](docs/baseline-verify.md).
+- **State verification is not semantic verification.** A content hash proves content
+  changed, not that the change is correct or complete; untracked files without a snapshot
+  have no before-state and are reported `UNPROVEN` rather than guessed. Files over 8 MB are
+  recorded but not hashed. See [docs/state-verify.md](docs/state-verify.md).
+- **Verifier health is per fault class.** Passing one known-bad case proves the verifier can
+  fail, not that it covers every regression; choosing a meaningful known-bad state is the
+  caller's responsibility, and the evidence records exactly what was seeded.
+  See [docs/verifier-check.md](docs/verifier-check.md).
 
 ## Privacy
 

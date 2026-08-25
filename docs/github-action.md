@@ -55,6 +55,11 @@ blocked** and the job fails, which fails the check, which blocks the merge.
   suppression comments, mocked module-under-test, forced exits
 - Regression risk vs the base branch's baseline (tests, perf, security, duplication)
 - The baseline's tamper-evident evidence signature
+- The newest sealed deep-verification reports, when present: `baseline-verify`
+  (mismatches and unproven results surfaced, tampered evidence hard-blocks),
+  `state-verify` (a claimed change that was not observed on disk/git), and
+  `verifier-check` (weak or broken verifier health). Absent reports change
+  nothing — the gate stays backward compatible.
 
 Exit codes (the gate never lies): `0` clean · `1` fail — human review ·
 `2` confirmed cheat — blocked.

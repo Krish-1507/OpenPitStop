@@ -162,6 +162,70 @@ editing the gate's inputs just produces a second, louder failure.
 
 ---
 
+## 5. The agent claimed "modified check.js" — nothing changed (STATE_MISMATCH, exit 1)
+
+A tool response of HTTP 200 is not a file on disk. `pitstop state-verify` never
+reads the agent's summary — it hashes the actual file and asks git independently:
+
+```
+╭───────────────────────────────  STATE CHECK  ────────────────────────────────╮
+│                                                                             │
+│   claim:                                                                    │
+│   modified check.js                                                         │
+│   observed:                                                                 │
+│   file exists       ✓                                                       │
+│   persisted on disk ✓                                                       │
+│   git status observed ✗  (clean / no status entry)                          │
+│   content changed (hash) ✗  (hash identical to before-state)                │
+│   before: hash 647d249a27b5… · 5 lines                                      │
+│   after:  hash 647d249a27b5… · 5 lines                                      │
+│   result: MISMATCH                                                          │
+│   · claimed modified but content hash is IDENTICAL to the before-state      │
+│                                                                             │
+╰─────────────────────────────────────────────────────────────────────────────╯
+║   STATE_MISMATCH                                                            ║
+║   this proves the state change occurred — NOT that the code is correct      ║
+```
+
+**Lesson:** the claim and the state are different things. The orchestration layer
+would have carried on believing the edit landed; the hash says it never did.
+
+---
+
+## 6. The verifier itself, under test (VERIFIER_VALID)
+
+A referee that cannot say NO is not a referee. `pitstop verifier-check` runs the
+verification on a known-good state (must PASS) and a controlled known-bad state
+— here one declared mutation (`data.txt` → `broken`) in a temp worktree (must
+FAIL):
+
+```
+╭─────────  KNOWN-GOOD PASS ✓  ─────────╮
+│     state: ref HEAD                   │
+│     expected: PASS   actual: ✓ PASS   │
+│     exit code: 0                      │
+╰───────────────────────────────────────╯
+╭──────────────  KNOWN-BAD FAIL ✓  ──────────────╮
+│     state: HEAD + 1 controlled mutation(s)     │
+│       · write data.txt (content f526795c95…)   │
+│     expected: FAIL   actual: ✓ FAIL            │
+│     exit code: 1                               │
+╰────────────────────────────────────────────────╯
+║   VERIFIER_VALID                                                            ║
+║   · known-good PASSED (exit 0) and known-bad FAILED (exit 1) — the          ║
+║   verification demonstrated it can say NO                                   ║
+║   falsifiable = the verifier CAN say NO; this proves the harness, not full  ║
+║   coverage                                                                  ║
+```
+
+And when a verification *can't* detect the seeded fault, OpenPitStop says that
+too: `VERIFIER_WEAK — the verification passed a known-bad state; its PASS
+carries no information`. Both runs leave sealed evidence
+(`.pitstop/verifier-check-*.json`) recording the mutation, both commit SHAs and
+both exit codes.
+
+---
+
 ## Bonus: the same catches, as a pre-commit hook
 
 The gate one step earlier — the commit can't even land. `pitstop install
