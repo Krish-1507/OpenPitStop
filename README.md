@@ -90,7 +90,7 @@ your agent.
 | [Feature tour](#feature-tour) — every feature, in plain English | [Install](#install) · [Usage](#usage) · [Tool support](#tool-support) |
 | [Architecture](#architecture) | [Known limitations](#known-limitations) · [Contributing](#contributing) · [License](#license) |
 
-**Straight to one feature:** [The scan](#the-scan) · [Security fixes](#security-fixes) · [Try it on your repo](#try-it-on-your-repo) · [The test pyramid](#the-test-pyramid) · [The gate](#the-gate) · [Integrity](#integrity) · [Baseline-aware verification](#baseline-aware-verification) · [State verification](#state-verification-dont-trust-the-claim) · [Verifier health](#verifier-health-falsifiability) · [The pen test](#the-pen-test) · [Honesty](#honesty) · [Verify](#verify) · [Trends](#trends) · [Inspect](#inspect) · [Repro](#repro) · [Report](#report) · [Share](#share) · [The live shield](#the-live-shield) · [The GitHub Action](#the-github-action) · [The pre-commit hook](#the-pre-commit-hook)
+**Straight to one feature:** [The scan](#the-scan) · [Security fixes](#security-fixes) · [Try it on your repo](#try-it-on-your-repo) · [The test pyramid](#the-test-pyramid) · [The gate](#the-gate) · [Integrity](#integrity) · [Baseline-aware verification](#baseline-aware-verification) · [State verification](#state-verification-dont-trust-the-claim) · [Verifier health](#verifier-health-falsifiability) · [Holdout verification](#holdout-verification-anti-overfitting) · [The pen test](#the-pen-test) · [Honesty](#honesty) · [Verify](#verify) · [Trends](#trends) · [Inspect](#inspect) · [Repro](#repro) · [Report](#report) · [Share](#share) · [The live shield](#the-live-shield) · [The GitHub Action](#the-github-action) · [The pre-commit hook](#the-pre-commit-hook)
 
 **Receipts:** [Caught in the wild](docs/caught-in-the-wild.md) — real gate output, screenshot-ready.
 
@@ -202,6 +202,19 @@ known-bad state — an explicit bad ref or your declared mutation, applied in a 
 PASS carries information; `VERIFIER_WEAK` means the seeded fault sailed through;
 `VERIFIER_BROKEN` means it fails even when things are correct. A referee that cannot fail
 is not a referee. Full semantics: [docs/verifier-check.md](docs/verifier-check.md).
+
+### Holdout verification (anti-overfitting)
+
+`pitstop holdout-verify` is the final, hidden exam. An agent that iterates against visible
+checks learns the *evaluator*, not the task — so OpenPitStop separates the two: the checks
+it iterates against stay visible, and a **holdout suite defined OUTSIDE the repository**
+runs once, at the final stage, in a fresh isolated worktree of the candidate commit. The
+agent cannot read the holdout, cannot modify it (every suite file is hashed before and
+after execution), and sees only redacted ids + verdicts — never commands, expectations, or
+output. With `--baseline`, the suite must FAIL on the known-bad baseline and PASS on the
+candidate, so a suite that only ever says PASS is exposed as `HOLDOUT_UNPROVEN`. Verdicts:
+`HOLDOUT_PASS`, `HOLDOUT_FAIL`, `HOLDOUT_UNPROVEN`, `HOLDOUT_INTEGRITY_FAILURE`. Full
+semantics: [docs/holdout-verify.md](docs/holdout-verify.md).
 
 ### The pen test
 
@@ -543,7 +556,7 @@ test"` to a repo and it is picked up automatically on the next run.)
 
 ## Every command
 
-All 30 commands, grouped by job. Run them from inside a repo as `pitstop …` (CLI) or
+All 31 commands, grouped by job. Run them from inside a repo as `pitstop …` (CLI) or
 `npx openpitstop …` (one-off); `/pitstop` in a tool drives the loop, the rest are
 one-shot.
 
@@ -583,6 +596,7 @@ one-shot.
 | `pitstop baseline-verify --baseline <ref> --command <cmd> …` | Proves a fix is real: runs the SAME verification on a known-baseline commit (must FAIL) and the candidate (must PASS), in isolated git worktrees, with sealed tamper-evident evidence and a verification-identity hash. `VERIFIED` only when both hold and nothing changed; otherwise `FAILED` / `UNPROVEN` / `INTEGRITY_FAILURE`. Exit 0/1/2/3. See [docs/baseline-verify.md](docs/baseline-verify.md). |
 | `pitstop state-verify --claim modified:src/auth.ts …` | Independent external state check: verifies the agent's structured claims against the actual filesystem + git (existence, content hashes, line counts, porcelain status, HEAD). Catches "HTTP 200 but nothing changed", empty writes, reverts, wrong-file changes, whitespace-only edits. `STATE_VERIFIED` / `STATE_MISMATCH` / `UNPROVEN` / `INTEGRITY_FAILURE`. Exit 0/1/2/3. See [docs/state-verify.md](docs/state-verify.md). |
 | `pitstop verifier-check --command <cmd> --mutate …` | Verifier self-test: runs the verification on a known-good state (must PASS) and a controlled known-bad state (must FAIL) in temp worktrees. `VERIFIER_VALID` = falsifiable; `VERIFIER_WEAK` = the seeded fault sailed through; `VERIFIER_BROKEN` = fails a correct state. Never mutates your working tree. See [docs/verifier-check.md](docs/verifier-check.md). |
+| `pitstop holdout-verify --suite <dir-or-id> [--baseline <ref>]` | Final hidden exam against verifier overfitting: a holdout suite defined OUTSIDE the repo runs once in a fresh isolated worktree of the candidate commit — the agent never saw it and cannot modify it (files hashed before/after); output is redacted to ids + verdicts. With `--baseline` the suite must FAIL there and PASS on the candidate. `HOLDOUT_PASS` / `HOLDOUT_FAIL` / `HOLDOUT_UNPROVEN` / `HOLDOUT_INTEGRITY_FAILURE`. See [docs/holdout-verify.md](docs/holdout-verify.md). |
 
 **Penetration test — attack your own app**
 
@@ -740,6 +754,11 @@ cheat its own referee. That separation is the product.
   fail, not that it covers every regression; choosing a meaningful known-bad state is the
   caller's responsibility, and the evidence records exactly what was seeded.
   See [docs/verifier-check.md](docs/verifier-check.md).
+- **A holdout is a sample, not a guarantee.** It proves the candidate satisfies checks it
+  could not see or modify — not correctness in general. Suites must live outside the
+  agent's modifiable workspace (a hidden file inside the repo is not a holdout), and a
+  suite that cannot fail on a known-bad baseline is reported `HOLDOUT_UNPROVEN` rather than
+  trusted. See [docs/holdout-verify.md](docs/holdout-verify.md).
 
 ## Privacy
 

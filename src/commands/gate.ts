@@ -54,6 +54,7 @@ function latestPitstopReport(repo: string, prefix: string): { verdict?: string; 
 const latestBaselineVerify = (repo: string) => latestPitstopReport(repo, "baseline-verify-");
 const latestStateVerify = (repo: string) => latestPitstopReport(repo, "state-verify-");
 const latestVerifierCheck = (repo: string) => latestPitstopReport(repo, "verifier-check-");
+const latestHoldout = (repo: string) => latestPitstopReport(repo, "holdout-");
 
 export function gateOutcome(o: VerifyOutcome, threshold: number): {
   pass: boolean;
@@ -156,6 +157,25 @@ export function gateOutcome(o: VerifyOutcome, threshold: number): {
       reasons.push(`verifier health: VERIFIER_BROKEN — the verification FAILED a known-good state (${vc.file})`);
     } else if (vc.verdict === "INTEGRITY_FAILURE") {
       reasons.push(`verifier health: INTEGRITY_FAILURE — the self-test itself could not run (${vc.file})`);
+    }
+  }
+
+  // Final HOLDOUT verification: the candidate is judged against hidden checks it
+  // never saw during iteration. Passing every visible check but failing the
+  // holdout is verifier overfitting — it must NOT be verified.
+  const ho = latestHoldout((o as any).repo ?? process.cwd());
+  if (ho) {
+    if (ho.evidenceStatus === "tampered") {
+      reasons.push(`holdout evidence TAMPERED (${ho.file}) — re-run holdout-verify`);
+      exitCode = Math.max(exitCode, 1);
+    } else if (ho.verdict === "HOLDOUT_FAIL") {
+      reasons.push(`holdout: HOLDOUT_FAIL — the candidate passed the visible checks but FAILED the independent holdout; NOT VERIFIED (${ho.file})`);
+      exitCode = Math.max(exitCode, 1);
+    } else if (ho.verdict === "HOLDOUT_INTEGRITY_FAILURE") {
+      reasons.push(`holdout: HOLDOUT_INTEGRITY_FAILURE — the holdout suite was modified or could not be trusted (${ho.file})`);
+      exitCode = Math.max(exitCode, 1);
+    } else if (ho.verdict === "HOLDOUT_UNPROVEN") {
+      reasons.push(`holdout: HOLDOUT_UNPROVEN — the holdout suite passed on the baseline too, so it cannot discriminate (${ho.file})`);
     }
   }
 

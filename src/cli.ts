@@ -32,6 +32,7 @@ import { askCmd } from "./commands/ask.js";
 import { baselineVerify } from "./commands/baselineVerify.js";
 import { stateVerify } from "./commands/stateVerify.js";
 import { verifierCheck } from "./commands/verifierCheck.js";
+import { holdoutVerify } from "./commands/holdoutVerify.js";
 import { guidedFirstRun } from "./firstRun.js";
 
 /**
@@ -116,5 +117,6 @@ program.addCommand(askCmd);
 program.addCommand(baselineVerify);
 program.addCommand(stateVerify);
 program.addCommand(verifierCheck);
+program.addCommand(holdoutVerify);
 
 program.parseAsync(process.argv);

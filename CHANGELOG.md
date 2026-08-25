@@ -51,6 +51,31 @@ say "verified" more often; it was to make the referee able to say NO.
   unproven results and weak/broken verifiers are surfaced as gate reasons;
   tampered evidence from any of them hard-blocks. Backward compatible — with no
   such reports the gate behaves exactly as before.
+- **Final holdout verification (`pitstop holdout-verify`) — anti-overfitting.**
+  An agent that iterates against visible checks learns the evaluator, not the
+  task. The new command runs a hidden holdout suite — defined OUTSIDE the
+  candidate's modifiable workspace (explicit directory or
+  `PITSTOP_HOLDOUT_HOME/<id>`) — once, at the final stage, in a fresh detached
+  worktree of the candidate commit. Every suite file is hashed before and
+  after execution (modification → `HOLDOUT_INTEGRITY_FAILURE`); injected
+  holdout files live only in the discarded worktree; agent-facing output and
+  the `.pitstop` summary are REDACTED to ids + verdicts, while full unredacted
+  evidence is sealed outside the repo. With `--baseline`, the suite must FAIL
+  on the known-bad baseline and PASS on the candidate — a suite that passes
+  both is `HOLDOUT_UNPROVEN`. Verdicts: `HOLDOUT_PASS` / `HOLDOUT_FAIL` /
+  `HOLDOUT_UNPROVEN` / `HOLDOUT_INTEGRITY_FAILURE`; the gate hard-blocks on
+  FAIL/integrity failure ("visible checks PASS, holdout FAIL → NOT VERIFIED").
+  (`src/verify/holdout.ts`, `src/commands/holdoutVerify.ts`, 16 tests.)
+- **Verification environment sanitization (hardening).** `runVerification` now
+  strips the parent test-runner context (`NODE_TEST_CONTEXT`, `NODE_OPTIONS`)
+  before spawning any verification. Without this, OpenPitStop run from inside
+  a test runner would spawn `node --test` children that defer to the outer run
+  ("run() is being called recursively … skipping running files") and SILENTLY
+  EXIT 0 without executing — a verification that passes everything because it
+  never ran. Found by the holdout suite's own tests; fixed for every
+  verification path (baseline-verify, verifier-check, holdout-verify).
+- **Docs:** `docs/holdout-verify.md`.
+- **Tests:** 105 → 121.
 - **Docs:** `docs/baseline-verify.md`, `docs/state-verify.md`,
   `docs/verifier-check.md`.
 - **Tests:** 60 → 105, all passing (`npm test`, node:test on real filesystem +

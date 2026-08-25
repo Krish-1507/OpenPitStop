@@ -178,7 +178,19 @@ export async function runVerification(
   def: VerificationDef,
 ): Promise<{ exitCode: number; stdout: string; stderr: string; timedOut: boolean; durationMs: number }> {
   const cwd = def.cwd ? path.join(worktree, def.cwd) : worktree;
-  const env = { ...process.env, ...(def.env ?? {}) } as Record<string, string>;
+  // Sanitize parent-context variables. If OpenPitStop itself runs inside a test
+  // runner, a spawned verification like `node --test …` inherits the runner's
+  // child context, defers to the outer run ("run() is being called recursively
+  // … skipping running files") and SILENTLY EXITS 0 without executing — a
+  // verification that passes everything because it never ran. We merge the env
+  // ourselves and pass extendEnv:false so that DELETING a variable actually
+  // deletes it (execa's default merge would re-add it from process.env).
+  const env: Record<string, string> = {
+    ...process.env,
+    ...(def.env ?? {}),
+  } as Record<string, string>;
+  delete env.NODE_TEST_CONTEXT;
+  delete env.NODE_OPTIONS;
   const timeout = def.timeoutMs ?? 120000;
   const start = Date.now();
   // Use shell via execa with shell:true equivalent: run command through shell
@@ -187,6 +199,7 @@ export async function runVerification(
     const res = await execa(def.command, [], {
       cwd,
       env,
+      extendEnv: false,
       shell: true,
       timeout,
       reject: false,
