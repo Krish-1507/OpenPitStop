@@ -90,7 +90,7 @@ your agent.
 | [Feature tour](#feature-tour) — every feature, in plain English | [Install](#install) · [Usage](#usage) · [Tool support](#tool-support) |
 | [Architecture](#architecture) | [Known limitations](#known-limitations) · [Contributing](#contributing) · [License](#license) |
 
-**Straight to one feature:** [The scan](#the-scan) · [Security fixes](#security-fixes) · [Try it on your repo](#try-it-on-your-repo) · [The test pyramid](#the-test-pyramid) · [The gate](#the-gate) · [Integrity](#integrity) · [Baseline-aware verification](#baseline-aware-verification) · [State verification](#state-verification-dont-trust-the-claim) · [Verifier health](#verifier-health-falsifiability) · [Holdout verification](#holdout-verification-anti-overfitting) · [The pen test](#the-pen-test) · [Honesty](#honesty) · [Verify](#verify) · [Trends](#trends) · [Inspect](#inspect) · [Repro](#repro) · [Report](#report) · [Share](#share) · [The live shield](#the-live-shield) · [The GitHub Action](#the-github-action) · [The pre-commit hook](#the-pre-commit-hook)
+**Straight to one feature:** [The scan](#the-scan) · [Security fixes](#security-fixes) · [Try it on your repo](#try-it-on-your-repo) · [The test pyramid](#the-test-pyramid) · [The gate](#the-gate) · [Integrity](#integrity) · [Baseline-aware verification](#baseline-aware-verification) · [State verification](#state-verification-dont-trust-the-claim) · [Verifier health](#verifier-health-falsifiability) · [Holdout verification](#holdout-verification-anti-overfitting) · [Acceptance verification](#acceptance-verification-did-the-agent-satisfy-the-requirement) · [The pen test](#the-pen-test) · [Honesty](#honesty) · [Verify](#verify) · [Trends](#trends) · [Inspect](#inspect) · [Repro](#repro) · [Report](#report) · [Share](#share) · [The live shield](#the-live-shield) · [The GitHub Action](#the-github-action) · [The pre-commit hook](#the-pre-commit-hook)
 
 **Receipts:** [Caught in the wild](docs/caught-in-the-wild.md) — real gate output, screenshot-ready.
 
@@ -215,6 +215,20 @@ output. With `--baseline`, the suite must FAIL on the known-bad baseline and PAS
 candidate, so a suite that only ever says PASS is exposed as `HOLDOUT_UNPROVEN`. Verdicts:
 `HOLDOUT_PASS`, `HOLDOUT_FAIL`, `HOLDOUT_UNPROVEN`, `HOLDOUT_INTEGRITY_FAILURE`. Full
 semantics: [docs/holdout-verify.md](docs/holdout-verify.md).
+
+### Acceptance verification (did the agent satisfy the requirement?)
+
+`pitstop acceptance-verify` answers the question everything else orbits: **did the agent
+actually satisfy the original task requirements?** A structured acceptance contract —
+requirements with deterministic criteria (`command`, real `http` requests against the
+booted app, `fileExists`, `fileContains`) — is the source of truth, not the agent's
+self-report. In-repo contracts are hash-pinned: if the agent quietly redefines success,
+OpenPitStop reports `INTEGRITY_FAILURE` until a human re-authorizes. With `--baseline`,
+criteria that already passed there don't count as the agent's work — a contract that
+passes on both sides is `UNPROVEN`. This catches the classic failure: green unit test,
+plausible diff, real user flow broken. Verdicts: `SATISFIED`, `NOT_SATISFIED`,
+`UNPROVEN`, `INTEGRITY_FAILURE`. Deterministic and observable by design — never an LLM
+judge. Full semantics: [docs/acceptance-verify.md](docs/acceptance-verify.md).
 
 ### The pen test
 
@@ -556,7 +570,7 @@ test"` to a repo and it is picked up automatically on the next run.)
 
 ## Every command
 
-All 31 commands, grouped by job. Run them from inside a repo as `pitstop …` (CLI) or
+All 32 commands, grouped by job. Run them from inside a repo as `pitstop …` (CLI) or
 `npx openpitstop …` (one-off); `/pitstop` in a tool drives the loop, the rest are
 one-shot.
 
@@ -597,6 +611,7 @@ one-shot.
 | `pitstop state-verify --claim modified:src/auth.ts …` | Independent external state check: verifies the agent's structured claims against the actual filesystem + git (existence, content hashes, line counts, porcelain status, HEAD). Catches "HTTP 200 but nothing changed", empty writes, reverts, wrong-file changes, whitespace-only edits. `STATE_VERIFIED` / `STATE_MISMATCH` / `UNPROVEN` / `INTEGRITY_FAILURE`. Exit 0/1/2/3. See [docs/state-verify.md](docs/state-verify.md). |
 | `pitstop verifier-check --command <cmd> --mutate …` | Verifier self-test: runs the verification on a known-good state (must PASS) and a controlled known-bad state (must FAIL) in temp worktrees. `VERIFIER_VALID` = falsifiable; `VERIFIER_WEAK` = the seeded fault sailed through; `VERIFIER_BROKEN` = fails a correct state. Never mutates your working tree. See [docs/verifier-check.md](docs/verifier-check.md). |
 | `pitstop holdout-verify --suite <dir-or-id> [--baseline <ref>]` | Final hidden exam against verifier overfitting: a holdout suite defined OUTSIDE the repo runs once in a fresh isolated worktree of the candidate commit — the agent never saw it and cannot modify it (files hashed before/after); output is redacted to ids + verdicts. With `--baseline` the suite must FAIL there and PASS on the candidate. `HOLDOUT_PASS` / `HOLDOUT_FAIL` / `HOLDOUT_UNPROVEN` / `HOLDOUT_INTEGRITY_FAILURE`. See [docs/holdout-verify.md](docs/holdout-verify.md). |
+| `pitstop acceptance-verify --contract <dir\|file\|id> [--baseline <ref>]` | Requirement verification: a structured acceptance contract (deterministic `command`/`http`/`fileExists`/`fileContains` criteria — never an LLM judge) is the source of truth for "did the agent satisfy the original requirement?". Boots the app when the contract declares a start command; in-repo contracts are hash-pinned so the agent cannot redefine success without `--authorize`; `--baseline` exposes contracts that pass on both sides. `SATISFIED` / `NOT_SATISFIED` / `UNPROVEN` / `INTEGRITY_FAILURE`. See [docs/acceptance-verify.md](docs/acceptance-verify.md). |
 
 **Penetration test — attack your own app**
 
@@ -759,6 +774,12 @@ cheat its own referee. That separation is the product.
   agent's modifiable workspace (a hidden file inside the repo is not a holdout), and a
   suite that cannot fail on a known-bad baseline is reported `HOLDOUT_UNPROVEN` rather than
   trusted. See [docs/holdout-verify.md](docs/holdout-verify.md).
+- **Acceptance is only as strong as its contract.** `acceptance-verify` proves the
+  candidate satisfies the contract's *observable* criteria — not that the contract captures
+  the whole requirement, and not unobservable qualities (UX, load, security beyond the
+  asserted properties). It is deterministic by design, never an LLM judge; a contract that
+  passes on the baseline is reported `UNPROVEN` rather than trusted.
+  See [docs/acceptance-verify.md](docs/acceptance-verify.md).
 
 ## Privacy
 

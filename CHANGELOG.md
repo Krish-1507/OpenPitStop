@@ -74,8 +74,23 @@ say "verified" more often; it was to make the referee able to say NO.
   EXIT 0 without executing — a verification that passes everything because it
   never ran. Found by the holdout suite's own tests; fixed for every
   verification path (baseline-verify, verifier-check, holdout-verify).
-- **Docs:** `docs/holdout-verify.md`.
-- **Tests:** 105 → 121.
+- **Requirement / acceptance verification (`pitstop acceptance-verify`).**
+  "Did the agent actually satisfy the original task requirements?" — not "did
+  some tests pass?". A structured acceptance contract (requirements with
+  deterministic criteria: `command`, real `http` requests against the booted
+  app via a start command + readiness probe, `fileExists`, `fileContains`) is
+  the source of truth, independent of the agent's self-report and never an LLM
+  judge. In-repo contracts are hash-pinned on first authorization; a changed
+  contract is `INTEGRITY_FAILURE` ("the agent may have redefined success")
+  until a human re-authorizes with `--authorize`. With `--baseline`, criteria
+  that already pass there do not count as the agent's work; a contract that
+  passes on both sides is `UNPROVEN`. Verdicts: `SATISFIED` /
+  `NOT_SATISFIED` / `UNPROVEN` / `INTEGRITY_FAILURE`; the gate hard-blocks on
+  NOT_SATISFIED/integrity failure. Catches the classic failure mode: green
+  unit test + plausible diff + broken real user flow.
+  (`src/verify/acceptance.ts`, `src/commands/acceptanceVerify.ts`, 12 tests.)
+- **Docs:** `docs/holdout-verify.md`, `docs/acceptance-verify.md`.
+- **Tests:** 105 → 133.
 - **Docs:** `docs/baseline-verify.md`, `docs/state-verify.md`,
   `docs/verifier-check.md`.
 - **Tests:** 60 → 105, all passing (`npm test`, node:test on real filesystem +

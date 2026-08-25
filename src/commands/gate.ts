@@ -55,6 +55,7 @@ const latestBaselineVerify = (repo: string) => latestPitstopReport(repo, "baseli
 const latestStateVerify = (repo: string) => latestPitstopReport(repo, "state-verify-");
 const latestVerifierCheck = (repo: string) => latestPitstopReport(repo, "verifier-check-");
 const latestHoldout = (repo: string) => latestPitstopReport(repo, "holdout-");
+const latestAcceptance = (repo: string) => latestPitstopReport(repo, "acceptance-");
 
 export function gateOutcome(o: VerifyOutcome, threshold: number): {
   pass: boolean;
@@ -176,6 +177,24 @@ export function gateOutcome(o: VerifyOutcome, threshold: number): {
       exitCode = Math.max(exitCode, 1);
     } else if (ho.verdict === "HOLDOUT_UNPROVEN") {
       reasons.push(`holdout: HOLDOUT_UNPROVEN — the holdout suite passed on the baseline too, so it cannot discriminate (${ho.file})`);
+    }
+  }
+
+  // Acceptance verification: did the agent satisfy the ORIGINAL task requirements?
+  // The contract — not the agent — defines success. NOT_SATISFIED blocks.
+  const ac = latestAcceptance((o as any).repo ?? process.cwd());
+  if (ac) {
+    if (ac.evidenceStatus === "tampered") {
+      reasons.push(`acceptance evidence TAMPERED (${ac.file}) — re-run acceptance-verify`);
+      exitCode = Math.max(exitCode, 1);
+    } else if (ac.verdict === "NOT_SATISFIED") {
+      reasons.push(`acceptance: NOT_SATISFIED — the original requirements are not satisfied (${ac.file})`);
+      exitCode = Math.max(exitCode, 1);
+    } else if (ac.verdict === "INTEGRITY_FAILURE") {
+      reasons.push(`acceptance: INTEGRITY_FAILURE — the contract changed after authorization or could not be trusted (${ac.file})`);
+      exitCode = Math.max(exitCode, 1);
+    } else if (ac.verdict === "UNPROVEN") {
+      reasons.push(`acceptance: UNPROVEN — criteria could not be verified or do not discriminate (${ac.file})`);
     }
   }
 

@@ -14,7 +14,7 @@ npm run build      # tsc → dist/  (the CLI runs from dist/, not src/)
 npm run dev        # tsx watch src/cli.ts — live-reloading entry point
 ```
 
-The CLI's own regression suite is `node:test` (121 tests, real filesystem + git
+The CLI's own regression suite is `node:test` (133 tests, real filesystem + git
 fixtures): `npm test`. Verification is both automated and hands-on: `npm run build`,
 `npm test`, then run the real commands against a test repo (see [Testing](#testing)).
 
@@ -38,10 +38,10 @@ src/graph/correlate.ts   flattens findings into ClusterFinding[] and clusters th
 src/graph/integrity.ts   combines detector output into one verdict (CLEAN/SUSPICIOUS/CONFIRMED_CHEAT)
 src/verify/         deep-verification library (baseline.ts baseline-aware verification,
   state.ts external state verification, verifier.ts falsifiability self-test,
-  holdout.ts final hidden holdout suites) —
+  holdout.ts final hidden holdout suites, acceptance.ts requirement contracts) —
   all seal their evidence via src/evidence.ts and run in isolated git worktrees
 src/commands/         the CLI surface (scan, verify, integrity, report, memory, demo, ci, install,
-  baseline-verify, state-verify, verifier-check, holdout-verify, ...)
+  baseline-verify, state-verify, verifier-check, holdout-verify, acceptance-verify, ...)
 src/report/format.ts  PITSTOP_REPORT.md + boxed renderers
 src/verify/metrics.ts verify metrics + Regression Risk classification
 templates/pitstop.prompt.md  the /pitstop slash-command that drives the agent
@@ -205,7 +205,7 @@ present in `pitstop ci` and the GitHub Action comment automatically.
 ## Testing
 
 ```bash
-npm test                              # 121 node:test regression tests (real fs + git fixtures)
+npm test                              # 133 node:test regression tests (real fs + git fixtures)
 npm run typecheck                     # tsc --noEmit for src and test
 npm run build
 node dist/cli.js scan .              # scan this repo (a11y/perf will skip — that's correct)
@@ -216,7 +216,8 @@ node fixtures/assertion-literal-tamper/verify.mjs  # integrity detector fixture 
 
 The deep-verification mechanisms each carry their own integration suites
 (`test/baselineVerify.test.ts`, `test/stateVerify.test.ts`,
-`test/verifierCheck.test.ts`, `test/holdoutVerify.test.ts`) built on real temp
+`test/verifierCheck.test.ts`, `test/holdoutVerify.test.ts`,
+`test/acceptanceVerify.test.ts`) built on real temp
 git repositories — if you touch `src/verify/` or `src/evidence.ts`, those are
 the contract: verdicts must stay honest (a known-bad state must FAIL, tampered
 evidence must be reported), and worktrees/temp dirs must be cleaned up on every
