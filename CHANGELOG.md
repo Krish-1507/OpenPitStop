@@ -2,7 +2,13 @@
 
 All notable changes to this project are documented here.
 
-## [Unreleased]
+## [1.9.0] - 2026-08-25
+
+The **deep verification & repo discipline release**: the referee no longer
+checks whether tests pass — it checks whether the change is real, satisfies
+the requirement, fits the system, breaks nothing, and was verified by
+mechanisms the agent cannot see or move. The goal was never to say "verified"
+more often; it was to make VERIFIED harder to obtain and more trustworthy.
 
 The **deep verification suite** — three independent mechanisms that make a
 `VERIFIED` verdict harder to obtain and more trustworthy. The goal was never to
