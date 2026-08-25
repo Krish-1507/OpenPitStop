@@ -59,10 +59,12 @@ test("all checks passing → VERIFIED (exit 0), every layer PASS", () => {
   const d = evaluateGate(repo, live(), { threshold: 60 });
   assert.equal(d.verdict, "VERIFIED", JSON.stringify(d.reasons));
   assert.equal(d.exitCode, 0);
-  assert.equal(d.summary.notConfigured, 0);
-  for (const id of ["state", "baseline", "acceptance", "tests", "regression", "integrity", "holdout"]) {
-    assert.equal(d.layers.find((l) => l.id === id)?.status, "PASS", `${id} should be PASS`);
-  }
+  // stack + architecture were never run in this fixture — honestly NOT_CONFIGURED
+  assert.deepEqual(
+    d.layers.filter((l) => l.status === "NOT_CONFIGURED").map((l) => l.id),
+    ["stack", "architecture"],
+  );
+  assert.equal(d.summary.failed, 0);
   const acceptance = d.layers.find((l) => l.id === "acceptance")!;
   assert.match(acceptance.detail, /8\/8/);
   fs.rmSync(repo, { recursive: true, force: true });

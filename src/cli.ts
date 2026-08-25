@@ -36,6 +36,11 @@ import { holdoutVerify } from "./commands/holdoutVerify.js";
 import { acceptanceVerify } from "./commands/acceptanceVerify.js";
 import { regressionCheck } from "./commands/regressionCheck.js";
 import { explain } from "./commands/explain.js";
+import { understand } from "./commands/understand.js";
+import { plan } from "./commands/plan.js";
+import { architectureCheck } from "./commands/architectureCheck.js";
+import { verifyStack } from "./commands/verifyStack.js";
+import { flow } from "./commands/flow.js";
 import { guidedFirstRun } from "./firstRun.js";
 
 /**
@@ -124,5 +129,10 @@ program.addCommand(holdoutVerify);
 program.addCommand(acceptanceVerify);
 program.addCommand(regressionCheck);
 program.addCommand(explain);
+program.addCommand(understand);
+program.addCommand(plan);
+program.addCommand(architectureCheck);
+program.addCommand(verifyStack);
+program.addCommand(flow);
 
 program.parseAsync(process.argv);

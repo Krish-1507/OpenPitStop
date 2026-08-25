@@ -79,6 +79,8 @@ const LAYER_ORDER = [
   "baseline",
   "acceptance",
   "tests",
+  "stack",
+  "architecture",
   "regression",
   "security",
   "integrity",
@@ -199,6 +201,36 @@ export function evaluateGate(
         case "REGRESSION": return { status: "BLOCKED", detail: [...regs, ...news].join(", "), reasons: Array.isArray(doc.reasons) ? doc.reasons : ["previously passing checks now failing"] };
         case "INTEGRITY_FAILURE": return { status: "CHEAT", detail: "comparison could not be trusted", reasons: Array.isArray(doc.reasons) ? doc.reasons : [] };
         default: return { status: "UNPROVEN", detail: doc.verdict ?? "unknown", reasons: Array.isArray(doc.reasons) ? doc.reasons : [] };
+      }
+    }),
+  );
+
+  // ---- sealed: verification stack (tests/typecheck/lint/build with diagnosis)
+  layers.push(
+    sealedLayer(repo, "stack", "Verify stack", "verify-stack-", [], (doc) => {
+      const failed: string[] = doc.failedLayers ?? [];
+      switch (doc.verdict) {
+        case "STACK_PASS": {
+          const parts = (doc.layers ?? [])
+            .filter((l: any) => l.status === "PASS")
+            .map((l: any) => `${l.id}${l.counts ? ` ${l.counts.passed}/${l.counts.total}` : " ✓"}`);
+          return { status: "PASS", detail: parts.join(" · ") || "all configured layers pass", reasons: [] };
+        }
+        case "STACK_FAIL": return { status: "FAIL", detail: `failed: ${failed.join(", ")}`, reasons: Array.isArray(doc.reasons) ? doc.reasons : [] };
+        default: return { status: "UNPROVEN", detail: doc.verdict ?? "unknown", reasons: Array.isArray(doc.reasons) ? doc.reasons : [] };
+      }
+    }),
+  );
+
+  // ---- sealed: architecture & boundaries
+  layers.push(
+    sealedLayer(repo, "architecture", "Architecture", "architecture-", [], (doc) => {
+      switch (doc.verdict) {
+        case "CONFORMS": return { status: "PASS", detail: doc.planRef ? "conforms · plan scope checked" : "conforms", reasons: [] };
+        case "APPROVAL_REQUIRED": return { status: "UNPROVEN", detail: "protected path touched — approval required", reasons: Array.isArray(doc.reasons) ? doc.reasons : [] };
+        case "VIOLATIONS": return { status: "FAIL", detail: "boundary/forbidden/plan violations", reasons: Array.isArray(doc.reasons) ? doc.reasons : [] };
+        case "INTEGRITY_FAILURE": return { status: "CHEAT", detail: "architecture check could not be trusted", reasons: Array.isArray(doc.reasons) ? doc.reasons : [] };
+        default: return { status: "UNPROVEN", detail: doc.verdict ?? "unknown", reasons: [] };
       }
     }),
   );

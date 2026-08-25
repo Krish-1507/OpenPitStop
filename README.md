@@ -90,7 +90,7 @@ your agent.
 | [Feature tour](#feature-tour) — every feature, in plain English | [Install](#install) · [Usage](#usage) · [Tool support](#tool-support) |
 | [Architecture](#architecture) | [Known limitations](#known-limitations) · [Contributing](#contributing) · [License](#license) |
 
-**Straight to one feature:** [The scan](#the-scan) · [Security fixes](#security-fixes) · [Try it on your repo](#try-it-on-your-repo) · [The test pyramid](#the-test-pyramid) · [The gate](#the-gate) · [Integrity](#integrity) · [Baseline-aware verification](#baseline-aware-verification) · [State verification](#state-verification-dont-trust-the-claim) · [Verifier health](#verifier-health-falsifiability) · [Holdout verification](#holdout-verification-anti-overfitting) · [Acceptance verification](#acceptance-verification-did-the-agent-satisfy-the-requirement) · [Regression verification](#regression-verification-dont-break-what-already-worked) · [The evidence chain](#the-evidence-chain-why-should-i-trust-this-verdict) · [The pen test](#the-pen-test) · [Honesty](#honesty) · [Verify](#verify) · [Trends](#trends) · [Inspect](#inspect) · [Repro](#repro) · [Report](#report) · [Share](#share) · [The live shield](#the-live-shield) · [The GitHub Action](#the-github-action) · [The pre-commit hook](#the-pre-commit-hook)
+**Straight to one feature:** [The scan](#the-scan) · [Security fixes](#security-fixes) · [Try it on your repo](#try-it-on-your-repo) · [The test pyramid](#the-test-pyramid) · [The gate](#the-gate) · [Integrity](#integrity) · [Baseline-aware verification](#baseline-aware-verification) · [State verification](#state-verification-dont-trust-the-claim) · [Verifier health](#verifier-health-falsifiability) · [Holdout verification](#holdout-verification-anti-overfitting) · [Acceptance verification](#acceptance-verification-did-the-agent-satisfy-the-requirement) · [Regression verification](#regression-verification-dont-break-what-already-worked) · [The evidence chain](#the-evidence-chain-why-should-i-trust-this-verdict) · [Repo discipline](#repo-discipline-understand--plan--architecture--stack--flow) · [The pen test](#the-pen-test) · [Honesty](#honesty) · [Verify](#verify) · [Trends](#trends) · [Inspect](#inspect) · [Repro](#repro) · [Report](#report) · [Share](#share) · [The live shield](#the-live-shield) · [The GitHub Action](#the-github-action) · [The pre-commit hook](#the-pre-commit-hook)
 
 **Receipts:** [Caught in the wild](docs/caught-in-the-wild.md) — real gate output, screenshot-ready.
 
@@ -255,6 +255,29 @@ never-run components are listed as **NOT_CONFIGURED** (never rendered as a pass)
 tools are **SKIPPED**; tampered evidence is **TAMPERED** and blocks. `BLOCKED` verdicts
 quote the underlying reasons ("previously passing check(s) now failing — check B").
 Full semantics: [docs/explain.md](docs/explain.md).
+
+### Repo discipline (understand → plan → architecture → stack → flow)
+
+The stages that make the referee *repo-aware*:
+
+- **`pitstop understand`** — builds the sealed repo-awareness artifact: languages,
+  frameworks, package manager, verification commands (test/typecheck/lint/build), test
+  layers, CI, module map, entry points, CODEOWNERS ownership, and the architecture config.
+- **`pitstop plan`** — plan before patching: goal, steps, the paths the change may touch
+  (`expectedPaths`), and the verification commands that will judge it. A sealed contract.
+- **`pitstop architecture-check`** — does the change FIT THE SYSTEM? Declared import
+  boundaries, protected paths (auth/deploy/CI require explicit `--approved`), forbidden
+  paths (secrets), CODEOWNERS routing, the AI-cheat detectors as shortcut findings, and —
+  with `--against-plan` — scope-creep detection against the plan.
+- **`pitstop verify-stack`** — beyond "did the test pass": unit/integration/e2e +
+  typecheck + lint + build, whatever the repo has, with a deterministic **failure
+  diagnosis** per layer (type-error TSxxxx, missing-dependency, assertion-failure,
+  lint rule, environment, timeout) so fixes are targeted instead of random edits.
+- **`pitstop flow`** — the whole pipeline in one command: understand → contract? →
+  plan-scope → verify-stack → architecture → baseline? → regression? → holdout? → GATE.
+  Unconfigured stages are SKIPPED honestly.
+
+Full semantics: [docs/repo-discipline.md](docs/repo-discipline.md).
 
 ### The pen test
 
@@ -596,7 +619,7 @@ test"` to a repo and it is picked up automatically on the next run.)
 
 ## Every command
 
-All 34 commands, grouped by job. Run them from inside a repo as `pitstop …` (CLI) or
+All 39 commands, grouped by job. Run them from inside a repo as `pitstop …` (CLI) or
 `npx openpitstop …` (one-off); `/pitstop` in a tool drives the loop, the rest are
 one-shot.
 
@@ -643,6 +666,11 @@ one-shot.
 | `pitstop acceptance-verify --contract <dir\|file\|id> [--baseline <ref>]` | Requirement verification: a structured acceptance contract (deterministic `command`/`http`/`fileExists`/`fileContains` criteria — never an LLM judge) is the source of truth for "did the agent satisfy the original requirement?". Boots the app when the contract declares a start command; in-repo contracts are hash-pinned so the agent cannot redefine success without `--authorize`; `--baseline` exposes contracts that pass on both sides. `SATISFIED` / `NOT_SATISFIED` / `UNPROVEN` / `INTEGRITY_FAILURE`. See [docs/acceptance-verify.md](docs/acceptance-verify.md). |
 | `pitstop regression-check --command <cmd> --baseline <ref>` | Per-check regression comparison: previously **verified passing** checks that now fail are `REGRESSION` (hard-blocks the gate); already-broken stays `UNCHANGED`; fixes are `FIXED`; new checks are `NEW_PASS`/`NEW_FAILURE`; flaky (`--runs >1`) and vanished checks are `UNPROVEN` rather than guessed. Per-test names parsed from TAP/spec/jest/pytest/go output, suite-level fallback. See [docs/regression-check.md](docs/regression-check.md). |
 | `pitstop explain [--verbose]` | The unified evidence chain: aggregates every sealed verification document, re-verifies each seal, and derives VERIFIED / BLOCKED / UNPROVEN with per-item evidence references, digests and reasons. Never-run components are NOT_CONFIGURED — never rendered as passes. See [docs/explain.md](docs/explain.md). |
+| `pitstop understand [path]` | Repo awareness: builds the sealed understanding artifact — languages, frameworks, verification commands (test/typecheck/lint/build), test layers, CI, module map, entry points, CODEOWNERS ownership, architecture config. Stage 1 of the pipeline. See [docs/repo-discipline.md](docs/repo-discipline.md). |
+| `pitstop plan --goal … --path … --verify-command …` | Plan before patching: a sealed change contract (goal, steps, `expectedPaths` the change may touch, verification commands). `--show` renders the latest plan with live scope status. See [docs/repo-discipline.md](docs/repo-discipline.md). |
+| `pitstop architecture-check [--against-plan] [--approved]` | Does the change FIT THE SYSTEM? Declared import boundaries, protected paths (auth/deploy/CI need explicit `--approved`), forbidden paths, CODEOWNERS routing, shortcut detectors on the diff, and scope-creep detection against the plan. `CONFORMS` / `APPROVAL_REQUIRED` / `VIOLATIONS` / `INTEGRITY_FAILURE`. See [docs/repo-discipline.md](docs/repo-discipline.md). |
+| `pitstop verify-stack [--only …]` | The full verification stack — unit/integration/e2e + typecheck + lint + build, whatever the repo has — with a deterministic failure DIAGNOSIS per layer (type-error TSxxxx, missing-dependency, assertion-failure, lint rule, environment, timeout) so fixes are targeted, not random edits. See [docs/repo-discipline.md](docs/repo-discipline.md). |
+| `pitstop flow [--baseline …] [--contract …] [--suite …]` | The whole pipeline in one command: understand → contract? → plan-scope → verify-stack → architecture → baseline? → regression? → holdout? → GATE. Unconfigured stages are SKIPPED honestly. See [docs/repo-discipline.md](docs/repo-discipline.md). |
 
 **Penetration test — attack your own app**
 
@@ -657,7 +685,7 @@ one-shot.
 | Command | What it does |
 |---|---|
 | `pitstop report --html` | One self-contained `PITSTOP_REPORT.html` (inline SVG trends, integrity timeline, zero external assets). Also writes `PITSTOP_BADGE.svg` — a README-ready shield: `![OpenPitStop score](PITSTOP_BADGE.svg)`. |
-| `pitstop share` | Renders a 1200×630 share card (`PITSTOP_CARD.html`) — score, trend, integrity/evidence chips, top findings. Screenshot it and post it. |
+| `pitstop share` | Renders a 1200Ã—630 share card (`PITSTOP_CARD.html`) — score, trend, integrity/evidence chips, top findings. Screenshot it and post it. |
 | `pitstop digest [--days N] [--md]` | The progress story: how the score moved, what got fixed and what regressed, gate results, cheat catches, flakies, open findings. |
 | `pitstop honesty [--html]` | The proof that the numbers are real: evidence chain + integrity history + verify deltas + committed repro tests → one verdict, or a shareable HTML certificate. |
 
@@ -674,7 +702,7 @@ one-shot.
 ### The score & badge
 
 Skipped categories are excluded and the weights re-adjusted, so a missing `jscpd` never
-silently drags the number down. The verify Δ compares against the last scan with the *exact
+silently drags the number down. The verify Î” compares against the last scan with the *exact
 same categories measured* — a category skipped on both sides can't move the score. The
 score only moves when your code does.
 

@@ -121,6 +121,34 @@ say "verified" more often; it was to make the referee able to say NO.
   and were clobbered on persist. Those fields are renamed (`criteria`,
   `evidenceChecks`, `baselineEvidence`) so every evidence byte is inside the
   protected digest.
+- **Repo discipline: understand → plan → architecture → stack → flow.** The
+  stages that make the referee repo-aware:
+  - **`pitstop understand`** — the sealed repo-awareness artifact (languages,
+    frameworks, package manager, verification commands, test layers, CI,
+    module map, entry points, CODEOWNERS ownership, architecture config).
+    Invalid architecture configs fail loudly, never silently no-op.
+  - **`pitstop plan`** — plan-before-patching: a sealed change contract
+    (goal, steps, `expectedPaths`, verification commands). The plan makes a
+    change *accountable*, not safe.
+  - **`pitstop architecture-check`** — does the change fit the system?
+    Declared import boundaries (resolved through the real import graph),
+    protected paths requiring explicit `--approved` (auth/deploy/CI),
+    forbidden paths (secrets), CODEOWNERS routing, the AI-cheat detectors as
+    shortcut findings, and `--against-plan` scope-creep detection.
+    `CONFORMS` / `APPROVAL_REQUIRED` / `VIOLATIONS` / `INTEGRITY_FAILURE`.
+  - **`pitstop verify-stack`** — beyond "did the test pass": unit /
+    integration / e2e + typecheck + lint + build, whatever the repo has,
+    with a deterministic failure DIAGNOSIS per layer (type-error TSxxxx,
+    missing-dependency, assertion-failure, syntax, lint rule, environment,
+    timeout, unclassified) so fixes are targeted instead of random edits.
+    Absent layers are SKIPPED with the reason.
+  - **`pitstop flow`** — the whole pipeline in one command ending in the
+    gate; unconfigured stages are SKIPPED honestly.
+  (`src/understand/index.ts`, `src/verify/plan.ts`, `src/verify/architecture.ts`,
+  `src/verify/stack.ts`, `src/verify/flow.ts`, 5 commands, 17 tests.)
+- **Gate layers extended**: the gate matrix now includes the verification
+  stack and architecture layers (STACK_FAIL → FAILED, boundary/plan
+  violations → FAILED, architecture integrity → CHEAT).
 - **Regression verification (`pitstop regression-check`).** A fix must not
   break previously working behavior. Per-check comparison (per-test names from
   TAP/spec/jest/pytest/go output, suite-level fallback) between a baseline and
@@ -135,7 +163,7 @@ say "verified" more often; it was to make the referee able to say NO.
   (`src/verify/regression.ts`, `src/commands/regressionCheck.ts`, 16 tests.)
 - **Docs:** `docs/holdout-verify.md`, `docs/acceptance-verify.md`,
   `docs/regression-check.md`, `docs/explain.md`.
-- **Tests:** 105 → 181.
+- **Tests:** 105 → 198.
 - **Docs:** `docs/baseline-verify.md`, `docs/state-verify.md`,
   `docs/verifier-check.md`.
 - **Tests:** 60 → 105, all passing (`npm test`, node:test on real filesystem +
