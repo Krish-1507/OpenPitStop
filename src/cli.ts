@@ -35,6 +35,7 @@ import { verifierCheck } from "./commands/verifierCheck.js";
 import { holdoutVerify } from "./commands/holdoutVerify.js";
 import { acceptanceVerify } from "./commands/acceptanceVerify.js";
 import { regressionCheck } from "./commands/regressionCheck.js";
+import { explain } from "./commands/explain.js";
 import { guidedFirstRun } from "./firstRun.js";
 
 /**
@@ -122,5 +123,6 @@ program.addCommand(verifierCheck);
 program.addCommand(holdoutVerify);
 program.addCommand(acceptanceVerify);
 program.addCommand(regressionCheck);
+program.addCommand(explain);
 
 program.parseAsync(process.argv);

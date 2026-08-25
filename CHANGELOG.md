@@ -89,6 +89,17 @@ say "verified" more often; it was to make the referee able to say NO.
   NOT_SATISFIED/integrity failure. Catches the classic failure mode: green
   unit test + plausible diff + broken real user flow.
   (`src/verify/acceptance.ts`, `src/commands/acceptanceVerify.ts`, 12 tests.)
+- **Unified evidence chain (`pitstop explain`).** "Why should I trust this
+  verdict?" — one command aggregates the newest sealed evidence document of
+  every verification capability (baseline, state, tests, acceptance, security,
+  pen, regression, integrity, verifier health, holdout), re-verifies each
+  seal, and derives the verdict: BLOCKED on any failure/tamper (quoting the
+  underlying reasons), VERIFIED only when a strong verification passed with
+  nothing unproven, UNPROVEN otherwise. Honesty contracts: never-run
+  components are NOT_CONFIGURED (never a green check), skipped tools are
+  SKIPPED, tampered/malformed evidence is TAMPERED and blocks; the chain
+  itself is sealed and serializes deterministically.
+  (`src/verify/chain.ts`, `src/commands/explain.ts`, 11 tests.)
 - **Regression verification (`pitstop regression-check`).** A fix must not
   break previously working behavior. Per-check comparison (per-test names from
   TAP/spec/jest/pytest/go output, suite-level fallback) between a baseline and
@@ -102,8 +113,8 @@ say "verified" more often; it was to make the referee able to say NO.
   documented: default single-run cannot distinguish flake from regression.
   (`src/verify/regression.ts`, `src/commands/regressionCheck.ts`, 16 tests.)
 - **Docs:** `docs/holdout-verify.md`, `docs/acceptance-verify.md`,
-  `docs/regression-check.md`.
-- **Tests:** 105 → 149.
+  `docs/regression-check.md`, `docs/explain.md`.
+- **Tests:** 105 → 160.
 - **Docs:** `docs/baseline-verify.md`, `docs/state-verify.md`,
   `docs/verifier-check.md`.
 - **Tests:** 60 → 105, all passing (`npm test`, node:test on real filesystem +

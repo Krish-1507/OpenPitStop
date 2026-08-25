@@ -90,7 +90,7 @@ your agent.
 | [Feature tour](#feature-tour) — every feature, in plain English | [Install](#install) · [Usage](#usage) · [Tool support](#tool-support) |
 | [Architecture](#architecture) | [Known limitations](#known-limitations) · [Contributing](#contributing) · [License](#license) |
 
-**Straight to one feature:** [The scan](#the-scan) · [Security fixes](#security-fixes) · [Try it on your repo](#try-it-on-your-repo) · [The test pyramid](#the-test-pyramid) · [The gate](#the-gate) · [Integrity](#integrity) · [Baseline-aware verification](#baseline-aware-verification) · [State verification](#state-verification-dont-trust-the-claim) · [Verifier health](#verifier-health-falsifiability) · [Holdout verification](#holdout-verification-anti-overfitting) · [Acceptance verification](#acceptance-verification-did-the-agent-satisfy-the-requirement) · [Regression verification](#regression-verification-dont-break-what-already-worked) · [The pen test](#the-pen-test) · [Honesty](#honesty) · [Verify](#verify) · [Trends](#trends) · [Inspect](#inspect) · [Repro](#repro) · [Report](#report) · [Share](#share) · [The live shield](#the-live-shield) · [The GitHub Action](#the-github-action) · [The pre-commit hook](#the-pre-commit-hook)
+**Straight to one feature:** [The scan](#the-scan) · [Security fixes](#security-fixes) · [Try it on your repo](#try-it-on-your-repo) · [The test pyramid](#the-test-pyramid) · [The gate](#the-gate) · [Integrity](#integrity) · [Baseline-aware verification](#baseline-aware-verification) · [State verification](#state-verification-dont-trust-the-claim) · [Verifier health](#verifier-health-falsifiability) · [Holdout verification](#holdout-verification-anti-overfitting) · [Acceptance verification](#acceptance-verification-did-the-agent-satisfy-the-requirement) · [Regression verification](#regression-verification-dont-break-what-already-worked) · [The evidence chain](#the-evidence-chain-why-should-i-trust-this-verdict) · [The pen test](#the-pen-test) · [Honesty](#honesty) · [Verify](#verify) · [Trends](#trends) · [Inspect](#inspect) · [Repro](#repro) · [Report](#report) · [Share](#share) · [The live shield](#the-live-shield) · [The GitHub Action](#the-github-action) · [The pre-commit hook](#the-pre-commit-hook)
 
 **Receipts:** [Caught in the wild](docs/caught-in-the-wild.md) — real gate output, screenshot-ready.
 
@@ -239,6 +239,17 @@ that now fails is a `REGRESSION`; already-broken checks that stay broken are `UN
 fixes are `FIXED`; new checks are `NEW_PASS`/`NEW_FAILURE`; flaky checks (with `--runs >1`)
 and vanished checks are `UNPROVEN` rather than guessed. Regressions hard-block the gate.
 Full semantics: [docs/regression-check.md](docs/regression-check.md).
+
+### The evidence chain (why should I trust this verdict?)
+
+`pitstop explain` aggregates every sealed verification document in `.pitstop/` into one
+explainable chain — baseline → state → tests → acceptance → security → regression →
+integrity → holdout — re-verifies each seal, and derives the verdict instead of asserting
+it. Components that ran show their real status with evidence references and digests;
+never-run components are listed as **NOT_CONFIGURED** (never rendered as a pass); skipped
+tools are **SKIPPED**; tampered evidence is **TAMPERED** and blocks. `BLOCKED` verdicts
+quote the underlying reasons ("previously passing check(s) now failing — check B").
+Full semantics: [docs/explain.md](docs/explain.md).
 
 ### The pen test
 
@@ -580,7 +591,7 @@ test"` to a repo and it is picked up automatically on the next run.)
 
 ## Every command
 
-All 33 commands, grouped by job. Run them from inside a repo as `pitstop …` (CLI) or
+All 34 commands, grouped by job. Run them from inside a repo as `pitstop …` (CLI) or
 `npx openpitstop …` (one-off); `/pitstop` in a tool drives the loop, the rest are
 one-shot.
 
@@ -623,6 +634,7 @@ one-shot.
 | `pitstop holdout-verify --suite <dir-or-id> [--baseline <ref>]` | Final hidden exam against verifier overfitting: a holdout suite defined OUTSIDE the repo runs once in a fresh isolated worktree of the candidate commit — the agent never saw it and cannot modify it (files hashed before/after); output is redacted to ids + verdicts. With `--baseline` the suite must FAIL there and PASS on the candidate. `HOLDOUT_PASS` / `HOLDOUT_FAIL` / `HOLDOUT_UNPROVEN` / `HOLDOUT_INTEGRITY_FAILURE`. See [docs/holdout-verify.md](docs/holdout-verify.md). |
 | `pitstop acceptance-verify --contract <dir\|file\|id> [--baseline <ref>]` | Requirement verification: a structured acceptance contract (deterministic `command`/`http`/`fileExists`/`fileContains` criteria — never an LLM judge) is the source of truth for "did the agent satisfy the original requirement?". Boots the app when the contract declares a start command; in-repo contracts are hash-pinned so the agent cannot redefine success without `--authorize`; `--baseline` exposes contracts that pass on both sides. `SATISFIED` / `NOT_SATISFIED` / `UNPROVEN` / `INTEGRITY_FAILURE`. See [docs/acceptance-verify.md](docs/acceptance-verify.md). |
 | `pitstop regression-check --command <cmd> --baseline <ref>` | Per-check regression comparison: previously **verified passing** checks that now fail are `REGRESSION` (hard-blocks the gate); already-broken stays `UNCHANGED`; fixes are `FIXED`; new checks are `NEW_PASS`/`NEW_FAILURE`; flaky (`--runs >1`) and vanished checks are `UNPROVEN` rather than guessed. Per-test names parsed from TAP/spec/jest/pytest/go output, suite-level fallback. See [docs/regression-check.md](docs/regression-check.md). |
+| `pitstop explain [--verbose]` | The unified evidence chain: aggregates every sealed verification document, re-verifies each seal, and derives VERIFIED / BLOCKED / UNPROVEN with per-item evidence references, digests and reasons. Never-run components are NOT_CONFIGURED — never rendered as passes. See [docs/explain.md](docs/explain.md). |
 
 **Penetration test — attack your own app**
 
