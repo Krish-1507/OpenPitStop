@@ -90,7 +90,7 @@ your agent.
 | [Feature tour](#feature-tour) — every feature, in plain English | [Install](#install) · [Usage](#usage) · [Tool support](#tool-support) |
 | [Architecture](#architecture) | [Known limitations](#known-limitations) · [Contributing](#contributing) · [License](#license) |
 
-**Straight to one feature:** [The scan](#the-scan) · [Security fixes](#security-fixes) · [Try it on your repo](#try-it-on-your-repo) · [The test pyramid](#the-test-pyramid) · [The gate](#the-gate) · [Integrity](#integrity) · [Baseline-aware verification](#baseline-aware-verification) · [State verification](#state-verification-dont-trust-the-claim) · [Verifier health](#verifier-health-falsifiability) · [Holdout verification](#holdout-verification-anti-overfitting) · [Acceptance verification](#acceptance-verification-did-the-agent-satisfy-the-requirement) · [The pen test](#the-pen-test) · [Honesty](#honesty) · [Verify](#verify) · [Trends](#trends) · [Inspect](#inspect) · [Repro](#repro) · [Report](#report) · [Share](#share) · [The live shield](#the-live-shield) · [The GitHub Action](#the-github-action) · [The pre-commit hook](#the-pre-commit-hook)
+**Straight to one feature:** [The scan](#the-scan) · [Security fixes](#security-fixes) · [Try it on your repo](#try-it-on-your-repo) · [The test pyramid](#the-test-pyramid) · [The gate](#the-gate) · [Integrity](#integrity) · [Baseline-aware verification](#baseline-aware-verification) · [State verification](#state-verification-dont-trust-the-claim) · [Verifier health](#verifier-health-falsifiability) · [Holdout verification](#holdout-verification-anti-overfitting) · [Acceptance verification](#acceptance-verification-did-the-agent-satisfy-the-requirement) · [Regression verification](#regression-verification-dont-break-what-already-worked) · [The pen test](#the-pen-test) · [Honesty](#honesty) · [Verify](#verify) · [Trends](#trends) · [Inspect](#inspect) · [Repro](#repro) · [Report](#report) · [Share](#share) · [The live shield](#the-live-shield) · [The GitHub Action](#the-github-action) · [The pre-commit hook](#the-pre-commit-hook)
 
 **Receipts:** [Caught in the wild](docs/caught-in-the-wild.md) — real gate output, screenshot-ready.
 
@@ -229,6 +229,16 @@ passes on both sides is `UNPROVEN`. This catches the classic failure: green unit
 plausible diff, real user flow broken. Verdicts: `SATISFIED`, `NOT_SATISFIED`,
 `UNPROVEN`, `INTEGRITY_FAILURE`. Deterministic and observable by design — never an LLM
 judge. Full semantics: [docs/acceptance-verify.md](docs/acceptance-verify.md).
+
+### Regression verification (don't break what already worked)
+
+`pitstop regression-check` compares check-level results (per-test names where the runner
+exposes them) between a baseline and the candidate, both in isolated worktrees — and is
+honest about what each difference means: only previously **verified passing** behavior
+that now fails is a `REGRESSION`; already-broken checks that stay broken are `UNCHANGED`;
+fixes are `FIXED`; new checks are `NEW_PASS`/`NEW_FAILURE`; flaky checks (with `--runs >1`)
+and vanished checks are `UNPROVEN` rather than guessed. Regressions hard-block the gate.
+Full semantics: [docs/regression-check.md](docs/regression-check.md).
 
 ### The pen test
 
@@ -570,7 +580,7 @@ test"` to a repo and it is picked up automatically on the next run.)
 
 ## Every command
 
-All 32 commands, grouped by job. Run them from inside a repo as `pitstop …` (CLI) or
+All 33 commands, grouped by job. Run them from inside a repo as `pitstop …` (CLI) or
 `npx openpitstop …` (one-off); `/pitstop` in a tool drives the loop, the rest are
 one-shot.
 
@@ -612,6 +622,7 @@ one-shot.
 | `pitstop verifier-check --command <cmd> --mutate …` | Verifier self-test: runs the verification on a known-good state (must PASS) and a controlled known-bad state (must FAIL) in temp worktrees. `VERIFIER_VALID` = falsifiable; `VERIFIER_WEAK` = the seeded fault sailed through; `VERIFIER_BROKEN` = fails a correct state. Never mutates your working tree. See [docs/verifier-check.md](docs/verifier-check.md). |
 | `pitstop holdout-verify --suite <dir-or-id> [--baseline <ref>]` | Final hidden exam against verifier overfitting: a holdout suite defined OUTSIDE the repo runs once in a fresh isolated worktree of the candidate commit — the agent never saw it and cannot modify it (files hashed before/after); output is redacted to ids + verdicts. With `--baseline` the suite must FAIL there and PASS on the candidate. `HOLDOUT_PASS` / `HOLDOUT_FAIL` / `HOLDOUT_UNPROVEN` / `HOLDOUT_INTEGRITY_FAILURE`. See [docs/holdout-verify.md](docs/holdout-verify.md). |
 | `pitstop acceptance-verify --contract <dir\|file\|id> [--baseline <ref>]` | Requirement verification: a structured acceptance contract (deterministic `command`/`http`/`fileExists`/`fileContains` criteria — never an LLM judge) is the source of truth for "did the agent satisfy the original requirement?". Boots the app when the contract declares a start command; in-repo contracts are hash-pinned so the agent cannot redefine success without `--authorize`; `--baseline` exposes contracts that pass on both sides. `SATISFIED` / `NOT_SATISFIED` / `UNPROVEN` / `INTEGRITY_FAILURE`. See [docs/acceptance-verify.md](docs/acceptance-verify.md). |
+| `pitstop regression-check --command <cmd> --baseline <ref>` | Per-check regression comparison: previously **verified passing** checks that now fail are `REGRESSION` (hard-blocks the gate); already-broken stays `UNCHANGED`; fixes are `FIXED`; new checks are `NEW_PASS`/`NEW_FAILURE`; flaky (`--runs >1`) and vanished checks are `UNPROVEN` rather than guessed. Per-test names parsed from TAP/spec/jest/pytest/go output, suite-level fallback. See [docs/regression-check.md](docs/regression-check.md). |
 
 **Penetration test — attack your own app**
 
@@ -780,6 +791,12 @@ cheat its own referee. That separation is the product.
   asserted properties). It is deterministic by design, never an LLM judge; a contract that
   passes on the baseline is reported `UNPROVEN` rather than trusted.
   See [docs/acceptance-verify.md](docs/acceptance-verify.md).
+- **Regression detection vs flaky tests:** with the default single run, a flaky candidate
+  check is indistinguishable from a regression and IS reported as one; `--runs <n>` detects
+  candidate-side inconsistency (`UNPROVEN`), but the baseline is a single run, so a flaky
+  baseline check can still mislabel a fix or hide a regression. Per-test granularity depends
+  on the runner's output; unparseable output degrades to one suite-level check.
+  See [docs/regression-check.md](docs/regression-check.md).
 
 ## Privacy
 

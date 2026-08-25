@@ -19,7 +19,7 @@ import { checkEvidence } from "../evidence.js";
  * baseline, then `pitstop gate` every step of a fix loop — also usable as a
  * pre-commit hook or the last line of a CI job.
  */
-function latestPitstopReport(repo: string, prefix: string): { verdict?: string; file?: string; evidenceStatus?: string; reasons?: string[] } | null {
+function latestPitstopReport(repo: string, prefix: string): { verdict?: string; file?: string; evidenceStatus?: string; reasons?: string[]; regressions?: string[] } | null {
   const dir = path.join(repo, ".pitstop");
   if (!fs.existsSync(dir)) return null;
   let latest: string | null = null;
@@ -45,6 +45,7 @@ function latestPitstopReport(repo: string, prefix: string): { verdict?: string; 
       file: latest,
       evidenceStatus: check.status,
       reasons: doc.reasons,
+      regressions: Array.isArray(doc.regressions) ? doc.regressions : undefined,
     };
   } catch {
     return null;
@@ -56,6 +57,7 @@ const latestStateVerify = (repo: string) => latestPitstopReport(repo, "state-ver
 const latestVerifierCheck = (repo: string) => latestPitstopReport(repo, "verifier-check-");
 const latestHoldout = (repo: string) => latestPitstopReport(repo, "holdout-");
 const latestAcceptance = (repo: string) => latestPitstopReport(repo, "acceptance-");
+const latestRegression = (repo: string) => latestPitstopReport(repo, "regression-");
 
 export function gateOutcome(o: VerifyOutcome, threshold: number): {
   pass: boolean;
@@ -195,6 +197,26 @@ export function gateOutcome(o: VerifyOutcome, threshold: number): {
       exitCode = Math.max(exitCode, 1);
     } else if (ac.verdict === "UNPROVEN") {
       reasons.push(`acceptance: UNPROVEN — criteria could not be verified or do not discriminate (${ac.file})`);
+    }
+  }
+
+  // Regression verification: previously passing checks that now fail.
+  // A newly introduced regression blocks — this is the definition of breaking
+  // previously working behavior.
+  const rg = latestRegression((o as any).repo ?? process.cwd());
+  if (rg) {
+    if (rg.evidenceStatus === "tampered") {
+      reasons.push(`regression evidence TAMPERED (${rg.file}) — re-run regression-check`);
+      exitCode = Math.max(exitCode, 1);
+    } else if (rg.verdict === "REGRESSION") {
+      const ids = (rg as any).regressions?.length ? `: ${(rg as any).regressions.join(", ")}` : "";
+      reasons.push(`regression: REGRESSION — previously passing checks now fail${ids} (${rg.file})`);
+      exitCode = Math.max(exitCode, 1);
+    } else if (rg.verdict === "INTEGRITY_FAILURE") {
+      reasons.push(`regression: INTEGRITY_FAILURE — the comparison could not be trusted (${rg.file})`);
+      exitCode = Math.max(exitCode, 1);
+    } else if (rg.verdict === "UNPROVEN") {
+      reasons.push(`regression: UNPROVEN — flaky or vanished checks prevent classification (${rg.file})`);
     }
   }
 

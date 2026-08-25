@@ -89,8 +89,21 @@ say "verified" more often; it was to make the referee able to say NO.
   NOT_SATISFIED/integrity failure. Catches the classic failure mode: green
   unit test + plausible diff + broken real user flow.
   (`src/verify/acceptance.ts`, `src/commands/acceptanceVerify.ts`, 12 tests.)
-- **Docs:** `docs/holdout-verify.md`, `docs/acceptance-verify.md`.
-- **Tests:** 105 → 133.
+- **Regression verification (`pitstop regression-check`).** A fix must not
+  break previously working behavior. Per-check comparison (per-test names from
+  TAP/spec/jest/pytest/go output, suite-level fallback) between a baseline and
+  the candidate, both in isolated worktrees, with honest classification:
+  only previously **verified passing** behavior that now fails is
+  `REGRESSION`; fail/fail is `UNCHANGED`; fixes are `FIXED`; new checks are
+  `NEW_PASS`/`NEW_FAILURE`; flaky candidate checks (with `--runs >1`) and
+  vanished checks are `UNPROVEN`, never guessed. Supports git refs or a sealed
+  recorded baseline (`--record` / `--baseline-evidence`, tamper-checked).
+  The gate hard-blocks on regressions, listing them by name. Flaky limits are
+  documented: default single-run cannot distinguish flake from regression.
+  (`src/verify/regression.ts`, `src/commands/regressionCheck.ts`, 16 tests.)
+- **Docs:** `docs/holdout-verify.md`, `docs/acceptance-verify.md`,
+  `docs/regression-check.md`.
+- **Tests:** 105 → 149.
 - **Docs:** `docs/baseline-verify.md`, `docs/state-verify.md`,
   `docs/verifier-check.md`.
 - **Tests:** 60 → 105, all passing (`npm test`, node:test on real filesystem +

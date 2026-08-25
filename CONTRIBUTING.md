@@ -1,20 +1,20 @@
-# Contributing to OpenPitStop
+﻿# Contributing to OpenPitStop
 
 OpenPitStop is a small, dependency-light TypeScript CLI. The most valuable thing you can add is
-a **new analyzer** — a new dimension of the scan. This guide is written around that path,
+a **new analyzer** â€” a new dimension of the scan. This guide is written around that path,
 but it also covers setup, conventions, and how to open a PR.
 
 ## Development setup
 
-Requires **Node.js ≥ 22** (execa 10 needs `Set.union`, an ES2024 feature). CI uses Node 22.
+Requires **Node.js â‰¥ 22** (execa 10 needs `Set.union`, an ES2024 feature). CI uses Node 22.
 
 ```bash
 npm install
-npm run build      # tsc → dist/  (the CLI runs from dist/, not src/)
-npm run dev        # tsx watch src/cli.ts — live-reloading entry point
+npm run build      # tsc â†’ dist/  (the CLI runs from dist/, not src/)
+npm run dev        # tsx watch src/cli.ts â€” live-reloading entry point
 ```
 
-The CLI's own regression suite is `node:test` (133 tests, real filesystem + git
+The CLI's own regression suite is `node:test` (149 tests, real filesystem + git
 fixtures): `npm test`. Verification is both automated and hands-on: `npm run build`,
 `npm test`, then run the real commands against a test repo (see [Testing](#testing)).
 
@@ -23,12 +23,12 @@ fixtures): `npm test`. Verification is both automated and hands-on: `npm run bui
 ```
 src/analyzers/        one file per analyzer (the Phase-1 scan dimension)
   types.ts            every analyzer's result type + ClusterFinding + ScanResult
-  index.ts            runAllAnalyzers() — the registration point
+  index.ts            runAllAnalyzers() â€” the registration point
   util.ts             shared helpers (walkFiles, safeExec, commandExists, lineOf, ...)
   suiteRunner.ts      multi-language test-suite runner (go/cargo/flutter/dotnet/maven/gradle parsers)
   routes.ts           language-aware route discovery (shared by pen and ledger)
 src/analyzers/integrity/  diff-scoped AI-agent-cheat detectors (testTamper, exceptionSwallow,
-  suppressionCreep, hardcodedMatch, mockOverreach, exitCheat, assertionLiteralTamper) —
+  suppressionCreep, hardcodedMatch, mockOverreach, exitCheat, assertionLiteralTamper) â€”
   wired into `pitstop verify`
 src/sandbox/          non-Node sandboxing (recording HTTP(S)_PROXY server + start-command resolvers)
 src/installer/         slash-command install targets (Claude, Cursor, OpenCode, Antigravity,
@@ -38,7 +38,7 @@ src/graph/correlate.ts   flattens findings into ClusterFinding[] and clusters th
 src/graph/integrity.ts   combines detector output into one verdict (CLEAN/SUSPICIOUS/CONFIRMED_CHEAT)
 src/verify/         deep-verification library (baseline.ts baseline-aware verification,
   state.ts external state verification, verifier.ts falsifiability self-test,
-  holdout.ts final hidden holdout suites, acceptance.ts requirement contracts) —
+  holdout.ts final hidden holdout suites, acceptance.ts requirement contracts) â€”
   all seal their evidence via src/evidence.ts and run in isolated git worktrees
 src/commands/         the CLI surface (scan, verify, integrity, report, memory, demo, ci, install,
   baseline-verify, state-verify, verifier-check, holdout-verify, acceptance-verify, ...)
@@ -47,8 +47,8 @@ src/verify/metrics.ts verify metrics + Regression Risk classification
 templates/pitstop.prompt.md  the /pitstop slash-command that drives the agent
 ```
 
-Data flows: **analyzer → `ScanResult` → `collectFindings` (correlate) → clusters → scan box
-→ verify/report**. A new analyzer only needs to plug into the first three links; everything
+Data flows: **analyzer â†’ `ScanResult` â†’ `collectFindings` (correlate) â†’ clusters â†’ scan box
+â†’ verify/report**. A new analyzer only needs to plug into the first three links; everything
 downstream adapts automatically.
 
 ## Adding a new analyzer
@@ -81,7 +81,7 @@ export interface ScanResult {
 ### 2. Create `src/analyzers/logging.ts`
 
 Export `analyzeLogging(repo: string): LoggingResult`. Use the shared helpers from
-`util.ts` — they handle the boring, error-prone parts:
+`util.ts` â€” they handle the boring, error-prone parts:
 
 ```ts
 import fs from "node:fs";
@@ -114,7 +114,7 @@ export function analyzeLogging(repo: string): LoggingResult {
 }
 ```
 
-Note how findings carry `file` (+ `line` where sensible) — that is what lets the correlation
+Note how findings carry `file` (+ `line` where sensible) â€” that is what lets the correlation
 engine attach them to a root-cause cluster. Findings with no files will never cluster.
 
 ### 3. Register it in `src/analyzers/index.ts`
@@ -125,7 +125,7 @@ import { analyzeLogging } from "./logging.js";
 logging: analyzeLogging(repo),
 ```
 
-### 4. Show it in the scan box — `src/commands/scan.ts`
+### 4. Show it in the scan box â€” `src/commands/scan.ts`
 
 `renderBox()` builds one `label(...)` line per analyzer. Follow the existing pattern
 exactly: a `skipped` branch (yellow, with `note`), a `status === "ok"` branch that prints
@@ -140,11 +140,11 @@ if (lg.status === "ok") {
       : chalk.green("0 issues");
   lines.push(`${label("Logging")}: ${body}`);
 } else {
-  lines.push(`${label("Logging")}: ${chalk.yellow("skipped")} — ${lg.note ?? "unavailable"}`);
+  lines.push(`${label("Logging")}: ${chalk.yellow("skipped")} â€” ${lg.note ?? "unavailable"}`);
 }
 ```
 
-### 5. Feed it into clustering — `src/graph/correlate.ts`
+### 5. Feed it into clustering â€” `src/graph/correlate.ts`
 
 `collectFindings()` converts analyzer output into `ClusterFinding`s. Add your source to the
 `ClusterFinding.source` union in `types.ts` (`"security" | "duplication" | "graph" | "a11y" |
@@ -162,7 +162,7 @@ for (const i of r.logging.issues) {
 }
 ```
 
-`correlate()` does the rest — findings sharing files (or files within 1–2 graph hops) group
+`correlate()` does the rest â€” findings sharing files (or files within 1â€“2 graph hops) group
 into clusters, and the highest-scoring finding becomes the root cause.
 
 ### 6. (Optional but nice) Surface it in `src/report/format.ts`
@@ -176,16 +176,16 @@ If your analyzer produces a number that matters (issue count, duration), wire it
 `metricsOf()`/`deltasOf()` and the verify table in `src/commands/verify.ts` so the loop can
 measure "is this getting better or worse?"
 
-You do **not** need to touch `src/commands/ci.ts` — it reuses `runScan`, so your analyzer is
+You do **not** need to touch `src/commands/ci.ts` â€” it reuses `runScan`, so your analyzer is
 present in `pitstop ci` and the GitHub Action comment automatically.
 
-## Conventions (read these — they're the review criteria)
+## Conventions (read these â€” they're the review criteria)
 
 - **Never throw.** Every analyzer returns `{ status: "skipped" | "error", note }` when it
   can't run (missing tool, no matching files, timeout). A scan must never crash because one
   dimension failed. Wrap risky work in `try/catch` and degrade to `skipped`.
-- **Graceful skip, always.** Missing `jscpd`/`pa11y`/`ts-prune` → skip with a note, don't
-  error. "skipped — tool not found" is a feature.
+- **Graceful skip, always.** Missing `jscpd`/`pa11y`/`ts-prune` â†’ skip with a note, don't
+  error. "skipped â€” tool not found" is a feature.
 - **Label your heuristics.** Anything that is a structural guess (race smells, duplicate
   functions, clickable-`div` a11y) must say so in a comment and in the description. Never
   present a heuristic as ground truth.
@@ -193,7 +193,7 @@ present in `pitstop ci` and the GitHub Action comment automatically.
   (see `MAX_RUNTIME_FILES`, `MAX_DUP_FINDINGS`, `MAX_SUITE_MS`). Scans must stay fast.
 - **Use `util.ts`.** `walkFiles` already ignores `node_modules`, `dist`, `.git`, `.pitstop`,
   `demo-repo`, etc. Do not hand-roll traversal.
-- **Severity vocabulary.** `critical / high / medium / low / info` — `correlate.ts`'s
+- **Severity vocabulary.** `critical / high / medium / low / info` â€” `correlate.ts`'s
   `SEVERITY_RANK` scores clusters by severity + graph centrality. Unknown severities are
   treated as `medium`; pick deliberately.
 - **`demo-repo` is a fixture.** It's intentionally broken and excluded from real scans. Test
@@ -205,10 +205,10 @@ present in `pitstop ci` and the GitHub Action comment automatically.
 ## Testing
 
 ```bash
-npm test                              # 133 node:test regression tests (real fs + git fixtures)
+npm test                              # 149 node:test regression tests (real fs + git fixtures)
 npm run typecheck                     # tsc --noEmit for src and test
 npm run build
-node dist/cli.js scan .              # scan this repo (a11y/perf will skip — that's correct)
+node dist/cli.js scan .              # scan this repo (a11y/perf will skip â€” that's correct)
 node dist/cli.js scan demo-repo       # the seeded-broken repo: expect a real cluster
 node dist/cli.js demo                 # full loop rehearsal in a temp dir
 node fixtures/assertion-literal-tamper/verify.mjs  # integrity detector fixture (cheat vs honest)
@@ -217,15 +217,15 @@ node fixtures/assertion-literal-tamper/verify.mjs  # integrity detector fixture 
 The deep-verification mechanisms each carry their own integration suites
 (`test/baselineVerify.test.ts`, `test/stateVerify.test.ts`,
 `test/verifierCheck.test.ts`, `test/holdoutVerify.test.ts`,
-`test/acceptanceVerify.test.ts`) built on real temp
-git repositories — if you touch `src/verify/` or `src/evidence.ts`, those are
+`test/acceptanceVerify.test.ts`, `test/regressionCheck.test.ts`) built on real temp
+git repositories â€” if you touch `src/verify/` or `src/evidence.ts`, those are
 the contract: verdicts must stay honest (a known-bad state must FAIL, tampered
 evidence must be reported), and worktrees/temp dirs must be cleaned up on every
 path.
 
 For a full-loop test: run `node dist/cli.js demo`, `cd` into the printed temp dir, then walk
-the slash-command steps by hand — `scan` → confirm → fix → `verify` → `memory add` →
-`scan` → `report`. The loop must reach `nothing left to fix, nothing broken.` with a
+the slash-command steps by hand â€” `scan` â†’ confirm â†’ fix â†’ `verify` â†’ `memory add` â†’
+`scan` â†’ `report`. The loop must reach `nothing left to fix, nothing broken.` with a
 `PITSTOP_REPORT.md` written.
 
 ## Opening a pull request
@@ -241,4 +241,4 @@ the slash-command steps by hand — `scan` → confirm → fix → `verify` → 
 ## Code of conduct
 
 Be kind, be specific, and assume good faith. Every analyzer ships an honest caveat about
-what it can and can't prove — the same spirit applies to review comments.
+what it can and can't prove â€” the same spirit applies to review comments.
