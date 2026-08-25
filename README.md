@@ -618,6 +618,9 @@ one-shot.
 | Command | What it does |
 |---|---|
 | `pitstop drive <finding-id> [path]` | Hands one finding to *your own agent* (`PITSTOP_AGENT` or `--agent '…{prompt}'`) with explicit orders: write a failing repro first, fix it, make the repro pass, then verify. OpenPitStop referees the whole thing and never edits your code. |
+| `pitstop next [path]` | Reads the sealed artifacts and prints the single best next command plus a checklist of everything still open — repo-aware (detects language, framework, tests, CI). |
+| `pitstop fix [path]` | Autopilot without an agent: chains **scan → pen --fix → verify → gate**, showing the `next` card after each hop. |
+| `pitstop ask "<your ask>"` | Maps a plain-English request ("check the security of this app", "are our tests flaky?") to the right command, states its interpretation, and confirms before fixing. |
 | `pitstop memory add/list/relevant` | A scratchpad inside the repo: record a decision (`add`), see them newest-first (`list`), or pull up anything related to a file (`relevant`) — so past fixes and rejected approaches survive across sessions. |
 | `pitstop inspect <finding-id>` | Opens up one finding: the code snippet, the root cause, whether a repro test exists, and what OpenPitStop remembers about these files. |
 
@@ -664,6 +667,7 @@ one-shot.
 |---|---|
 | `pitstop install` / `install --uninstall` | Writes `/pitstop` into every supported tool (project + user level). `--uninstall` removes it all. `--hooks` also installs (or with `--uninstall`, removes) the git pre-commit gate. |
 | `pitstop` (no args) | The guided first-run: detects your AI tools and git repo, then offers to install or score this repo (`try .`). Non-TTY prints the one-line menu instead. |
+| `pitstop demo` | Full loop rehearsal in a throwaway temp dir — walk the slash-command loop by hand against a seeded-broken repo, ending with a `PITSTOP_REPORT.md`. |
 | `pitstop doctor` | Explains why categories show `skipped`: checks your toolchain (Node, git, jscpd, gitleaks, pa11y) and prints copy-paste install hints. Semgrep is optional and opt-in, so doctor won't flag its absence. |
 | `pitstop prompt [--args …]` | Prints the exact prompt your AI tool expands `/pitstop` into, with your arguments filled in — full transparency into what the agent was told. |
 

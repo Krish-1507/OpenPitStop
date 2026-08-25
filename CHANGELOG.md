@@ -135,7 +135,7 @@ say "verified" more often; it was to make the referee able to say NO.
   (`src/verify/regression.ts`, `src/commands/regressionCheck.ts`, 16 tests.)
 - **Docs:** `docs/holdout-verify.md`, `docs/acceptance-verify.md`,
   `docs/regression-check.md`, `docs/explain.md`.
-- **Tests:** 105 → 160.
+- **Tests:** 105 → 181.
 - **Docs:** `docs/baseline-verify.md`, `docs/state-verify.md`,
   `docs/verifier-check.md`.
 - **Tests:** 60 → 105, all passing (`npm test`, node:test on real filesystem +
