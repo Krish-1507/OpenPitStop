@@ -136,6 +136,10 @@ security issues, duplicated code, test results, build speed, accessibility and
 code quality. Each check gives a real number or prints `skipped` with a hint on
 how to install the tool it needs. It never makes up a number.
 
+<p align="center">
+  <img src="docs/media/scan.gif" alt="pitstop scan — the score box" width="880">
+</p>
+
 ### Security fixes
 
 Under the scan box, every security finding ships with a concrete `fix:` line, so
@@ -187,6 +191,10 @@ Anything less is honestly `FAILED`, `UNPROVEN`, or `INTEGRITY_FAILURE`. It runs 
 git worktrees, so your working tree is never touched. Full semantics:
 [docs/baseline-verify.md](docs/baseline-verify.md).
 
+<p align="center">
+  <img src="docs/media/cheat-caught.gif" alt="pitstop regression-check — payment charges card once BLOCKED" width="880">
+</p>
+
 ### State verification (don't trust the claim)
 
 `pitstop state-verify` never reads the agent's natural-language summary — it inspects the
@@ -197,6 +205,10 @@ HTTP 200 but the file never changed, was written empty, was reverted, or a *diff
 file changed. Verdicts: `STATE_VERIFIED`, `STATE_MISMATCH`, `UNPROVEN`,
 `INTEGRITY_FAILURE`. This proves **that** a change occurred — never whether the code is
 correct. Full semantics: [docs/state-verify.md](docs/state-verify.md).
+
+<p align="center">
+  <img src="docs/media/fake-claim.gif" alt="pitstop state-verify — modified:src/auth.ts STATE_MISMATCH" width="880">
+</p>
 
 ### Verifier health (falsifiability)
 
@@ -220,6 +232,10 @@ output. With `--baseline`, the suite must FAIL on the known-bad baseline and PAS
 candidate, so a suite that only ever says PASS is exposed as `HOLDOUT_UNPROVEN`. Verdicts:
 `HOLDOUT_PASS`, `HOLDOUT_FAIL`, `HOLDOUT_UNPROVEN`, `HOLDOUT_INTEGRITY_FAILURE`. Full
 semantics: [docs/holdout-verify.md](docs/holdout-verify.md).
+
+<p align="center">
+  <img src="docs/media/holdout-exam.gif" alt="pitstop holdout-verify — hidden exam HOLDOUT_FAIL" width="880">
+</p>
 
 ### Acceptance verification (did the agent satisfy the requirement?)
 
@@ -256,6 +272,10 @@ tools are **SKIPPED**; tampered evidence is **TAMPERED** and blocks. `BLOCKED` v
 quote the underlying reasons ("previously passing check(s) now failing — check B").
 Full semantics: [docs/explain.md](docs/explain.md).
 
+<p align="center">
+  <img src="docs/media/evidence-chain.gif" alt="pitstop explain — evidence chain BLOCKED" width="880">
+</p>
+
 ### Repo discipline (understand → plan → architecture → stack → flow)
 
 The stages that make the referee *repo-aware*:
@@ -279,11 +299,23 @@ The stages that make the referee *repo-aware*:
 
 Full semantics: [docs/repo-discipline.md](docs/repo-discipline.md).
 
+<p align="center">
+  <img src="docs/media/architecture.gif" alt="pitstop architecture-check — VIOLATIONS (boundary + scope creep)" width="880">
+</p>
+
+<p align="center">
+  <img src="docs/media/flow.gif" alt="pitstop flow — pipeline stages → gate matrix" width="880">
+</p>
+
 ### The pen test
 
 `pitstop pen` boots your app in a sandbox and fires real attack traffic, so a
 finding is **PROVEN** by a live attack, not just guessed. With `--fix` it writes a
 failing-first repro test and a safe patch. Nothing reaches the real network.
+
+<p align="center">
+  <img src="docs/media/pen.gif" alt="pitstop pen — live attack PROVEN" width="880">
+</p>
 
 ### Drift (the permanent referee)
 
