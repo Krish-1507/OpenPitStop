@@ -152,11 +152,19 @@ you get a worklist, not just a list of problems. Findings are labeled
 `pitstop try .` scores any repo in about two seconds, no setup, no config. It is
 the fastest first look, and it seeds a baseline your later runs build on.
 
+<p align="center">
+  <img src="docs/media/try.gif" alt="pitstop try . — score in two seconds" width="880">
+</p>
+
 ### The test pyramid
 
 `pitstop test` runs your **unit, integration and e2e** layers separately, so a
 suite that passes cannot hide a missing layer. It names every failing test. One
 failing layer and it prints **DO NOT SHIP** and exits 1.
+
+<p align="center">
+  <img src="docs/media/test-pyramid.gif" alt="pitstop test — pyramid DO NOT SHIP" width="880">
+</p>
 
 ### The gate
 
@@ -173,11 +181,19 @@ mandatory layers with `--require baseline,acceptance,holdout`. Exit codes: `0` p
 fail, `2` cheat. The old single-box output and `gateOutcome` remain for backward
 compatibility.
 
+<p align="center">
+  <img src="docs/media/gate.gif" alt="pitstop gate — matrix BLOCKED" width="880">
+</p>
+
 ### Integrity
 
 `pitstop integrity` diffs your change against the sealed baseline and hunts cheat
 patterns: focused tests, deleted tests, rewritten tests, swallowed errors,
 hardcoded-to-pass values. It exits `0/1/2` the same way.
+
+<p align="center">
+  <img src="docs/media/integrity.gif" alt="pitstop integrity — SUSPICIOUS focused test" width="880">
+</p>
 
 ### Baseline-aware verification
 
@@ -220,6 +236,10 @@ PASS carries information; `VERIFIER_WEAK` means the seeded fault sailed through;
 `VERIFIER_BROKEN` means it fails even when things are correct. A referee that cannot fail
 is not a referee. Full semantics: [docs/verifier-check.md](docs/verifier-check.md).
 
+<p align="center">
+  <img src="docs/media/verifier-health.gif" alt="pitstop verifier-check — VERIFIER_WEAK" width="880">
+</p>
+
 ### Holdout verification (anti-overfitting)
 
 `pitstop holdout-verify` is the final, hidden exam. An agent that iterates against visible
@@ -251,6 +271,10 @@ plausible diff, real user flow broken. Verdicts: `SATISFIED`, `NOT_SATISFIED`,
 `UNPROVEN`, `INTEGRITY_FAILURE`. Deterministic and observable by design — never an LLM
 judge. Full semantics: [docs/acceptance-verify.md](docs/acceptance-verify.md).
 
+<p align="center">
+  <img src="docs/media/acceptance-verify.gif" alt="pitstop acceptance-verify — SATISFIED" width="880">
+</p>
+
 ### Regression verification (don't break what already worked)
 
 `pitstop regression-check` compares check-level results (per-test names where the runner
@@ -260,6 +284,10 @@ that now fails is a `REGRESSION`; already-broken checks that stay broken are `UN
 fixes are `FIXED`; new checks are `NEW_PASS`/`NEW_FAILURE`; flaky checks (with `--runs >1`)
 and vanished checks are `UNPROVEN` rather than guessed. Regressions hard-block the gate.
 Full semantics: [docs/regression-check.md](docs/regression-check.md).
+
+<p align="center">
+  <img src="docs/media/cheat-caught.gif" alt="pitstop regression-check — REGRESSION payment charges card once BLOCKED" width="880">
+</p>
 
 ### The evidence chain (why should I trust this verdict?)
 
