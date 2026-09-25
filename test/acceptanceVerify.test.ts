@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import http from "node:http";
 import { execSync } from "node:child_process";
 import {
   verifyAcceptance,
@@ -108,6 +109,27 @@ function makeContract(dir: string, json = contractJson()): string {
   void dir;
   return path.join(suite, "acceptance.json");
 }
+
+test("an already-running service cannot impersonate the candidate worktree", async () => {
+  let requests = 0;
+  const server = http.createServer((_req, res) => { requests++; res.end("hello ada"); });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const port = (server.address() as import("node:net").AddressInfo).port;
+  const repo = initRepo(SERVER_GOOD, FEATURE_GOOD);
+  const contract = makeContract(repo, contractJson({}, port));
+  try {
+    const result = await verifyAcceptance({ repo, contractSpec: contract });
+    assert.equal(result.verdict, "UNPROVEN");
+    assert.ok(result.evidence.filter((e) => e.type === "http").every((e) => e.pass === null));
+    assert.match(result.evidence.find((e) => e.type === "http")!.observed, /already responds/);
+    assert.equal(requests, 1, "only a readiness preflight, never criteria against the unrelated service");
+  } finally {
+    server.closeAllConnections();
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+    fs.rmSync(repo, { recursive: true, force: true });
+    fs.rmSync(path.dirname(contract), { recursive: true, force: true });
+  }
+});
 
 test("1+7 — all criteria pass (baseline discriminates) → SATISFIED", async () => {
   const repo = initRepo(SERVER_BROKEN, FEATURE_BROKEN);

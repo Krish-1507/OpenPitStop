@@ -1,3 +1,4 @@
+import { candidateRun, type CandidateBinding } from "../candidate.js";
 import fs from "node:fs";
 import path from "node:path";
 import { seal, checkEvidence, type OpenPitStopEvidence, type EvidenceCheck } from "../evidence.js";
@@ -60,6 +61,7 @@ export interface StackLayerResult {
 export type StackVerdict = "STACK_PASS" | "STACK_FAIL" | "STACK_UNPROVEN";
 
 export interface StackResult {
+  candidateBinding?: CandidateBinding | null;
   repo: string;
   generatedAt: string;
   layers: StackLayerResult[];
@@ -123,7 +125,7 @@ function layerCommand(u: RepoUnderstanding, kind: StackLayerKind): string | null
   return (u.verificationCommands as Record<string, string | undefined>)[kind] ?? null;
 }
 
-export async function runVerifyStack(opts: {
+async function runVerifyStackImpl(opts: {
   repo: string;
   timeoutMs?: number;
   only?: StackLayerKind[];
@@ -244,6 +246,7 @@ export function sealStackResult(result: StackResult): StackResult {
   const doc = seal({
     timestamp: result.generatedAt,
     repo: result.repo,
+    candidateBinding: result.candidateBinding,
     layers: result.layers,
     verdict: result.verdict,
     reasons: result.reasons,
@@ -261,4 +264,8 @@ export function checkStackEvidence(file: string): EvidenceCheck {
   } catch (e: any) {
     return { status: "tampered", digest: "", reason: e.message };
   }
+}
+
+export function runVerifyStack(opts: Parameters<typeof runVerifyStackImpl>[0]): ReturnType<typeof runVerifyStackImpl> {
+  return candidateRun(opts.repo, () => runVerifyStackImpl(opts));
 }

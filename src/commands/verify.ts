@@ -1,3 +1,4 @@
+import { candidateRun } from "../candidate.js";
 import { Command } from "commander";
 import chalk from "chalk";
 import boxen from "boxen";
@@ -30,6 +31,7 @@ interface IntegrityGate {
 type Risk = "Low" | "Medium" | "High";
 
 export interface VerifyOutcome {
+  candidateBinding?: import("../candidate.js").CandidateBinding | null;
   repo: string;
   missingBaseline: boolean;
   baselineTimestamp?: string;
@@ -154,7 +156,7 @@ function currentScoreOf(
  * the baseline's evidence signature, and write a sealed verify report. Returns
  * everything a renderer needs plus the exit code to propagate.
  */
-export async function runVerify(repo: string): Promise<VerifyOutcome> {
+async function runVerifyImpl(repo: string): Promise<VerifyOutcome> {
   const baselineResult = readBaseline(repo);
   if (!baselineResult) {
     const outcome: VerifyOutcome = {
@@ -555,3 +557,6 @@ export const verify = new Command("verify")
 
     process.exitCode = outcome.exitCode;
   });
+export function runVerify(...args: Parameters<typeof runVerifyImpl>): ReturnType<typeof runVerifyImpl> {
+  return candidateRun(args[0], () => runVerifyImpl(...args));
+}

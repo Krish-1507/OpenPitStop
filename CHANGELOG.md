@@ -2,6 +2,51 @@
 
 All notable changes to this project are documented here.
 
+## [1.10.0] - 2026-09-25
+
+### Added
+
+- Candidate bindings captured before verification: source/Git/policy/engine changes and
+  stale commit refs invalidate historical passing gate and explanation layers.
+- Required Linux Docker isolation for live pen, ledger and security repros: no external
+  network, sanitized input copy, read-only mounts, non-root execution and resource limits.
+- One shared external-agent call/time/prompt budget, persisted reservations, concurrent
+  and nested session refusal, repeated-failure stopping and safe quoted argv parsing.
+- Optional Claude-native dollar allowance divided across the entire drive session;
+  unsupported providers refuse requested dollar ceilings.
+- `/pitstop find vulnerabilities in this repo` and find-and-fix routing, plus Linux CI
+  fixtures for raw TCP/UDP, subprocess bypasses, host secrets and container app boot.
+
+- Natural-language execution for repository understanding, architecture, verification,
+  security, evidence and progress. Local routing uses no model calls; `--dry-run` and
+  `--json` preview, while `--execute` explicitly enables writes/live attacks/agent runs.
+- `gate --strict`: insufficient evidence returns nonzero. Natural-language release
+  requests select strict mode.
+- Content-bound scan reuse, seal and option validation, pre/post snapshots and one-hour
+  expiry. Quick, stale, modified or incompatible results cannot replace full scans.
+- Regression coverage for routing, cache invalidation, pen JSON semantics, patch scope,
+  actual proof fields, current-stage failures and unrelated HTTP readiness responders.
+
+### Fixed
+
+- Autopilot now generates its fixes, uses only current patches, checks protected paths
+  and plan scope, creates a branch for source edits, rechecks security and runs the
+  stack/architecture/security gate. Failed verification returns a failure exit.
+- Static pen findings survive missing app startup; JSON preserves failure exits and fix
+  generation. Gate recognizes the actual runtime proof fields and incomplete live runs.
+- Flow forwards baselines to acceptance/holdout and cannot hide a failed current stage
+  behind historical passing evidence.
+- Acceptance refuses an already-running service at the readiness URL and bounds response
+  body reading. Short newline-terminated files generate valid patch context.
+- Activity accounting excludes latest-file aliases and stops calling cache entries savings.
+
+### Documentation
+
+- Repositioned the README around the complete engineering workflow, with sentence-first
+  onboarding, source-backed comparisons and explicit execution/evidence limitations.
+- Added `docs/engineering-review.md` with the audit, research and prioritized release work.
+- Clarified privacy boundaries for external tools, agent providers and repository scripts.
+
 ## [1.9.0] - 2026-08-25
 
 The **deep verification & repo discipline release**: the referee no longer

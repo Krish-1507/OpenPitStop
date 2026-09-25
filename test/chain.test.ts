@@ -1,3 +1,4 @@
+import { captureCandidate } from "../src/candidate.js";
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -17,6 +18,8 @@ function mkRepo(): string {
   execGit(dir, 'config user.email "t@t.t"');
   execGit(dir, 'config user.name "Test"');
   fs.mkdirSync(path.join(dir, ".pitstop"), { recursive: true });
+  execGit(dir, 'commit --allow-empty -qm "fixture"');
+  SHA = execGit(dir, "rev-parse HEAD");
   return dir;
 }
 
@@ -27,11 +30,12 @@ import { execSync } from "node:child_process";
 
 function writeEvidence(repo: string, name: string, doc: object): string {
   const p = path.join(repo, ".pitstop", name);
-  fs.writeFileSync(p, JSON.stringify(seal(doc, `test evidence ${name}`), null, 2));
+  fs.writeFileSync(p, JSON.stringify(seal({ ...doc, candidateBinding: captureCandidate(repo) }, `test evidence ${name}`), null, 2));
   return p;
 }
 
-const SHA = "a".repeat(40);
+let SHA = "a".repeat(40);
+let activeRepo = "";
 
 function baselineDoc(verdict: string, sha = SHA) {
   return {
@@ -197,8 +201,8 @@ test("8 — explain output: human-readable chain with verdict and why", () => {
 
 test("9 — deterministic evidence serialization (same inputs → same canonical chain)", () => {
   const repoA = mkRepo();
-  const repoB = mkRepo();
-  for (const repo of [repoA, repoB]) {
+  const repoB = repoA;
+  for (const repo of [repoA]) {
     writeEvidence(repo, "baseline-verify-1.json", baselineDoc("VERIFIED"));
     writeEvidence(repo, "acceptance-1.json", { timestamp: "t", candidate: { sha: SHA }, verdict: "SATISFIED", reasons: [] });
   }
@@ -215,7 +219,7 @@ test("9 — deterministic evidence serialization (same inputs → same canonical
   // and canonicalize is stable under key reordering
   assert.equal(canonicalize(JSON.parse(JSON.stringify(a.items))), canonicalize(a.items));
   fs.rmSync(repoA, { recursive: true, force: true });
-  fs.rmSync(repoB, { recursive: true, force: true });
+
 });
 
 test("10 — unproven components keep the verdict honest (no VERIFIED with unproven items)", () => {

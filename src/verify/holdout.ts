@@ -1,3 +1,4 @@
+import { candidateRun, type CandidateBinding } from "../candidate.js";
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
@@ -75,6 +76,7 @@ export type HoldoutVerdict =
   | "HOLDOUT_INTEGRITY_FAILURE";
 
 export interface HoldoutResult {
+  candidateBinding?: CandidateBinding | null;
   repo: string;
   suiteId: string;
   suiteDir: string;
@@ -221,7 +223,7 @@ export interface HoldoutExecDetail {
   durationMs: number;
 }
 
-export async function runHoldoutSuite(opts: {
+async function runHoldoutSuiteImpl(opts: {
   repo: string;
   suiteSpec: string;
   baselineRef?: string;
@@ -423,6 +425,7 @@ export function sealHoldoutResults(
       timestamp: new Date().toISOString(),
       kind: "openpitstop-holdout-full-evidence",
       repo: result.repo,
+    candidateBinding: result.candidateBinding,
       suite: {
         id: result.suiteId,
         dir: result.suiteDir,
@@ -455,7 +458,8 @@ export function sealHoldoutResults(
       timestamp: new Date().toISOString(),
       kind: "openpitstop-holdout-summary",
       repo: result.repo,
-      suite: { id: result.suiteId, hash: result.suiteHash },
+    candidateBinding: result.candidateBinding,
+      suite: { id: result.suiteId, dir: result.suiteDir, hash: result.suiteHash },
       baseline: {
         ref: result.baselineRef,
         sha: result.baselineSha,
@@ -491,4 +495,8 @@ export function checkHoldoutEvidence(file: string): EvidenceCheck {
   } catch (e: any) {
     return { status: "tampered", digest: "", reason: e.message };
   }
+}
+
+export function runHoldoutSuite(opts: Parameters<typeof runHoldoutSuiteImpl>[0]): ReturnType<typeof runHoldoutSuiteImpl> {
+  return candidateRun(opts.repo, () => runHoldoutSuiteImpl(opts));
 }

@@ -1,3 +1,4 @@
+import { activeCandidate } from "./candidate.js";
 import { createHash } from "node:crypto";
 
 /**
@@ -43,6 +44,8 @@ export function digestOf(value: unknown): string {
 
 /** Attach a signed evidence block to a document (returns the document itself). */
 export function seal<T extends object>(doc: T, of: string): T & { evidence: OpenPitStopEvidence } {
+  const binding = activeCandidate();
+  if (!("candidateBinding" in doc) && binding !== undefined) doc = { ...doc, candidateBinding: binding };
   const evidence: OpenPitStopEvidence = {
     scheme: "pitstop-canonical-sha256-v1",
     digest: digestOf(doc),

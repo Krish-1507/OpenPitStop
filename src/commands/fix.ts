@@ -1,142 +1,110 @@
 import { Command } from "commander";
 import chalk from "chalk";
-import boxen from "boxen";
 import path from "node:path";
 import fs from "node:fs";
 import { execFileSync } from "node:child_process";
 import { runScan } from "./scan.js";
-import { runPen } from "./pen.js";
-import { runVerify } from "./verify.js";
-import { gateOutcome, renderGateBox } from "./gate.js";
-import { printNextCard, celebrateCard } from "./next.js";
-import { brandBanner } from "../brand.js";
+import { runPen, penExitCode } from "./pen.js";
+import { persistPen } from "../pen/store.js";
+import { runFixes, type PenFixOutcome } from "../pen/fix.js";
+import { buildUnderstanding, sealUnderstanding, globMatches } from "../understand/index.js";
+import { createPlan, loadLatestPlan, checkPlanScope } from "../verify/plan.js";
+import { runFlow, renderFlowStages } from "../verify/flow.js";
+import { renderGateMatrix } from "../verify/gateMatrix.js";
+import { printNextCard } from "./next.js";
 
-/**
- * `pitstop fix` — the one-command autopilot.
- *
- * Chains scan → pen --fix (writes failing-first repro tests + deterministic
- * patches, then `git apply`s the safe ones) → verify → gate, printing the
- * `pitstop next` card between hops so the user always sees where they are.
- * Every step writes a sealed `.pitstop/` artifact — the fix is evidenced, not
- * asserted. If the gate passes clean, it finishes with the celebration card.
- */
-function applyPatches(repo: string): number {
-  const dir = path.join(repo, ".pitstop", "pen-patches");
-  if (!fs.existsSync(dir)) return 0;
-  const diffs = fs.readdirSync(dir).filter((f) => f.endsWith(".diff"));
+/** Only apply patches returned by THIS run, never old files in pen-patches/. */
+export function applyCurrentPatches(repo: string, patches: PenFixOutcome["patches"]): { applied: number; refused: string[] } {
+  const understanding = buildUnderstanding(repo);
+  const plan = loadLatestPlan(repo);
   let applied = 0;
-  for (const d of diffs) {
-    try {
-      execFileSync("git", ["apply", "--whitespace=nowarn", path.join(dir, d)], {
-        cwd: repo,
-        stdio: "ignore",
-      });
-      applied++;
-    } catch {
-      /* leave for the agent / human to apply manually */
-    }
-  }
-  return applied;
-}
-
-const SKIP = new Set(["node_modules", ".git", ".pitstop", "dist", "coverage", "build", ".next"]);
-
-function countRepros(repo: string): number {
-  let n = 0;
-  const stack = [repo];
-  while (stack.length) {
-    const dir = stack.pop()!;
-    let ents: fs.Dirent[];
-    try {
-      ents = fs.readdirSync(dir, { withFileTypes: true });
-    } catch {
+  const refused: string[] = [];
+  for (const patch of patches) {
+    const absolute = path.resolve(repo, patch.file);
+    const relative = path.relative(repo, absolute).replace(/\\/g, "/");
+    const sensitive = /(^|\/)(auth|authentication|deploy|infra|\.github)(\/|\.)|(^|\/)\.env|(^|\/)(package(-lock)?\.json|.*lock.*)$/i;
+    const declared = [...(understanding.architecture.protected ?? []), ...(understanding.architecture.forbidden ?? [])];
+    if (!relative || relative.startsWith("../") || path.isAbsolute(relative) || sensitive.test(relative) || declared.some((r) => globMatches(r.path, relative))) {
+      refused.push(`${patch.file}: protected, forbidden or outside the repository; review the patch manually`);
       continue;
     }
-    for (const e of ents) {
-      if (e.name === ".git" || SKIP.has(e.name)) continue;
-      if (e.isDirectory()) stack.push(path.join(dir, e.name));
-      else if (/pitstop-repro-.*\.test\./.test(e.name)) n++;
+    if (!plan || plan.check.status !== "verified" || checkPlanScope(plan.plan, [relative]).unplanned.length) {
+      refused.push(`${patch.file}: no trusted plan authorizes this path`);
+      continue;
     }
+    const diff = path.resolve(repo, patch.diffPath);
+    const patchRoot = path.join(repo, ".pitstop", "pen-patches") + path.sep;
+    if (!diff.startsWith(patchRoot)) { refused.push(`${patch.file}: patch outside generated patch directory`); continue; }
+    try {
+      execFileSync("git", ["apply", "--check", "--", diff], { cwd: repo, stdio: "pipe", windowsHide: true });
+      execFileSync("git", ["apply", "--whitespace=nowarn", "--", diff], { cwd: repo, stdio: "pipe", windowsHide: true });
+      applied++;
+    } catch { refused.push(`${patch.file}: patch did not apply; left for manual review`); }
   }
-  return n;
+  return { applied, refused };
+}
+
+export function fixExitCode(gateExit: number, securityExit: number, refused: number): number {
+  return gateExit === 2 ? 2 : gateExit !== 0 || securityExit !== 0 || refused > 0 ? 1 : 0;
 }
 
 export const fix = new Command("fix")
-  .description(
-    "Autopilot: scan → pen --fix (applies safe patches) → verify → gate, with the next card driving " +
-      "each hop. Fully evidenced — every step writes a sealed .pitstop/ artifact.",
-  )
+  .description("Understand → scan → generate supported fixes → plan → apply → recheck security → verification stack and gate. No LLM calls.")
   .argument("[repo]", "path to the repo", ".")
-  .option("--score <n>", "gate threshold (default 60)", "60")
-  .option("--no-apply", "write repro tests + patches but don't git apply them", false)
-  .action(async (repoArg: string, options: { score?: string; apply?: boolean }) => {
+  .option("--score <n>", "gate threshold from 0 to 100", "60")
+  .option("--no-apply", "write repro tests and patches for review without applying source patches")
+  .action(async (repoArg: string, options: { score: string; apply: boolean }) => {
     const repo = path.resolve(repoArg);
-    const threshold = Math.max(0, Math.min(100, Math.floor(Number(options.score) || 60)));
-    const apply = options.apply !== false;
+    const threshold = Number(options.score);
+    if (!Number.isFinite(threshold) || threshold < 0 || threshold > 100) throw new Error("--score must be a number from 0 to 100");
 
-    console.log(brandBanner());
-    console.log(chalk.cyan.bold("\nAutopilot engaged — scan → pen --fix → verify → gate\n"));
-
-    // 1/4 scan
-    console.log(chalk.bold.cyan("1/4  Scanning baseline…"));
-    const { result } = await runScan(repo, { reliabilityRuns: 1 });
-    console.log(
-      `    ${chalk.bold("Score")} ${result.security?.issues?.length ? chalk.yellow(result.security.issues.length + " security") : chalk.green("no security")} · ` +
-        `${result.clusters?.length ?? 0} cluster(s) · ${result.tests?.failed ?? 0} failing test(s)`,
-    );
-
-    // 2/4 pen --fix
-    console.log(chalk.bold.cyan("\n2/4  Pen-testing & writing fixes…"));
-    await runPen(repo, { fix: true } as any);
-    const penDir = path.join(repo, ".pitstop", "pen-patches");
-    const patchCount = fs.existsSync(penDir)
-      ? fs.readdirSync(penDir).filter((f) => f.endsWith(".diff")).length
-      : 0;
-    const reproCount = countRepros(repo);
-    let applied = 0;
-    if (apply) {
-      applied = applyPatches(repo);
-      console.log(
-        `    wrote ${reproCount} repro test(s), ${patchCount} patch(es)` +
-          (patchCount ? ` · git-applied ${applied}/${patchCount}` : ""),
-      );
-    } else {
-      console.log(`    wrote ${reproCount} repro test(s), ${patchCount} patch(es) (--no-apply)`);
+    // Refuse to mix automatic edits into an existing change. No reset/stash/commit.
+    if (options.apply) {
+      let status: string;
+      try {
+        status = execFileSync("git", ["status", "--porcelain", "--untracked-files=normal"], { cwd: repo, encoding: "utf8", stdio: "pipe", windowsHide: true });
+      } catch { throw new Error("Automatic patching needs a git repository. Use --no-apply to generate patches for review."); }
+      if (status.trim()) throw new Error("Automatic patching needs a clean working tree. Commit or stash your changes yourself, or use --no-apply.");
+      // Isolate patches from the current branch; never commit or push automatically.
+      const branch = `pitstop/fix-${Date.now()}`;
+      execFileSync("git", ["switch", "-c", branch], { cwd: repo, stdio: "pipe", windowsHide: true });
+      console.log(chalk.dim(`Working on ${branch}`));
     }
 
-    // 3/4 verify
-    console.log(chalk.bold.cyan("\n3/4  Verifying the fix…"));
-    const v = await runVerify(repo);
-    if (v.missingBaseline) {
-      console.log(chalk.yellow("    no baseline to verify against — run `pitstop scan` first."));
-    } else {
-      console.log(
-        `    risk ${v.risk} · score ${v.currentScore.score}/100 (${v.currentScore.grade}) · integrity ${v.integrity.verdict}`,
-      );
+    console.log(chalk.cyan("1/5  Understanding the repository and measuring the baseline…"));
+    sealUnderstanding(repo, buildUnderstanding(repo));
+    await runScan(repo, { reliabilityRuns: 1 });
+
+    console.log(chalk.cyan("2/5  Testing security and generating supported repros and patches…"));
+    const before = await runPen(repo, {});
+    persistPen(repo, before);
+    const fixes = runFixes(repo, before, before.packages);
+    fs.writeFileSync(path.join(repo, "PITSTOP_PEN_FIXES.md"), fixes.fixesMd);
+
+    const expected = [...new Set([...fixes.patches.map((p) => p.file), ...fixes.repros.map((r) => path.isAbsolute(r.file) ? path.relative(repo, r.file).replace(/\\/g, "/") : r.file), "PITSTOP_*.md", ".pitstop/**"])];
+    if (!loadLatestPlan(repo)) {
+      const plan = createPlan(repo, { id: `fix-${Date.now()}`, goal: "Apply supported security patches and independently recheck the result",
+        steps: ["Generate repros and review patch scope", "Apply supported patches", "Re-run security and the verification stack"],
+        expectedPaths: expected, verification: { commands: ["pitstop pen", "pitstop flow --require stack,architecture,security"] } });
+      if ("error" in plan) throw new Error(plan.error);
     }
 
-    // 4/4 gate
-    console.log(chalk.bold.cyan("\n4/4  Gating (score >= " + threshold + "/100)…"));
-    if (v.missingBaseline) {
-      console.log(chalk.yellow("    skipped — no baseline."));
-    } else {
-      const g = gateOutcome(v, threshold);
-      console.log(renderGateBox(v, g, threshold));
-    }
+    console.log(chalk.cyan(`3/5  ${options.apply ? "Applying planned patches" : "Keeping patches for review"}…`));
+    const applied = options.apply ? applyCurrentPatches(repo, fixes.patches) : { applied: 0, refused: [] };
+    console.log(`${fixes.repros.length} repro(s), ${fixes.patches.length} patch(es), ${applied.applied} applied.`);
+    for (const refusal of applied.refused) console.log(chalk.yellow(refusal));
 
-    // Finish: celebrate if clean, else hand off with the next card.
-    const clean =
-      !v.missingBaseline &&
-      gateOutcome(v, threshold).pass &&
-      (v.currentScore.score ?? 0) >= threshold &&
-      v.risk !== "High";
-    console.log("");
-    if (clean) {
-      await celebrateCard();
-    } else {
-      console.log(chalk.dim("Autopilot done for this pass — here's what's still open:\n"));
-      await printNextCard(repo);
-    }
+    console.log(chalk.cyan("4/5  Rechecking security after the change…"));
+    const after = applied.applied > 0 ? await runPen(repo, {}) : before;
+    if (after !== before) persistPen(repo, after);
+
+    console.log(chalk.cyan("5/5  Running tests, types, lint, build, architecture and the evidence gate…"));
+    const flow = await runFlow({ repo, threshold, planScope: true, require: ["stack", "architecture", "security"] });
+    console.log(renderFlowStages(flow.stages));
+    console.log(renderGateMatrix(flow.decision));
+    process.exitCode = fixExitCode(flow.gateExit, penExitCode(after), applied.refused.length);
+    console.log(chalk.bold(`Result: ${flow.verdict}. ${process.exitCode === 0 ? "Configured checks passed; review the evidence and remaining findings." : "Open issues remain; do not ship this state."}`));
+    await printNextCard(repo);
   });
 
 export default fix;

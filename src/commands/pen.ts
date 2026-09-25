@@ -1,3 +1,4 @@
+import { candidateRun } from "../candidate.js";
 import { Command } from "commander";
 import chalk from "chalk";
 import path from "node:path";
@@ -25,10 +26,8 @@ export interface PenOptions {
  * under the pen sandbox and attacked. Everything is recorded, everything is
  * sealed, and `--fix` turns every replayable finding into a regression test.
  */
-export async function runPen(repo: string, opts: PenOptions): Promise<PenResult> {
-  const staticStart = Date.now();
+async function runPenImpl(repo: string, opts: PenOptions): Promise<PenResult> {
   const staticOutcome = analyzeStatic(repo);
-  const staticMs = Date.now() - staticStart;
 
   // Previous sealed run, for drift detection (read before we overwrite it).
   const prev = loadPenLatest(repo);
@@ -38,8 +37,8 @@ export async function runPen(repo: string, opts: PenOptions): Promise<PenResult>
   let dynamicEnabled = !opts.staticOnly;
   let staticProof: PenResult["staticProof"] | undefined;
   let dynamic: PenResult["dynamic"] = {
-    status: "ok",
-    note: undefined,
+    status: opts.staticOnly ? "skipped" : "ok",
+    note: opts.staticOnly ? "static-only requested; no app was started" : undefined,
     routesProbed: 0,
     attacks: 0,
     bootMs: 0,
@@ -60,7 +59,7 @@ export async function runPen(repo: string, opts: PenOptions): Promise<PenResult>
         return false;
       }
     })();
-  if (!hasApp && staticOutcome.routes.length === 0) {
+  if (dynamicEnabled && !hasApp && !process.env.PITSTOP_START && staticOutcome.routes.length === 0) {
     const d: PenResult["dynamic"] = {
       status: "aborted",
       note: "no app to attack — no `start` script and no routes found",
@@ -75,27 +74,27 @@ export async function runPen(repo: string, opts: PenOptions): Promise<PenResult>
       repo,
       mode: "pen",
       staticEnabled: true,
-      dynamicEnabled: false,
+      dynamicEnabled: true,
       dynamic: d,
-      staticProof: { proven: 0, indicated: 0, unproven: 0, notTested: 0 },
+      staticProof: applyStaticProof(staticFindings, { status: "aborted", note: d.note, findings: [] }).summary,
       packages: staticOutcome.packages,
-      findings: [],
-      summary: { critical: 0, high: 0, medium: 0, low: 0, info: 0, proven: 0, indicated: 0, heuristic: 0 },
+      findings: applyStaticProof(staticFindings, { status: "aborted", note: d.note, findings: [] }).findings,
+      summary: summarizeFindings(staticFindings),
     };
     return result;
   }
 
   const findings: PenFinding[] = [];
   if (dynamicEnabled) {
-    const spin = createSpinner(
+    const spin = opts.json ? null : createSpinner(
       `Booting the app under the pen sandbox and attacking ${staticOutcome.routes.length} route(s)…`,
     );
     try {
       const d = await runDynamic(repo, staticOutcome.routes);
       if (d.status === "aborted") {
-        spin.warn(`Dynamic phase aborted — ${d.note ?? "app did not respond"}`);
+        spin?.warn(`Dynamic phase aborted — ${d.note ?? "app did not respond"}`);
       } else {
-        spin.succeed(`Dynamic phase done — ${d.routesProbed} routes, ${d.attacks} attacks`);
+        spin?.succeed(`Dynamic phase done — ${d.routesProbed} routes, ${d.attacks} attacks`);
       }
       const proof = applyStaticProof(staticFindings, d);
       findings.push(...proof.findings, ...d.findings);
@@ -110,7 +109,7 @@ export async function runPen(repo: string, opts: PenOptions): Promise<PenResult>
         outboundEvents: d.outboundEvents,
       };
     } catch (err: any) {
-      spin.fail("Dynamic phase failed");
+      spin?.fail("Dynamic phase failed");
       const d = { status: "aborted" as const, note: (err as Error).message, findings: [] };
       const proof = applyStaticProof(staticFindings, d);
       findings.push(...proof.findings);
@@ -149,6 +148,12 @@ export async function runPen(repo: string, opts: PenOptions): Promise<PenResult>
   };
 }
 
+export function penExitCode(result: PenResult): number {
+  if (result.summary.critical + result.summary.high > 0 || result.drift?.regression) return 1;
+  if (result.dynamicEnabled && result.dynamic.status !== "ok") return 2;
+  return 0;
+}
+
 export const pen = new Command("pen")
   .description(
     "Penetration test your own app: static heuristics (secrets, taint, config hygiene) plus a LIVE " +
@@ -177,9 +182,8 @@ export const pen = new Command("pen")
       if (!options.static) {
         console.log(
           chalk.dim(
-            "  The dynamic phase boots the app's `start` script under a sandbox that intercepts all\n" +
-              "  outbound HTTP and records every spawn. Nothing reaches the real network. Raw sockets are\n" +
-              "  blocked; child processes run and are logged (it is your own start script).\n",
+            "  Live attacks run in a disposable Docker container with external networking disabled.\n" +
+              "  The app receives a sanitized copy; host credentials and source write access are excluded.\n",
           ),
         );
       }
@@ -192,28 +196,17 @@ export const pen = new Command("pen")
       html: options.html,
     });
 
-    // Friendly early abort (no app to boot, nothing to attack): one line and a
-    // hint, no report ceremony, exit 2.
-    if (!result.dynamicEnabled && result.dynamic.status === "aborted") {
-      console.log(chalk.yellow(`\nPen aborted: ${result.dynamic.note}.`));
-      console.log(
-        chalk.dim(
-          "hint: point me at an app — a package.json with a `start` script (or PITSTOP_START) —\n" +
-            "so the dynamic phase has something to boot and attack.\n",
-        ),
-      );
-      if (options.json) console.log(JSON.stringify(result, null, 2));
-      process.exitCode = 2;
-      return;
-    }
-
     const { file } = persistPen(repo, result);
+    process.exitCode = penExitCode(result);
 
     const md = renderPenMarkdown(result);
     fs.writeFileSync(path.join(repo, "PITSTOP_PEN_REPORT.md"), md, "utf8");
     if (options.html) {
       fs.writeFileSync(path.join(repo, "PITSTOP_PEN_REPORT.html"), renderPenHtml(result), "utf8");
     }
+
+    const fixes = options.fix ? runFixes(repo, result, result.packages) : undefined;
+    if (fixes) fs.writeFileSync(path.join(repo, "PITSTOP_PEN_FIXES.md"), fixes.fixesMd, "utf8");
 
     if (options.json) {
       console.log(JSON.stringify(result, null, 2));
@@ -230,9 +223,8 @@ export const pen = new Command("pen")
       ),
     );
 
-    if (options.fix) {
-      const outcome = runFixes(repo, result, result.packages);
-      fs.writeFileSync(path.join(repo, "PITSTOP_PEN_FIXES.md"), outcome.fixesMd, "utf8");
+    if (fixes) {
+      const outcome = fixes;
       console.log(chalk.green(`\n--fix: wrote ${outcome.repros.length} repro test(s), ${outcome.patches.length} patch(es)`));
       for (const r of outcome.repros) {
         console.log(chalk.dim(`  repro: ${r.file} (fails now → passes after the fix)`));
@@ -242,16 +234,6 @@ export const pen = new Command("pen")
       }
       console.log(chalk.dim(`  plan: ${path.join(repo, "PITSTOP_PEN_FIXES.md")}`));
     }
-
-    // Exit contract: 0 = no high/critical findings, 1 = high/critical present,
-    // 2 = pen could not meaningfully run (dynamic aborted with nothing found).
-    if (result.summary.critical + result.summary.high > 0) process.exitCode = 1;
-    else if (result.dynamicEnabled && result.dynamic.status === "aborted" && result.findings.length === 0) {
-      process.exitCode = 2;
-    }
-    // A regression (new high/critical, or a hypothesis the live attack just
-    // confirmed) since the last sealed run always fails the gate.
-    if (result.drift?.regression) process.exitCode = 1;
 
     if (result.drift) {
       const d = result.drift;
@@ -272,3 +254,7 @@ export const pen = new Command("pen")
   });
 
 export default pen;
+
+export function runPen(...args: Parameters<typeof runPenImpl>): ReturnType<typeof runPenImpl> {
+  return candidateRun(args[0], () => runPenImpl(...args));
+}

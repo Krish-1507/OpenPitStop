@@ -104,7 +104,10 @@ function findExpressAppFile(repo: string): { file: string; line: number; lineTex
 
 function readLines(file: string): string[] {
   try {
-    return fs.readFileSync(file, "utf8").split(/\r?\n/);
+    const lines = fs.readFileSync(file, "utf8").split(/\r?\n/);
+    // The terminator after the final real line is not an extra context line.
+    if (lines.at(-1) === "") lines.pop();
+    return lines;
   } catch {
     return [];
   }

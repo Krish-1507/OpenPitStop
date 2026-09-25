@@ -1,3 +1,4 @@
+import { candidateRunSync, type CandidateBinding } from "../candidate.js";
 import fs from "node:fs";
 import path from "node:path";
 import { createHash } from "node:crypto";
@@ -75,6 +76,7 @@ function headSha(repo: string): string | null {
 }
 
 export interface StateVerifyResult {
+  candidateBinding?: CandidateBinding | null;
   repo: string;
   /** HEAD commit SHA at verification time (null outside a git repo). */
   commitSha: string | null;
@@ -231,7 +233,7 @@ function listWorkingTreeChanges(repo: string): string[] {
  *   2. git HEAD content (tracked files only)
  *   3. unknown → claims that require a before-state become UNPROVEN
  */
-export function verifyStateClaims(
+function verifyStateClaimsImpl(
   repo: string,
   claims: StateClaim[],
   opts: { before?: Record<string, FileSnapshot> } = {},
@@ -439,6 +441,7 @@ export function sealStateResult(result: StateVerifyResult): StateVerifyResult {
   const doc = {
     timestamp: new Date().toISOString(),
     repo: result.repo,
+    candidateBinding: result.candidateBinding,
     commitSha: result.commitSha,
     claims: result.claims,
     results: result.results,
@@ -499,4 +502,8 @@ export function parseClaim(s: string): StateClaim | null {
   const m = s.match(/^(created|modified|deleted)\s*:\s*(.+)$/);
   if (!m) return null;
   return { op: m[1] as ClaimOp, path: m[2].trim() };
+}
+
+export function verifyStateClaims(...args: Parameters<typeof verifyStateClaimsImpl>): StateVerifyResult {
+  return candidateRunSync(args[0], () => verifyStateClaimsImpl(...args));
 }

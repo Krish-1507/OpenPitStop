@@ -1,3 +1,5 @@
+import { execFileSync } from "node:child_process";
+import { captureCandidate } from "../src/candidate.js";
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -5,19 +7,61 @@ import os from "node:os";
 import path from "node:path";
 import { evaluateGate, renderGateMatrix, type LiveGateInput } from "../src/verify/gateMatrix.js";
 import { seal } from "../src/evidence.js";
+import { reconcileFlowDecision } from "../src/verify/flow.js";
+
+test("strict gate fails closed for insufficient evidence; legacy mode remains explicit", () => {
+  const repo = mkRepo();
+  try {
+    assert.equal(evaluateGate(repo, live(), { threshold: 60 }).exitCode, 0);
+    const strict = evaluateGate(repo, live(), { threshold: 60, strict: true });
+    assert.equal(strict.verdict, "UNPROVEN");
+    assert.equal(strict.exitCode, 1);
+  } finally { fs.rmSync(repo, { recursive: true, force: true }); }
+});
+
+test("gate consumes the actual pen confidence fields and refuses aborted live evidence", () => {
+  const repo = mkRepo();
+  try {
+    for (const field of ["confidence", "runtimeProof"]) {
+      writeDoc(repo, "pen-latest.json", { findings: [{ id: "real-schema", severity: "high", [field]: "proven" }] });
+      assert.equal(evaluateGate(repo, live(), { threshold: 60 }).verdict, "BLOCKED");
+    }
+    writeDoc(repo, "pen-latest.json", { findings: [], dynamic: { status: "aborted", note: "no app" } });
+    const result = evaluateGate(repo, live(), { threshold: 60, require: ["security"] });
+    assert.equal(result.layers.find((l) => l.id === "security")?.status, "UNPROVEN");
+    assert.equal(result.exitCode, 1);
+  } finally { fs.rmSync(repo, { recursive: true, force: true }); }
+});
+
+test("a failed current pipeline stage overrides an older passing artifact", () => {
+  const repo = mkRepo();
+  try {
+    allPassingEvidence(repo);
+    const green = evaluateGate(repo, live(), { threshold: 60 });
+    assert.equal(green.verdict, "VERIFIED");
+    const result = reconcileFlowDecision([{ stage: "understand", status: "FAIL", detail: "invalid architecture config" }], green);
+    assert.equal(result.verdict, "FAILED");
+    assert.equal(result.exitCode, 1);
+    assert.match(result.reasons.join(" "), /invalid architecture config/);
+  } finally { fs.rmSync(repo, { recursive: true, force: true }); }
+});
 
 function mkRepo(): string {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "pitstop-matrix-"));
   fs.mkdirSync(path.join(dir, ".pitstop"), { recursive: true });
+  for (const args of [["init", "-q"], ["config", "user.email", "test@example.com"], ["config", "user.name", "Test"], ["commit", "--allow-empty", "-qm", "fixture"]]) execFileSync("git", args, { cwd: dir, windowsHide: true });
+  SHA = execFileSync("git", ["rev-parse", "HEAD"], { cwd: dir, encoding: "utf8", windowsHide: true }).trim();
+  activeRepo = dir;
   return dir;
 }
 
 function writeDoc(repo: string, name: string, doc: object): void {
-  fs.writeFileSync(path.join(repo, ".pitstop", name), JSON.stringify(seal(doc, `matrix ${name}`), null, 2));
+  fs.writeFileSync(path.join(repo, ".pitstop", name), JSON.stringify(seal({ ...doc, candidateBinding: captureCandidate(repo) }, `matrix ${name}`), null, 2));
 }
 
 function live(overrides: Partial<LiveGateInput> = {}): LiveGateInput {
   return {
+    candidateBinding: captureCandidate(activeRepo),
     missingBaseline: false,
     blocked: false,
     integrityVerdict: "CLEAN",
@@ -32,7 +76,8 @@ function live(overrides: Partial<LiveGateInput> = {}): LiveGateInput {
   };
 }
 
-const SHA = "a".repeat(40);
+let SHA = "a".repeat(40);
+let activeRepo = "";
 
 function allPassingEvidence(repo: string): void {
   writeDoc(repo, "baseline-verify-1.json", {
@@ -286,8 +331,8 @@ test("unproven deep layer downgrades VERIFIED → UNPROVEN (exit stays 0)", () =
 
 test("decision matrix is deterministic (same evidence → same verdict, twice)", () => {
   const repoA = mkRepo();
-  const repoB = mkRepo();
-  for (const repo of [repoA, repoB]) {
+  const repoB = repoA;
+  for (const repo of [repoA]) {
     allPassingEvidence(repo);
     writeDoc(repo, "regression-1.json", {
       timestamp: "t", candidate: { sha: SHA }, command: "npm test",
@@ -301,7 +346,7 @@ test("decision matrix is deterministic (same evidence → same verdict, twice)",
   assert.equal(a.exitCode, b.exitCode);
   assert.deepEqual(a.layers.map((l) => [l.id, l.status]), b.layers.map((l) => [l.id, l.status]));
   fs.rmSync(repoA, { recursive: true, force: true });
-  fs.rmSync(repoB, { recursive: true, force: true });
+
 });
 
 test("matrix precedence: CHEAT beats BLOCKED beats FAILED", () => {

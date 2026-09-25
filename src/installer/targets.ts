@@ -28,7 +28,7 @@ export const SUBCOMMANDS: Subcommand[] = [
   { name: "menu", cli: "menu", description: "show a clickable menu card of every OpenPitStop action", special: "menu" },
   { name: "scan", cli: "scan", description: "measure the repo: score, secrets, deps, tests, duplication, a11y" },
   { name: "pen", cli: "pen --fix", description: "boot the app, fire real attacks, write failing-first repro tests + safe patches" },
-  { name: "fix", cli: "drive", description: "drive an agent to fix one root cause, tamper-evident" },
+  { name: "drive", cli: "drive", description: "drive an agent to fix one root cause, tamper-evident" },
   { name: "verify", cli: "verify", description: "re-run repros, diff against the sealed baseline, catch agent cheating" },
   { name: "gate", cli: "gate --score 60", description: "one-number contract for CI / pre-commit (0 clean, 1 issues, 2 suspicious)" },
   { name: "report", cli: "report", description: "generate a shareable HTML/markdown scorecard" },

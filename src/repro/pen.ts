@@ -286,6 +286,7 @@ export function generatePenRepro(repo: string, f: PenFinding): ReproOutcome {
     `test("pitstop repro ${f.id}: ${assertFinding.type} blocked on ${attack.path}", async () => {`,
     `  assert.ok(PRELOAD, "PITSTOP_PEN_PRELOAD not set — run this via \`npx openpitstop repro ${f.id}\`");`,
     ``,
+    `  assert.equal(process.env.PITSTOP_OS_SANDBOX, "docker", "live attack repro requires OS isolation: run pitstop repro instead of invoking this test directly");`,
     `  const start = resolveStart();`,
     `  const runDir = path.join(REPO, ".pitstop", "repro", new Date().toISOString().replace(/[:.]/g, "-"));`,
     `  mkdirSync(runDir, { recursive: true });`,

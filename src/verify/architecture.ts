@@ -1,3 +1,4 @@
+import { candidateRun, type CandidateBinding } from "../candidate.js";
 import fs from "node:fs";
 import path from "node:path";
 import { seal, checkEvidence, type OpenPitStopEvidence, type EvidenceCheck } from "../evidence.js";
@@ -42,6 +43,7 @@ export interface ArchitectureEntry {
 }
 
 export interface ArchitectureResult {
+  candidateBinding?: CandidateBinding | null;
   repo: string;
   from: string;
   to: string;
@@ -83,7 +85,7 @@ function resolveImport(repo: string, fromFile: string, spec: string): string | n
   return base; // unresolved — still check the literal path
 }
 
-export async function checkArchitecture(opts: {
+async function checkArchitectureImpl(opts: {
   repo: string;
   from?: string;
   to?: string;
@@ -280,6 +282,7 @@ export function sealArchitectureResult(result: ArchitectureResult): Architecture
   const doc = {
     timestamp: new Date().toISOString(),
     repo: result.repo,
+    candidateBinding: result.candidateBinding,
     from: result.from,
     to: result.to,
     configPath: result.configPath,
@@ -304,4 +307,8 @@ export function checkArchitectureEvidence(file: string): EvidenceCheck {
   } catch (e: any) {
     return { status: "tampered", digest: "", reason: e.message };
   }
+}
+
+export function checkArchitecture(opts: Parameters<typeof checkArchitectureImpl>[0]): ReturnType<typeof checkArchitectureImpl> {
+  return candidateRun(opts.repo, () => checkArchitectureImpl(opts));
 }

@@ -1,64 +1,50 @@
 import { Command } from "commander";
 import chalk from "chalk";
 import boxen from "boxen";
-import { matchIntent } from "../intent.js";
-import { brandHeader } from "../brand.js";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { execa } from "execa";
+import { matchIntent, INTENT_EXAMPLES } from "../intent.js";
 
-/**
- * `pitstop ask` — natural-language entry point. Tell it what you want in plain
- * English ("make this safe", "why is my score low") and it resolves to the
- * exact `pitstop` command, then prints a copy-paste block to run it.
- *
- * The slash-command templates route free-text `/pitstop <anything>` here so
- * users never need to remember command names.
- */
 export const askCmd = new Command("ask")
-  .description(
-    "Natural-language router: resolve a plain-English request to the right pitstop command. " +
-      'e.g. `pitstop ask "make this safe"` → `pitstop fix`.',
-  )
+  .description("Tell PitStop what to do in plain English. Local routing, no model credits. Checks run immediately; writes/live attacks need --execute.")
   .argument("<text...>", "what you want, in plain English")
-  .option("--json", "print machine-readable JSON")
-  .action((textArg: string[], options: { json?: boolean }) => {
+  .option("--repo <path>", "repository to work in", ".")
+  .option("--dry-run", "preview the command and its effects without running it")
+  .option("--execute", "allow the resolved write, live attack, installation or paid agent action")
+  .option("--json", "preview the routing decision as JSON (does not execute)")
+  .action(async (textArg: string[], options: { repo: string; dryRun?: boolean; execute?: boolean; json?: boolean }) => {
     const text = textArg.join(" ");
-    const match = matchIntent(text);
-
+    const resolved = matchIntent(text);
+    const repo = path.resolve(options.repo);
+    const needsExecution = !!resolved?.requiresExecution && !options.execute;
     if (options.json) {
-      console.log(JSON.stringify({ text, ...(match ?? { command: null, label: null }) }, null, 2));
+      console.log(JSON.stringify({ text, repo, ...(resolved ?? { command: null, label: null }),
+        needsExecution, executes: false, modelCalls: 0 }, null, 2));
+      if (!resolved) process.exitCode = 2;
       return;
     }
-
-    console.log(brandHeader());
-    if (!match) {
-      console.log(
-        boxen(
-          chalk.yellow("I couldn't map that to a command yet.\n\n") +
-            chalk.dim("Try one of: ") +
-            "\n  " +
-            chalk.cyan("pitstop ask \"make this safe\"") +
-            "\n  " +
-            chalk.cyan("pitstop ask \"why is my score low\"") +
-            "\n  " +
-            chalk.cyan("pitstop ask \"what's next\"") +
-            "\n  " +
-            chalk.cyan("pitstop ask \"is it verified\"") +
-            "\n  " +
-            chalk.cyan("pitstop menu") +
-            " — see every action",
-          { title: " PITSTOP — Ask ", titleAlignment: "center", borderStyle: "round", padding: 1, borderColor: "yellow" },
-        ),
-      );
+    if (!resolved) {
+      console.log(chalk.yellow("I couldn't safely resolve that request. Nothing ran. Try one action at a time:"));
+      console.log(INTENT_EXAMPLES.slice(0, 6).map((e) => `  pitstop ask "${e.phrase}"`).join("\n"));
+      process.exitCode = 2;
       return;
     }
-
-    console.log(
-      boxen(
-        `${chalk.bold("Understood: ")}${match.label}\n\n` +
-          `${chalk.bold("Run:")} ${chalk.cyan(match.command)}\n`,
-        { title: " PITSTOP — Ask ", titleAlignment: "center", borderStyle: "round", padding: 1, borderColor: "green" },
-      ),
-    );
-    console.log(chalk.dim("Run it:") + "\n```bash\n" + match.command + "\n```");
+    console.log(boxen(`${chalk.bold(resolved.label)}\n${chalk.cyan(resolved.command)}\n\n${resolved.effect}\nLocal routing · 0 model calls`,
+      { title: " PITSTOP — Ask ", borderStyle: "round", padding: 1, borderColor: "cyan" }));
+    if (options.dryRun) return;
+    if (needsExecution) {
+      console.log("Preview only. Add --execute to this request to run the action above.");
+      process.exitCode = 2;
+      return;
+    }
+    // Fixed argv from the router; never execute natural language through a shell.
+    const extension = path.extname(fileURLToPath(import.meta.url));
+    const cli = fileURLToPath(new URL(`../cli${extension}`, import.meta.url));
+    const result = await execa(process.execPath, [...process.execArgv, cli, ...resolved.args], {
+      cwd: repo, stdio: "inherit", reject: false, windowsHide: true,
+    });
+    process.exitCode = result.exitCode ?? 1;
   });
 
 export default askCmd;

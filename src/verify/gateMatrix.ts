@@ -1,3 +1,4 @@
+import { candidateMismatch, captureCandidate, type CandidateBinding } from "../candidate.js";
 import path from "node:path";
 import { latestPitstopDoc } from "./chain.js";
 
@@ -55,6 +56,7 @@ export interface GateDecision {
 
 /** Live results from `runVerify` (the scan-based measurement layer). */
 export interface LiveGateInput {
+  candidateBinding?: CandidateBinding | null;
   missingBaseline: boolean;
   blocked: boolean;
   integrityVerdict: string;
@@ -70,6 +72,8 @@ export interface LiveGateInput {
 
 export interface GateMatrixOptions {
   threshold: number;
+  /** Release mode: insufficient evidence is a non-zero exit, even without --require. */
+  strict?: boolean;
   /** Layer ids that MUST have passing evidence for VERIFIED (e.g. "baseline,acceptance"). */
   require?: string[];
 }
@@ -90,6 +94,7 @@ const LAYER_ORDER = [
 
 function sealedLayer(
   repo: string,
+  currentCandidate: CandidateBinding | null,
   id: string,
   label: string,
   prefix: string,
@@ -110,6 +115,8 @@ function sealedLayer(
     };
   }
   const m = map(found.doc);
+  const stale = candidateMismatch(repo, found.doc, currentCandidate);
+  if (stale && m.status === "PASS") return { id, label, status: "UNPROVEN", detail: stale, evidenceRef: relRef, reasons: [stale] };
   return { id, label, status: m.status, detail: m.detail, evidenceRef: relRef, reasons: m.reasons };
 }
 
@@ -118,6 +125,7 @@ export function evaluateGate(
   live: LiveGateInput,
   opts: GateMatrixOptions,
 ): GateDecision {
+  const currentCandidate = captureCandidate(repo);
   const layers: GateLayer[] = [];
   const reasons: string[] = [];
   const requireSet = new Set((opts.require ?? []).map((s) => s.trim()).filter(Boolean));
@@ -153,9 +161,12 @@ export function evaluateGate(
     layers.push({ id: "integrity", label: "Integrity", status: "PASS", detail: "INTACT", reasons: [] });
   }
 
+  const liveMismatch = candidateMismatch(repo, live, currentCandidate);
+  if (liveMismatch && !live.missingBaseline) layers.push({ id: "candidate", label: "Candidate identity", status: "UNPROVEN", detail: liveMismatch, reasons: [liveMismatch] });
+
   // ---- sealed: baseline-aware verification
   layers.push(
-    sealedLayer(repo, "baseline", "Baseline", "baseline-verify-", [], (doc) => {
+    sealedLayer(repo, currentCandidate, "baseline", "Baseline", "baseline-verify-", [], (doc) => {
       switch (doc.verdict) {
         case "VERIFIED": return { status: "PASS", detail: `VERIFIED @ ${(doc.candidate?.commitSha ?? "").slice(0, 12)}…`, reasons: [] };
         case "FAILED": return { status: "FAIL", detail: "candidate still fails the baseline verification", reasons: Array.isArray(doc.reasons) ? doc.reasons : [] };
@@ -167,7 +178,7 @@ export function evaluateGate(
 
   // ---- sealed: state verification
   layers.push(
-    sealedLayer(repo, "state", "State", "state-verify-", [], (doc) => {
+    sealedLayer(repo, currentCandidate, "state", "State", "state-verify-", [], (doc) => {
       switch (doc.verdict) {
         case "STATE_VERIFIED": return { status: "PASS", detail: `VERIFIED @ ${(doc.candidate?.sha ?? "").slice(0, 12)}…`, reasons: [] };
         case "STATE_MISMATCH": return { status: "FAIL", detail: "claimed changes not observed on disk/git", reasons: Array.isArray(doc.reasons) ? doc.reasons : [] };
@@ -179,7 +190,7 @@ export function evaluateGate(
 
   // ---- sealed: acceptance
   layers.push(
-    sealedLayer(repo, "acceptance", "Acceptance", "acceptance-", ["acceptance-pin.json"], (doc) => {
+    sealedLayer(repo, currentCandidate, "acceptance", "Acceptance", "acceptance-", ["acceptance-pin.json"], (doc) => {
       const total = doc.totalCriteria ?? (doc.criteria?.length ?? 0);
       const verified = (doc.criteria ?? []).filter((e: any) => e.pass === true).length;
       switch (doc.verdict) {
@@ -193,7 +204,7 @@ export function evaluateGate(
 
   // ---- sealed: regression
   layers.push(
-    sealedLayer(repo, "regression", "Regression", "regression-", ["regression-baseline.json"], (doc) => {
+    sealedLayer(repo, currentCandidate, "regression", "Regression", "regression-", ["regression-baseline.json"], (doc) => {
       const regs: string[] = doc.regressions ?? [];
       const news: string[] = doc.newFailures ?? [];
       switch (doc.verdict) {
@@ -207,7 +218,7 @@ export function evaluateGate(
 
   // ---- sealed: verification stack (tests/typecheck/lint/build with diagnosis)
   layers.push(
-    sealedLayer(repo, "stack", "Verify stack", "verify-stack-", [], (doc) => {
+    sealedLayer(repo, currentCandidate, "stack", "Verify stack", "verify-stack-", [], (doc) => {
       const failed: string[] = doc.failedLayers ?? [];
       switch (doc.verdict) {
         case "STACK_PASS": {
@@ -224,7 +235,7 @@ export function evaluateGate(
 
   // ---- sealed: architecture & boundaries
   layers.push(
-    sealedLayer(repo, "architecture", "Architecture", "architecture-", [], (doc) => {
+    sealedLayer(repo, currentCandidate, "architecture", "Architecture", "architecture-", [], (doc) => {
       switch (doc.verdict) {
         case "CONFORMS": return { status: "PASS", detail: doc.planRef ? "conforms · plan scope checked" : "conforms", reasons: [] };
         case "APPROVAL_REQUIRED": return { status: "UNPROVEN", detail: "protected path touched — approval required", reasons: Array.isArray(doc.reasons) ? doc.reasons : [] };
@@ -237,10 +248,10 @@ export function evaluateGate(
 
   // ---- sealed: security (pen) + drift
   layers.push(
-    sealedLayer(repo, "security", "Security", "pen-latest.json", [], (doc) => {
+    sealedLayer(repo, currentCandidate, "security", "Security", "pen-latest.json", [], (doc) => {
       const findings = doc.findings ?? [];
       const provenCritical = findings.filter(
-        (f: any) => (f.proofStatus === "proven" || f.verdict === "proven") && ["high", "critical"].includes(String(f.severity ?? "").toLowerCase()),
+        (f: any) => (f.confidence === "proven" || f.runtimeProof === "proven" || f.proofStatus === "proven" || f.verdict === "proven") && ["high", "critical"].includes(String(f.severity ?? "").toLowerCase()),
       );
       const driftNew = doc.drift?.new ?? doc.drift?.newFindings ?? [];
       if (provenCritical.length > 0) {
@@ -249,13 +260,16 @@ export function evaluateGate(
       if (driftNew.length > 0) {
         return { status: "BLOCKED", detail: `${driftNew.length} NEW finding(s) vs last sealed run`, reasons: ["security drift: new findings since the last sealed pen run"] };
       }
+      if (doc.dynamic?.status === "aborted" || doc.dynamic?.status === "skipped") {
+        return { status: "UNPROVEN", detail: doc.dynamic.note ?? "dynamic security checks did not run", reasons: ["no live security evidence for this run"] };
+      }
       return { status: "PASS", detail: findings.length > 0 ? `${findings.length} finding(s), none proven high/critical` : "CLEAR", reasons: [] };
     }),
   );
 
   // ---- sealed: holdout
   layers.push(
-    sealedLayer(repo, "holdout", "Holdout", "holdout-", [], (doc) => {
+    sealedLayer(repo, currentCandidate, "holdout", "Holdout", "holdout-", [], (doc) => {
       switch (doc.verdict) {
         case "HOLDOUT_PASS": return { status: "PASS", detail: `suite ${doc.suite?.id ?? "?"} passed`, reasons: [] };
         case "HOLDOUT_FAIL": return { status: "FAIL", detail: "hidden requirements not satisfied", reasons: Array.isArray(doc.reasons) ? doc.reasons : [] };
@@ -267,7 +281,7 @@ export function evaluateGate(
 
   // ---- sealed: verifier health (informational; tampered = CHEAT)
   layers.push(
-    sealedLayer(repo, "verifier", "Verifier health", "verifier-check-", [], (doc) => {
+    sealedLayer(repo, currentCandidate, "verifier", "Verifier health", "verifier-check-", [], (doc) => {
       switch (doc.verdict) {
         case "VERIFIER_VALID": return { status: "PASS", detail: "falsifiable", reasons: [] };
         case "VERIFIER_WEAK": return { status: "UNPROVEN", detail: "passed a known-bad state — weak evidence", reasons: Array.isArray(doc.reasons) ? doc.reasons : [] };
@@ -316,7 +330,7 @@ export function evaluateGate(
       reasons.push("strong verification passed (baseline/acceptance/holdout), all configured layers green, integrity intact");
     } else {
       verdict = "UNPROVEN";
-      exitCode = 0; // legacy-compatible: scan-based checks pass; deep evidence is insufficient
+      exitCode = opts.strict ? 1 : 0; // preserve legacy mode; strict releases fail closed
       reasons.push(
         strongPass
           ? "unproven layers remain — their results cannot be trusted as pass or fail"

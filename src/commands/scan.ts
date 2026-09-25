@@ -1,3 +1,4 @@
+import { candidateRun } from "../candidate.js";
 import { Command } from "commander";
 import chalk, { type ChalkInstance } from "chalk";
 import boxen from "boxen";
@@ -6,7 +7,7 @@ import path from "node:path";
 import fs from "node:fs";
 import { runAllAnalyzers } from "../analyzers/index.js";
 import { runLedgerAnalyzer } from "../analyzers/ledger/index.js";
-import { newestModifiedFile } from "../analyzers/util.js";
+import { checkScanReuse, scanInputs, snapshotRepo } from "../scanCache.js";
 import { correlate } from "../graph/correlate.js";
 import { relevantEntriesForFiles, type MemoryType } from "../memory/store.js";
 import { stampFindings, findingIdFor } from "../repro/ids.js";
@@ -280,7 +281,7 @@ export function renderBox(r: ScanResult): string {
   const content =
     lines.join("\n") +
     "\n\n  " +
-    chalk.bold("Awaiting confirmation to begin autonomous fixing.");
+    chalk.bold('Next: pitstop ask "what should I do next"');
 
   return boxen(content, {
     title: " PITSTOP — Repository Scan Complete ",
@@ -298,25 +299,11 @@ export interface RunScanOptions {
 }
 
 /**
- * Reuse a sealed baseline when nothing in the working tree changed since it
- * was written. Zero compute, zero model tokens: the exact previous result
- * (with its evidence chain intact) is returned.
+ * Reuse a sealed baseline when its content snapshot and scan inputs still match.
+ * Hashing has a local I/O cost; analyzers and model calls do not run on a hit.
  */
-export function reuseScan(repo: string): ScanResult | null {
-  const latestPath = path.join(repo, ".pitstop", "scan-latest.json");
-  if (!fs.existsSync(latestPath)) return null;
-  let latest: ScanResult;
-  try {
-    latest = JSON.parse(fs.readFileSync(latestPath, "utf8")) as ScanResult;
-  } catch {
-    return null;
-  }
-  const baselineMs = Date.parse(latest.timestamp ?? "");
-  if (!baselineMs || Number.isNaN(baselineMs)) return null;
-  const newest = newestModifiedFile(repo);
-  if (!newest) return latest;
-  if (newest.mtimeMs > baselineMs) return null;
-  return latest;
+export function reuseScan(repo: string, opts: RunScanOptions = {}): ScanResult | null {
+  return checkScanReuse(repo, opts).scan ?? null;
 }
 
 /**
@@ -337,10 +324,16 @@ export function persistScan(repo: string, result: ScanResult): { file: string } 
   return { file };
 }
 
-export async function runScan(
+async function runScanImpl(
   repo: string,
   opts: RunScanOptions = {},
 ): Promise<{ result: ScanResult; file: string }> {
+  if (opts.reuse) {
+    const cached = reuseScan(repo, opts);
+    if (cached) return { result: cached, file: path.join(repo, ".pitstop", "scan-latest.json") };
+  }
+  const before = snapshotRepo(repo);
+  const inputs = scanInputs(opts);
   const result = await runAllAnalyzers(repo, { reliabilityRuns: opts.reliabilityRuns });
 
   // Ledger mode is invasive (it boots the app and probes live endpoints), so it
@@ -354,6 +347,11 @@ export async function runScan(
 
   const { clusters } = correlate(repo, result);
   result.clusters = clusters;
+
+  const after = snapshotRepo(repo);
+  if (before && after && before.digest === after.digest && inputs === scanInputs(opts) && !opts.ledger) {
+    result.cache = { schema: 1, inputs, snapshot: after };
+  }
 
   const { file } = persistScan(repo, result);
   return { result, file };
@@ -393,7 +391,7 @@ export const scan = new Command("scan")
   .option(
     "--reuse",
     "token-economy: if the working tree is unchanged since the last scan, return the sealed " +
-      "baseline instead of re-running every analyzer (0 model credits, 0 compute).",
+      "baseline after content/option/seal checks instead of re-running analyzers.",
   )
   .option(
     "--reliability-runs <n>",
@@ -419,7 +417,7 @@ export const scan = new Command("scan")
 
       // --reuse: unchanged tree → sealed baseline comes back in zero time.
       if (options.reuse) {
-        const reused = reuseScan(repo);
+        const reused = reuseScan(repo, { ledger: options.ledger, reliabilityRuns });
         if (reused) {
           if (options.json) {
             console.log(JSON.stringify(reused, null, 2));
@@ -459,6 +457,7 @@ export const scan = new Command("scan")
         }
       }
 
+      if (options.ledger && result.ledger?.status !== "ok") process.exitCode = 2;
       if (options.json) {
         console.log(JSON.stringify(result, null, 2));
         return;
@@ -471,3 +470,7 @@ export const scan = new Command("scan")
       await printNextCard(repo);
     },
   );
+
+export function runScan(...args: Parameters<typeof runScanImpl>): ReturnType<typeof runScanImpl> {
+  return candidateRun(args[0], () => runScanImpl(...args));
+}

@@ -294,9 +294,11 @@ export const gate = new Command("gate")
     "",
   )
   .option("--json", "print a machine-readable gate result")
-  .action(async (repoArg: string, options: { score?: string; require?: string; json?: boolean }) => {
+  .option("--strict", "exit non-zero for UNPROVEN as well as failed checks; only VERIFIED passes")
+  .action(async (repoArg: string, options: { score?: string; require?: string; json?: boolean; strict?: boolean }) => {
     const repo = path.resolve(repoArg);
-    const threshold = Math.max(0, Math.min(100, Math.floor(Number(options.score) || 60)));
+    const threshold = Number(options.score ?? 60);
+    if (!Number.isFinite(threshold) || threshold < 0 || threshold > 100) throw new Error("--score must be a number from 0 to 100");
     const requireLayers = (options.require ?? "").split(",").map((s) => s.trim()).filter(Boolean);
 
     if (!options.json) {
@@ -309,7 +311,8 @@ export const gate = new Command("gate")
     const decision = evaluateGate(
       repo,
       {
-        missingBaseline: outcome.missingBaseline,
+        candidateBinding: outcome.candidateBinding,
+    missingBaseline: outcome.missingBaseline,
         blocked: outcome.blocked,
         integrityVerdict: outcome.missingBaseline ? "CLEAN" : outcome.integrity.verdict,
         evidenceStatus: outcome.evidence?.status ?? "missing",
@@ -321,7 +324,7 @@ export const gate = new Command("gate")
         stale: outcome.stale,
         staleNote: outcome.staleNote,
       },
-      { threshold, require: requireLayers },
+      { threshold, require: requireLayers, strict: options.strict },
     );
     // fold legacy gate reasons that the matrix cannot see (staleness note etc.)
     for (const r of gateResult.reasons) {

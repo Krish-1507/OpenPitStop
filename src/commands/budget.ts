@@ -24,6 +24,7 @@ interface BudgetEntry {
   auditCacheHits: number;
   totalComputeSeconds: number;
   loopRuns: number;
+  agentSession: Record<string, unknown> | null;
 }
 
 function history<T>(repo: string, glob: string): { at: string; data: T }[] {
@@ -32,7 +33,7 @@ function history<T>(repo: string, glob: string): { at: string; data: T }[] {
   const re = new RegExp(`^${glob}$`);
   const out: { at: string; data: T }[] = [];
   for (const f of fs.readdirSync(dir)) {
-    if (!re.test(f)) continue;
+    if (!re.test(f) || f.endsWith("-latest.json")) continue;
     try {
       const data = JSON.parse(fs.readFileSync(path.join(dir, f), "utf8")) as T;
       const at = (data as { timestamp?: string }).timestamp ?? f;
@@ -82,6 +83,7 @@ export function budget(repo: string): BudgetEntry {
     auditCacheHits,
     totalComputeSeconds,
     loopRuns: verifies.length,
+    agentSession: (() => { try { return JSON.parse(fs.readFileSync(path.join(repo, ".pitstop", "agent-budget-latest.json"), "utf8")); } catch { return null; } })(),
   };
 }
 
@@ -103,23 +105,25 @@ export const budgetCmd = new Command("budget")
       return;
     }
 
+    if (b.agentSession) console.log(`Agent session: ${b.agentSession.calls} launches · ${b.agentSession.promptChars} prompt characters · actual provider cost unavailable`);
     const fmtMs = (ms: number): string => (ms >= 1000 ? `${(ms / 1000).toFixed(1)}s` : `${ms}ms`);
     const lines: string[] = [];
     lines.push(`${chalk.bold("Full scans")}:        ${b.scans.count}  (reliability runs: ${b.scans.reliabilityRuns} · tests: ${fmtMs(b.scans.testMs)} · builds: ${fmtMs(b.scans.buildMs)})`);
     lines.push(`${chalk.bold("Verify runs")}:        ${b.verifies.count}  (last ${b.verifies.last})`);
     lines.push(`${chalk.bold("Pen tests")}:          ${b.pens.count}  (last ${b.pens.last})`);
     lines.push(`${chalk.bold("Ledger boots")}:       ${b.ledgerRuns}`);
-    lines.push(`${chalk.bold("Audit cache files")}:  ${b.auditCacheHits}  (each = one npm-audit network round-trip saved)`);
+    lines.push(`${chalk.bold("Audit cache files")}:  ${b.auditCacheHits}  (stored entries, not measured cache hits)`);
     lines.push("");
     lines.push(`${chalk.bold("Wall-clock compute")}: ${fmtMs((b.scans.testMs + b.scans.buildMs))} spent on test/build runs (models cost tokens; machines cost seconds — this is the honest meter).`);
     lines.push("");
     if (rc.ready) {
       lines.push(chalk.green("The tree is unchanged since the last scan — the next loop iteration should have used `scan --reuse`."));
     } else {
-      lines.push(chalk.yellow("The tree HAS changed since the last scan — a re-scan is legitimate spend."));
+      lines.push(chalk.yellow(`A fresh scan is needed: ${rc.staleReason ?? "inputs changed"}.`));
     }
     lines.push("");
     lines.push(chalk.cyan("Cut the burn:"));
+    lines.push("  Local routing and verification make no model calls; agent-provider token spend is not measured.");
     lines.push(`  ready-check before every re-scan (exit 0 = reuse the baseline)`); 
     lines.push(`  scan --reuse inside the loop; full scan only at the end`);
     lines.push(`  verify during iteration, full reliability runs only on the final pass`);

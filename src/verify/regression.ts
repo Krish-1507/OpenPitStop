@@ -1,3 +1,4 @@
+import { candidateRun, type CandidateBinding } from "../candidate.js";
 import fs from "node:fs";
 import path from "node:path";
 import { createHash } from "node:crypto";
@@ -57,6 +58,7 @@ export interface RegressionEntry {
 export type RegressionVerdict = "NO_REGRESSION" | "REGRESSION" | "UNPROVEN" | "INTEGRITY_FAILURE";
 
 export interface RegressionResult {
+  candidateBinding?: CandidateBinding | null;
   repo: string;
   command: string;
   commandHash: string;
@@ -172,7 +174,7 @@ function classify(
   return { entries, regressions, newFailures, fixed, unproven };
 }
 
-export async function runRegressionCheck(opts: {
+async function runRegressionCheckImpl(opts: {
   repo: string;
   command: string;
   baselineRef?: string;
@@ -337,6 +339,7 @@ export function sealRegressionResult(result: RegressionResult): RegressionResult
   const doc = {
     timestamp: new Date().toISOString(),
     repo: result.repo,
+    candidateBinding: result.candidateBinding,
     command: result.command,
     commandHash: result.commandHash,
     baseline: { ref: result.baselineRef, sha: result.baselineSha, suiteExit: result.baselineSuiteExit },
@@ -377,4 +380,8 @@ export function checkRegressionEvidence(file: string): EvidenceCheck {
   } catch (e: any) {
     return { status: "tampered", digest: "", reason: e.message };
   }
+}
+
+export function runRegressionCheck(opts: Parameters<typeof runRegressionCheckImpl>[0]): ReturnType<typeof runRegressionCheckImpl> {
+  return candidateRun(opts.repo, () => runRegressionCheckImpl(opts));
 }

@@ -1,3 +1,4 @@
+import { candidateRun, type CandidateBinding } from "../candidate.js";
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
@@ -77,6 +78,7 @@ export type AcceptanceVerdict =
   | "INTEGRITY_FAILURE";
 
 export interface AcceptanceResult {
+  candidateBinding?: CandidateBinding | null;
   repo: string;
   contractId: string;
   contractPath: string;
@@ -206,6 +208,15 @@ async function bootApp(
   start: NonNullable<AcceptanceContract["start"]>,
   timeoutMs: number,
 ): Promise<{ proc?: any; error?: string }> {
+  // A healthy server left on this port is not evidence about this worktree.
+  // Refuse it before starting, rather than grading the wrong application.
+  if (start.readyUrl) {
+    try {
+      const response = await fetch(start.readyUrl, { signal: AbortSignal.timeout(750) });
+      await response.body?.cancel();
+      return { error: "readiness URL already responds before the candidate starts; use an unused port" };
+    } catch { /* no existing HTTP service; the candidate may bind this port */ }
+  }
   const child = execa(start.command, [], {
     cwd: worktree,
     shell: true,
@@ -214,35 +225,34 @@ async function bootApp(
     detached: process.platform !== "win32",
     timeout: 0,
   }) as any;
-  const deadline = Date.now() + (start.timeoutMs ?? 30000);
+  const bootTimeout = Math.min(timeoutMs, start.timeoutMs ?? 30000);
+  const deadline = Date.now() + bootTimeout;
   const readyUrl = start.readyUrl;
   if (!readyUrl) {
     // no readiness probe — give the app a fixed warm-up
     await new Promise((r) => setTimeout(r, 1500));
-    if (child.exitCode != null && child.exitCode !== 0) {
+    if (child.exitCode != null) {
       await killTree(child, worktree);
       return { error: `start command exited with ${child.exitCode}` };
     }
     return { proc: child };
   }
   while (Date.now() < deadline) {
-    if (child.exitCode != null && child.exitCode !== 0) {
+    if (child.exitCode != null) {
       await killTree(child, worktree);
       return { error: `start command exited with ${child.exitCode} before becoming ready` };
     }
     try {
-      const ctl = new AbortController();
-      const t = setTimeout(() => ctl.abort(), 1500);
-      const res = await fetch(readyUrl, { signal: ctl.signal });
-      clearTimeout(t);
-      if (res.status < 500) return { proc: child }; // answering
+      const res = await fetch(readyUrl, { signal: AbortSignal.timeout(Math.max(1, Math.min(1500, deadline - Date.now()))) });
+      await res.body?.cancel();
+      if (res.status < 500 && child.exitCode == null) return { proc: child };
     } catch {
       /* not ready yet */
     }
     await new Promise((r) => setTimeout(r, 300));
   }
   await killTree(child, worktree);
-  return { error: `app did not become ready within ${start.timeoutMs ?? 30000}ms (readyUrl ${readyUrl})` };
+  return { error: `app did not become ready within ${bootTimeout}ms (readyUrl ${readyUrl})` };
 }
 
 async function killTree(child: any, _worktree: string): Promise<void> {
@@ -297,15 +307,12 @@ async function runCriterion(
     const expected = `${criterion.method ?? "GET"} ${criterion.url} → ${criterion.expectStatus ?? 200}` +
       (criterion.expectBodyContains ? ` + body~"${criterion.expectBodyContains}"` : "");
     try {
-      const ctl = new AbortController();
-      const t = setTimeout(() => ctl.abort(), timeoutMs);
       const res = await fetch(criterion.url, {
         method: criterion.method ?? "GET",
         headers: criterion.headers,
         body: criterion.body,
-        signal: ctl.signal,
+        signal: AbortSignal.timeout(timeoutMs),
       });
-      clearTimeout(t);
       const text = await res.text();
       let pass = res.status === (criterion.expectStatus ?? 200);
       if (criterion.expectBodyContains) pass = pass && text.includes(criterion.expectBodyContains);
@@ -346,7 +353,7 @@ async function runCriterion(
   };
 }
 
-export async function verifyAcceptance(opts: {
+async function verifyAcceptanceImpl(opts: {
   repo: string;
   contractSpec: string;
   candidateRef?: string;
@@ -446,7 +453,9 @@ export async function verifyAcceptance(opts: {
       const out: CriterionEvidence[] = [];
       for (const req of contract.requirements) {
         for (const c of req.criteria) {
-          const ev = await runCriterion(c, wt.path, timeoutMs);
+          const ev: CriterionEvidence = appError && c.type === "http"
+            ? { requirementId: req.id, criterionId: c.id, type: c.type, expected: `${c.method ?? "GET"} ${c.url}`, observed: appError, pass: null, durationMs: 0, timestamp: new Date().toISOString() }
+            : await runCriterion(c, wt.path, timeoutMs);
           ev.requirementId = req.id;
           if (appError && c.type === "http") {
             ev.pass = null;
@@ -528,6 +537,7 @@ export function sealAcceptanceResult(result: AcceptanceResult): AcceptanceResult
   const doc = {
     timestamp: new Date().toISOString(),
     repo: result.repo,
+    candidateBinding: result.candidateBinding,
     contract: { id: result.contractId, path: result.contractPath, hash: result.contractHash, external: result.contractExternal },
     candidate: { ref: result.candidateRef, sha: result.candidateSha },
     baseline: { ref: result.baselineRef, sha: result.baselineSha },
@@ -559,4 +569,8 @@ export function checkAcceptanceEvidence(file: string): EvidenceCheck {
 
 export function acceptancePinPath(repo: string): string {
   return path.join(repo, ".pitstop", "acceptance-pin.json");
+}
+
+export function verifyAcceptance(opts: Parameters<typeof verifyAcceptanceImpl>[0]): ReturnType<typeof verifyAcceptanceImpl> {
+  return candidateRun(opts.repo, () => verifyAcceptanceImpl(opts));
 }

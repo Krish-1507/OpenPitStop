@@ -1,3 +1,4 @@
+import { candidateRun, type CandidateBinding } from "../candidate.js";
 import fs from "node:fs";
 import path from "node:path";
 import { createHash } from "node:crypto";
@@ -80,6 +81,7 @@ export interface VerifierCaseResult {
 }
 
 export interface VerifierCheckResult {
+  candidateBinding?: CandidateBinding | null;
   repo: string;
   commitSha: string | null;
   verifier: { id: string; command: string; verificationHash: string };
@@ -167,7 +169,7 @@ function hashIdentityFiles(worktree: string, files: string[] | undefined): Recor
  * Run the falsifiability check for one verification definition.
  * Isolated: all execution happens in temporary detached worktrees.
  */
-export async function checkVerifier(opts: {
+async function checkVerifierImpl(opts: {
   repo: string;
   def: VerifierCheckDef;
 }): Promise<VerifierCheckResult> {
@@ -348,6 +350,7 @@ export function sealVerifierResult(result: VerifierCheckResult): VerifierCheckRe
   const doc = {
     timestamp: new Date().toISOString(),
     repo: result.repo,
+    candidateBinding: result.candidateBinding,
     commitSha: result.commitSha,
     verifier: result.verifier,
     good: result.good,
@@ -395,4 +398,8 @@ export function parseMutateInline(spec: string): Mutation | null {
 
 export function parseMutateDelete(p: string): Mutation {
   return { op: "delete", path: p.trim() };
+}
+
+export function checkVerifier(opts: Parameters<typeof checkVerifierImpl>[0]): ReturnType<typeof checkVerifierImpl> {
+  return candidateRun(opts.repo, () => checkVerifierImpl(opts));
 }

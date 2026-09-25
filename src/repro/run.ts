@@ -1,3 +1,4 @@
+import { runIsolated } from "../sandbox/container.js";
 import path from "node:path";
 import fs from "node:fs";
 import { runTestFile, detectTestFramework, frameworkLabel } from "./framework.js";
@@ -22,7 +23,7 @@ export interface ReproRunResult {
  * framework, feeding it everything it needs (e.g. the absolute path to the
  * ledger sandbox preload, set so the committed test stays runnable in CI).
  */
-export function runRepro(repo: string, file: string): Promise<ReproRunResult> {
+export function runReproLocal(repo: string, file: string): Promise<ReproRunResult> {
   const abs = path.join(repo, file);
   if (!fs.existsSync(abs)) {
     return Promise.resolve({
@@ -46,4 +47,14 @@ export function runRepro(repo: string, file: string): Promise<ReproRunResult> {
     timedOut: r.timedOut,
     framework: frameworkLabel(framework),
   }));
+}
+export async function runRepro(repo: string, file: string): Promise<ReproRunResult> {
+  const abs = path.resolve(repo, file);
+  const relative = path.relative(path.resolve(repo), abs);
+  if (relative.startsWith("..") || path.isAbsolute(relative)) return { ran: false, stdout: "", stderr: "repro path escapes repository" };
+  if (fs.existsSync(abs) && /PITSTOP_(PEN|LEDGER)_PRELOAD/.test(fs.readFileSync(abs, "utf8"))) {
+    try { return await runIsolated<ReproRunResult>(repo, "repro", { file: relative }); }
+    catch (error) { return { ran: false, stdout: "", stderr: String(error) }; }
+  }
+  return runReproLocal(repo, file);
 }

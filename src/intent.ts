@@ -1,99 +1,65 @@
-/**
- * Lightweight natural-language router. Maps a free-text request (e.g.
- * "make this safe", "why is my score low") to the right `pitstop` command so
- * users never have to memorize command names. The slash-command templates and
- * `pitstop ask` both use this.
- */
-
+/** Offline intent routing. User text is data, never a shell command. */
 export interface IntentMatch {
   command: string;
+  args: string[];
   label: string;
   example: string;
+  requiresExecution: boolean;
+  effect: string;
 }
 
 interface Rule {
   label: string;
-  example: string;
-  command: string;
+  phrase: string;
+  args: string[];
   re: RegExp;
+  effect?: string;
 }
 
 const RULES: Rule[] = [
-  {
-    label: "Autopilot fix",
-    example: "pitstop fix",
-    command: "pitstop fix",
-    re: /\b(make (this|it|the repo) safe|secure (this|it|me|the app)|harden|fix (all|the|my) (vuln|issues?|bugs?|findings?)|lock (it )?down|clean (this|it) up)\b/,
-  },
-  {
-    label: "Scan & explain the score",
-    example: "pitstop scan",
-    command: "pitstop scan",
-    re: /\b(why (is|isn't|is my) (my )?(score|grade) (low|bad|red|so low)|what'?s (wrong|broken|off|the matter)|explain (my )?(score|report)|what (should|do) i (fix|do)|measure|audit|scan)\b/,
-  },
-  {
-    label: "Pen-test & fix",
-    example: "pitstop pen --fix",
-    command: "pitstop pen --fix",
-    re: /\b(pen( |-)?test|attack|exploit|red ?team|(try to )?break (it|this))\b/,
-  },
-  {
-    label: "Verify the fix",
-    example: "pitstop verify",
-    command: "pitstop verify",
-    re: /\b(verify|did (it|this|the fix) (actually )?(work|fix|stick)|prove (the )?fix|is it (really )?fixed|re-?run (the )?proof)\b/,
-  },
-  {
-    label: "Gate / CI",
-    example: "pitstop gate --score 60",
-    command: "pitstop gate --score 60",
-    re: /\b(gate|ci|pre-?commit|safe to commit|block bad|pipeline)\b/,
-  },
-  {
-    label: "Report / share",
-    example: "pitstop report",
-    command: "pitstop report",
-    re: /\b(report|share|score ?card|export|summary( for| me)?|show (me )?the report)\b/,
-  },
-  {
-    label: "Honesty / evidence",
-    example: "pitstop honesty",
-    command: "pitstop honesty",
-    re: /\b(honest|evidence|trust|prove (the )?numbers|trace)\b/,
-  },
-  {
-    label: "What's next / pending",
-    example: "pitstop next",
-    command: "pitstop next",
-    re: /\b(next|pending|where am i|what('s| is) left|todo|stuck)\b/,
-  },
-  {
-    label: "Install",
-    example: "pitstop install -y",
-    command: "pitstop install -y",
-    re: /\b(install|setup|set ?up|configure|add (the )?command)\b/,
-  },
+  { label: "Next step", phrase: "what should I do next", args: ["next"], re: /\b(next|pending|where am i|what('s| is) left|todo|stuck)\b/ },
+  { label: "Repository understanding", phrase: "understand this repo", args: ["understand"], re: /\b(understand|explain|map) (this |my |the )?(repo(sitory)?|codebase|architecture|project)\b/ },
+  { label: "Architecture and boundaries", phrase: "check architecture boundaries", args: ["architecture-check"], re: /\b(architecture|boundaries|ownership|scope creep|existing patterns)\b/ },
+  { label: "Integrity check", phrase: "did my agent cheat", args: ["integrity"], re: /\b(cheat|cheating|integrity|tamper|deleted tests?|weakened tests?)\b/ },
+  { label: "Verification stack", phrase: "check tests types lint and build", args: ["verify-stack"], re: /\b(typecheck|type check|lint|build|verification stack)\b/ },
+  { label: "Test pyramid", phrase: "run all test layers", args: ["test"], re: /\b(test pyramid|test layers|unit|integration|e2e|run (all |the |my )?tests?)\b/ },
+  { label: "Full engineering verification", phrase: "review my changes", args: ["flow"], re: /\b(review (my |these |the )?changes|full (review|verification)|engineering review)\b/ },
+  { label: "Evidence chain", phrase: "explain the evidence", args: ["explain"], re: /\b(evidence|trust|prove (the )?numbers|trace)\b/ },
+  { label: "Cost and activity", phrase: "show my budget", args: ["budget"], re: /\b(budget|credits?|tokens?|cost|spend)\b/ },
+  { label: "Progress over time", phrase: "show my progress", args: ["digest"], re: /\b(progress|history|what changed|improv(e|ed|ement))\b/ },
+  { label: "Toolchain diagnosis", phrase: "why are checks skipped", args: ["doctor"], re: /\b(doctor|missing tools?|skipped|toolchain)\b/ },
+  { label: "Autopilot fix", phrase: "make this safe", args: ["fix"], re: /\b(make (this|it|the repo) safe|secure (this|it|me|the app)|harden|fix (all|the|my) (vuln\w*|issues?|bugs?|findings?)|lock (it )?down|clean (this|it) up)\b/, effect: "Boots the local app, writes repro tests and applies supported patches. No model calls." },
+  { label: "Live security testing", phrase: "attack my app", args: ["pen"], re: /\b(pen( |-)?test|attack|hack|exploit|red ?team|(try to )?break (it|this))\b/, effect: "Runs the app and attack traffic inside a disposable, network-isolated Docker container. Docker is required." },
+  { label: "Static security review", phrase: "check the security of this app", args: ["pen", "--static"], re: /\b(security|vulnerabilit\w*|insecure)\b/ },
+  { label: "Verify the change", phrase: "did the fix work", args: ["verify"], re: /\b(verify|verified|did (it|this|the fix) (actually )?(work|fix|stick)|prove (the )?fix|is it (really )?fixed|re-?run (the )?proof)\b/ },
+  { label: "Release gate", phrase: "can I ship this", args: ["gate", "--strict"], re: /\b(gate|ci|pre-?commit|safe to commit|can i ship|ready to ship|block bad|pipeline)\b/ },
+  { label: "Report", phrase: "show the report", args: ["report"], re: /\b(report|share|score ?card|export|summary)\b/ },
+  { label: "Limits and honesty", phrase: "show your limits", args: ["honesty"], re: /\b(honest|honesty|limits|limitations)\b/ },
+  { label: "Scan repository", phrase: "what is wrong with my repo", args: ["scan", "--reuse"], re: /\b(score|grade|what'?s (wrong|broken|off)|what is wrong|what (should|do) i (fix|do)|measure|audit|scan|flaky)\b/ },
+  { label: "Install agent integration", phrase: "install the slash command", args: ["install"], re: /\b(install|setup|set ?up|configure|add (the )?command)\b/, effect: "Writes agent command files; the installer shows the destinations." },
 ];
 
-/** Resolve free text to a pitstop command. Returns null when nothing matches. */
-export function matchIntent(text: string): IntentMatch | null {
-  const t = ` ${text.toLowerCase()} `;
-
-  // Dynamic: "fix <finding-id>" / "drive <id>" / "inspect <id>".
-  const idMatch = t.match(/(?:fix|drive|inspect|show|detail)\b[^\n]{0,40}\b([a-z0-9]+-[0-9a-f]{6,})/);
-  if (idMatch) {
-    const verb = /\b(inspect|show|detail)\b/.test(t) ? "inspect" : "drive";
-    return {
-      command: `pitstop ${verb} ${idMatch[1]}`,
-      label: verb === "inspect" ? "Inspect a finding" : "Fix a specific finding",
-      example: `pitstop ${verb} ${idMatch[1]}`,
-    };
-  }
-
-  for (const r of RULES) {
-    if (r.re.test(t)) return { command: r.command, label: r.label, example: r.example };
-  }
-  return null;
+function match(args: string[], label: string, effect?: string): IntentMatch {
+  const command = `pitstop ${args.join(" ")}`;
+  return { command, args, label, example: command, requiresExecution: !!effect,
+    effect: effect ?? "Runs local checks and may write reports. Repository test/build scripts can execute code." };
 }
 
-export const INTENT_EXAMPLES = RULES.map((r) => ({ phrase: r.example, label: r.label }));
+export function matchIntent(text: string): IntentMatch | null {
+  let t = text.toLowerCase().replace(/[’‘]/g, "'").trim().replace(/^\/pitstop\s+/, "");
+  // Decline exclusions rather than silently ignoring a user's constraint.
+  if (!t || /[;`\n\r]|\$\(|&&|\|\||\b(don't|dont|do not|never|without|except|but|only)\b/.test(t)) return null;
+  if (/^(please )?find and fix (any |all |the )?vulnerabilit\w*( in (this|my|the) repo(sitory)?)?$/.test(t)) t = "make this safe";
+  const id = t.match(/^(fix|drive|inspect|show|detail)\s+([a-z][a-z0-9-]*-[a-z0-9]{6,})$/);
+  if (id) {
+    const inspect = /^(inspect|show|detail)$/.test(id[1]);
+    return match([inspect ? "inspect" : "drive", id[2]], inspect ? "Inspect a finding" : "Fix a finding with your agent",
+      inspect ? undefined : "Starts your configured coding agent, which can edit files and consume its own credits.");
+  }
+  const hits = RULES.filter((r) => r.re.test(t));
+  if (hits.some((r) => r.effect) && hits.some((r) => !r.effect) && /\b(and|then)\b/.test(t)) return null;
+  const r = hits[0];
+  return r ? match(r.args, r.label, r.effect) : null;
+}
+
+export const INTENT_EXAMPLES = RULES.map((r) => ({ phrase: r.phrase, label: r.label }));

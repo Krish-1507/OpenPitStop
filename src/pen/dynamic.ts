@@ -1,3 +1,4 @@
+import { runIsolated } from "../sandbox/container.js";
 /**
  * pen/dynamic.ts — the dynamic phase of `pitstop pen`.
  *
@@ -303,7 +304,7 @@ export interface PenDynamicOutcome {
   findings: PenFinding[];
 }
 
-export async function runDynamic(repo: string, routes: PenRoute[]): Promise<PenDynamicOutcome> {
+export async function runDynamicLocal(repo: string, routes: PenRoute[]): Promise<PenDynamicOutcome> {
   const t0 = Date.now();
   const abortWith = (note: string): PenDynamicOutcome => ({
     status: "aborted",
@@ -842,4 +843,8 @@ export async function runDynamic(repo: string, routes: PenRoute[]): Promise<PenD
       findings,
     };
   }
+}
+export async function runDynamic(repo: string, routes: PenRoute[]): Promise<PenDynamicOutcome> {
+  try { return await runIsolated<PenDynamicOutcome>(repo, "pen", routes); }
+  catch (error) { return { status: "aborted", note: String(error), routesProbed: 0, attacks: 0, bootMs: 0, durationMs: 0, outboundEvents: 0, findings: [] }; }
 }

@@ -1,90 +1,77 @@
-# OpenPitStop Privacy Statement
+# OpenPitStop privacy and execution boundaries
 
-**Zero telemetry. Zero SaaS. Zero accounts. Nothing leaves your machine unless
-you explicitly ask for it.**
+OpenPitStop is a local CLI with no telemetry service, hosted account requirement or
+automatic update checker. Its built-in intent routing and static pattern analysis do
+not call a language model. External tools, repository scripts and an explicitly launched
+coding agent have their own behavior and privacy policies.
 
-This is not a marketing sentence — it is a guarantee you can verify. OpenPitStop
-is a local CLI: it reads files on your machine, writes reports to
-`.pitstop/` on your machine, and makes network calls only in the exact,
-explicit cases listed below.
+## Network activity
 
-## What OpenPitStop never does
+| Operation | Possible connection and data |
+|---|---|
+| npm installation / npx | Package downloads from the configured registry |
+| Dependency audits | npm audit, pip-audit or osv-scanner may send dependency information to their configured services |
+| Opt-in Semgrep | Registry configurations may download rules; behavior also depends on the installed tool's configuration |
+| Tests, builds, verification commands and app startup | Execute repository/operator-defined code, which can access the network with the current process permissions |
+| HTTP acceptance criteria | Send the requests declared in the acceptance contract |
+| Live pen / ledger | Run inside a Linux Docker container with networking disabled; the preload/proxy records supported traffic internally |
+| External coding agent (`drive` or your host CLI) | May send prompts and repository context to its configured provider and consume provider credits |
 
-- **No telemetry.** No analytics SDK, no anonymous usage stats, no crash
-  reporting, no "phone home" of any kind — not even a version check.
-- **No SaaS, no accounts, no cloud.** There is no OpenPitStop server, no
-  dashboard, no login. Nothing to sign up for.
-- **No code uploads.** `scan`, `try`, `verify`, `gate`, `integrity`, `pen`,
-  `ledger`, `watch`, `trends`, `digest`, `share`, `honesty`, `test` — every
-  one of these analyzes your files locally. Your source never leaves your
-  machine.
-- **No third-party processes** are ever spawned that you didn't initiate
-  (`scan` runs the scanners you have installed, e.g. `gitleaks`, `semgrep`,
-  `osv-scanner`, `pip-audit`; `test` runs your own test scripts — or honestly
-  reports them as `skipped`).
-- **The static security pass is fully offline.** It reads files and matches
-  patterns on your machine; it never sends code anywhere. The only network
-  calls in the entire security pipeline are the dependency audits listed
-  below.
-- **No auto-updates.** The CLI never updates itself or checks for updates.
-  You control when you run a newer version (`npx openpitstop@latest`).
+The built-in static pass does not upload source. This is not a blanket guarantee about
+the external tools or scripts invoked by a full workflow. To require offline execution,
+enforce it with a firewall or isolated environment; disconnected audits may report skipped
+results, and network-dependent verification may fail.
 
-## The complete list of network calls
+## Live testing
 
-Every outbound connection OpenPitStop (or the tools it invokes) can make:
+Live pen, ledger and their replay tests require Docker. The app and attack runner share
+a disposable container with networking disabled, a read-only root, a non-root user,
+no Linux capabilities, and resource limits. Only a sanitized staging copy is mounted
+read-only. The real repository, host home, Docker socket and environment credentials
+are not mounted or forwarded. Common credential filenames and `.env*` are omitted;
+secrets embedded in ordinary source files are still part of that source.
 
-| When | What connects | What it sends | Where it goes |
-|---|---|---|---|
-| You run `npx openpitstop` or `npm i -g openpitstop` | npm client | package download (standard npm request) | registry.npmjs.org |
-| `scan`/`try` — security category on a JS repo | `npm audit` | your lockfile's dependency list (the standard npm audit payload) | registry.npmjs.org |
-| `scan`/`try` — security category on Python repos | `pip-audit` (if installed) | dependency list | its configured index |
-| `scan`/`try` — security category on other stacks | `osv-scanner` (if installed) | manifest/lockfile data | the OSV API (osv.dev) |
-| `pen` / `scan --ledger` | *nothing external* | — | none |
+The preload/proxy provides observation inside the OS boundary. Containers share the
+host kernel and are not a guarantee against kernel/runtime vulnerabilities. Use
+a maintained Docker installation and a trusted runtime image. Ordinary tests, builds
+and acceptance commands outside live security retain their documented host permissions.
 
-Everything else — including the entire `pen` and `ledger` dynamic phases — runs
-against **your own app on localhost**: outbound HTTP is intercepted in-process
-(nock) or rerouted to a local recording proxy, raw sockets are blocked, and
-known payment-gateway hosts are answered with mocked receipts. If a request
-cannot be intercepted, the run **aborts** (`exit 77`) rather than letting it
-through. Nothing your app says ever reaches a real payment gateway or any real
-third party.
+## Stored data
 
-Audit results (`npm audit`, `osv-scanner`) are cached locally for 24 hours
-(keyed on your lockfile's hash) so repeated scans inside one fix loop don't hit
-the registry again — the cache is a local file, deleted when you delete it.
+- `.pitstop/`: scan and verification results, security evidence, activity history,
+  dependency-audit caches, plans, memory and content snapshots for scan reuse.
+- `PITSTOP_*` reports, HTML cards and badges requested by the workflow.
+- Generated `pitstop-repro-*` tests and patch proposals. Automatic `fix` can apply
+  supported source patches on a new branch; `--no-apply` still writes repros and reports.
+- Installation writes command/skill files in the displayed project and user locations;
+  optional hooks change the repository's git hooks.
+- Deep verification creates temporary worktrees. Holdout and acceptance configuration
+  can live outside the repository, and holdout full evidence is stored externally.
 
-## What OpenPitStop stores
+Scan snapshots contain file paths and hashes, not file bodies or raw environment values.
+Other reports and evidence may contain snippets, request/response information or sensitive
+findings. Review artifacts before publishing them or sending them to an agent.
 
-All local, all in your repo:
+Evidence digests detect content changes that do not update the digest. They are not
+authenticated signatures and do not protect against a writer who recomputes the hash.
+Use trusted CI and filesystem permissions for authoritative evidence and hidden holdouts.
 
-- `.pitstop/` — sealed scan/verify/pen/ledger evidence, audit caches, memory
-  notes. Human-readable JSON, signed with a `sha256` fingerprint so the files
-  are tamper-evident (and so *you* can detect any tampering).
-- `PITSTOP_REPORT.md`, `PITSTOP_PEN_REPORT.md`, `PITSTOP_BADGE.svg`,
-  `PITSTOP_CARD.html` — the reports you explicitly asked for.
-- `PITSTOP_BADGE.json` — only with `report --badge-json`; it contains the
-  score, nothing else.
+## Costs and retention
 
-Nothing is written outside your project except the `/pitstop` slash-command
-files that `pitstop install` places in your AI tool's own config directories —
-and `install --uninstall` removes exactly those files and nothing else.
+Local checks do not use model credits. `budget` reports recorded activity and test/build
+time; it does not know your provider's bill. External agent usage is charged according
+to that agent's provider configuration. Drive enforces shared launch/time/prompt
+limits and records reservations in `.pitstop/agent-budget-latest.json`. An optional
+dollar ceiling delegates enforcement to a supported provider; unsupported providers
+refuse it. Actual tokens and actual cost remain explicitly unknown.
 
-## How to verify all of this
+Dependency audits use local caches; full scan reuse has its own bounded freshness policy.
+Artifacts persist locally until removed. Keep baselines and repros needed by your
+verification workflow; removing them removes that evidence, not the underlying risk.
 
-1. **Read the source.** The CLI is fully open (MIT). The network surface is
-   small and greppable: `npm audit`, `osv-scanner`, `pip-audit`, and the
-   localhost-only sandbox in `src/sandbox/` are the entire surface.
-2. **Watch it with a firewall.** Run `npx openpitstop scan` with your
-   firewall in "ask" mode: the only connections you'll be asked about are the
-   npm/osv audits above — and none at all during `pen` or `ledger`.
-3. **Disconnect.** `scan`, `verify`, `gate`, `integrity`, `pen`, `ledger`
-   (ledger replays against your app locally) all run fully offline. Only the
-   dependency-audit categories degrade (to an honest `skipped` with a hint) —
-   they never block or fake anything.
+## Inspect the implementation
 
-## The short version
-
-> OpenPitStop is a referee that lives on your machine. It keeps score in your
-> repo, ships no data anywhere, and calls out any network at all — because the
-> whole point is that the numbers can't be argued with. If we ever needed a
-> server, the honesty brand would die with it; so we won't.
+Start with `src/analyzers/security.ts`, `src/sandbox/`, `templates/pen/preload.cjs`,
+`src/commands/drive.ts`, `src/verify/acceptance.ts` and `src/scanCache.ts`.
+See [release controls](docs/release-controls.md) for enforced boundaries and remaining
+limits, and the [engineering assessment](docs/engineering-review.md) for the broader review.

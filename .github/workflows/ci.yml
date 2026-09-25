@@ -44,3 +44,18 @@ jobs:
         run: |
           node dist/cli.js scan demo-repo
           node -e "const j=require('./demo-repo/.pitstop/scan-latest.json'); if(!j||!j.security){throw new Error('scan produced no security results');} console.log('smoke OK — scan status:', j.security.status);"
+
+  isolated-security:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: docker pull node:22-bookworm-slim
+      - name: Prove OS isolation and run the real pen worker
+        run: node --import tsx --test test/container.integration.ts

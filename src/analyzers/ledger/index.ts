@@ -1,3 +1,4 @@
+import { runIsolated } from "../../sandbox/container.js";
 import path from "node:path";
 import type { LedgerResult } from "../types.js";
 import { discover } from "./discover.js";
@@ -22,7 +23,7 @@ import {
  * it can leave the process; the request/response pairs the "gateway" receives
  * are recorded so evidence of a double-charge is real, not simulated.
  */
-export async function runLedgerAnalyzer(repo: string): Promise<LedgerResult> {
+export async function runLedgerLocal(repo: string): Promise<LedgerResult> {
   const ts = new Date().toISOString().replace(/[:.]/g, "-");
 
   let discovery;
@@ -133,3 +134,7 @@ export async function runLedgerAnalyzer(repo: string): Promise<LedgerResult> {
 export { discover } from "./discover.js";
 export { runAttacks } from "./attacks.js";
 export { analyzeEvidence } from "./evidence.js";
+export async function runLedgerAnalyzer(repo: string): Promise<LedgerResult> {
+  try { return await runIsolated<LedgerResult>(repo, "ledger"); }
+  catch (error) { return { status: "aborted", note: String(error), endpoints: [], evidence: [] }; }
+}

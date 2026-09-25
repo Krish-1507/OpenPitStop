@@ -4,6 +4,8 @@
 # would break the published package.
 node_modules
 coverage
+.pytest_cache
+**/.pytest_cache
 .pitstop
 *.tgz
 PITSTOP_REPORT.md

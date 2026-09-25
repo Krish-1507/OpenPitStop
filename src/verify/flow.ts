@@ -72,7 +72,7 @@ export async function runFlow(opts: {
     const { verifyAcceptance, sealAcceptanceResult } = await import("./acceptance.js");
     await run("contract", async () => {
       const r = sealAcceptanceResult(
-        await verifyAcceptance({ repo, contractSpec: opts.contractSpec!, candidateRef: "HEAD" }),
+        await verifyAcceptance({ repo, contractSpec: opts.contractSpec!, candidateRef: "HEAD", baselineRef: opts.baselineRef }),
       );
       return { status: r.verdict === "SATISFIED" ? "RAN" : "FAIL", detail: `${r.verdict} (${r.totalCriteria} criteria)`, verdict: r.verdict };
     });
@@ -118,7 +118,7 @@ export async function runFlow(opts: {
   if (opts.suiteSpec && !skip.has("holdout")) {
     const { runHoldoutSuite, sealHoldoutResults } = await import("./holdout.js");
     await run("holdout", async () => {
-      const r = await runHoldoutSuite({ repo, suiteSpec: opts.suiteSpec!, candidateRef: "HEAD" });
+      const r = await runHoldoutSuite({ repo, suiteSpec: opts.suiteSpec!, candidateRef: "HEAD", baselineRef: opts.baselineRef });
       sealHoldoutResults(r);
       return { status: r.verdict === "HOLDOUT_PASS" ? "RAN" : "FAIL", detail: r.verdict, verdict: r.verdict };
     });
@@ -159,6 +159,7 @@ export async function runFlow(opts: {
   // ---- GATE (reads every sealed layer; the single verdict)
   const outcome = await runVerify(repo);
   const decision = evaluateGate(repo, {
+    candidateBinding: outcome.candidateBinding,
     missingBaseline: outcome.missingBaseline,
     blocked: outcome.blocked,
     integrityVerdict: outcome.missingBaseline ? "CLEAN" : outcome.integrity.verdict,
@@ -172,7 +173,21 @@ export async function runFlow(opts: {
     staleNote: outcome.staleNote,
   }, { threshold: opts.threshold ?? 60, require: opts.require });
 
-  return { stages, gateExit: decision.exitCode, verdict: decision.verdict, decision };
+  const finalDecision = reconcileFlowDecision(stages, decision);
+  return { stages, gateExit: finalDecision.exitCode, verdict: finalDecision.verdict, decision: finalDecision };
+}
+
+/** A failed current stage must not be hidden by an older passing artifact. */
+export function reconcileFlowDecision(stages: FlowStageResult[], decision: import("./gateMatrix.js").GateDecision): import("./gateMatrix.js").GateDecision {
+  const failed = stages.filter((s) => s.status === "FAIL");
+  if (!failed.length) return decision;
+  return { ...decision,
+    verdict: ["CHEAT", "BLOCKED"].includes(decision.verdict) ? decision.verdict : "FAILED",
+    exitCode: decision.exitCode === 2 ? 2 : 1,
+    reasons: [...decision.reasons, ...failed.map((s) => `${s.stage}: ${s.detail}`)],
+    layers: [...decision.layers, { id: "flow", label: "Current pipeline", status: "FAIL", detail: failed.map((s) => s.stage).join(", "), reasons: failed.map((s) => s.detail) }],
+    summary: { ...decision.summary, layers: decision.summary.layers + 1, failed: decision.summary.failed + 1 },
+  };
 }
 
 export function renderFlowStages(stages: FlowStageResult[]): string {

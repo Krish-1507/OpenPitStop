@@ -1,3 +1,4 @@
+import { AgentBudget, DEFAULT_AGENT_LIMITS, positiveLimit, runBudgetedAgent } from "../agentBudget.js";
 import { Command } from "commander";
 import chalk from "chalk";
 import boxen from "boxen";
@@ -205,26 +206,6 @@ ${
     .join("\n");
 }
 
-async function runAgent(repo: string, agentCmd: string, prompt: string): Promise<number> {
-  const tokens = agentCmd.split(/\s+/).map((t) => (t.includes("{prompt}") ? prompt : t)).filter(Boolean);
-  const [cmd, ...args] = tokens;
-  const finalArgs = args.map((a) => a.replace("{prompt}", prompt));
-  try {
-    const sub = execa(cmd, finalArgs, {
-      cwd: repo,
-      stdout: "inherit",
-      stderr: "inherit",
-      reject: false,
-      timeout: 30 * 60 * 1000,
-      windowsHide: true,
-    });
-    return (await sub).exitCode ?? -1;
-  } catch (err: any) {
-    console.log(chalk.red(`agent could not be started: ${(err as Error).message}`));
-    return -1;
-  }
-}
-
 interface DriveResult {
   solved: boolean;
   attempts: number;
@@ -244,6 +225,7 @@ async function loopDriveFinding(
   reproHint: string,
   agentCmd: string,
   maxAttempts: number,
+  budget: AgentBudget,
 ): Promise<DriveResult> {
   const trajectory: string[] = [];
   let lastFailure: string | undefined;
@@ -255,7 +237,9 @@ async function loopDriveFinding(
       ),
     );
     const prompt = missionPrompt(repo, finding, reproHint, fromPen, { attempt, maxAttempts, lastFailure });
-    const agentCode = await runAgent(repo, agentCmd, prompt);
+    let agentCode: number;
+    try { agentCode = await runBudgetedAgent(repo, agentCmd, prompt, budget); }
+    catch (error) { return { solved: false, attempts: attempt - 1, lastFailure: String(error), trajectory: [...trajectory, String(error)] }; }
 
     // Acceptance gate: the bug must actually be gone, not merely "no regression".
     //  1) a failing-first repro that now PASSES (gold standard), or
@@ -267,20 +251,22 @@ async function loopDriveFinding(
     const still = await freshScanStillHas(repo, finding);
     const freshScanGone = still === false; // confirmed absent by the relevant analyzer
 
-    let accepted = reproPassed || freshScanGone;
+    const v = await runVerify(repo);
+    const accepted = agentCode === 0 && v.exitCode === 0 && (ran ? reproPassed : freshScanGone);
     if (accepted) {
       trajectory.push(`attempt ${attempt}: agent exited ${agentCode} → ACCEPTED (${reproPassed ? "repro PASSES" : "finding gone from re-scan"})`);
       markDriven(repo, finding.id);
       return { solved: true, attempts: attempt, trajectory };
     }
 
-    const v = await runVerify(repo);
     const stillTxt =
       still === null ? "re-scan n/a for this source" : still ? "finding still present in re-scan" : "finding gone from re-scan";
+    const previousFailure = lastFailure;
     lastFailure =
       `repro ${ran ? (r.ran?.passed ? "passed" : "still FAILS") : "unavailable (" + (r.reason ?? r.status) + ")"}${still ? "; " + stillTxt : ""}` +
       ` · pitstop verify exited ${v.exitCode} (risk ${v.risk}, integrity ${v.integrity.verdict})`;
     trajectory.push(`attempt ${attempt}: agent exited ${agentCode} → ${lastFailure}`);
+    if (agentCode !== 0 || previousFailure === lastFailure) return { solved: false, attempts: attempt, lastFailure, trajectory };
     console.log(chalk.yellow(`  ${lastFailure}\n  feeding evidence back into the next attempt…\n`));
   }
   return { solved: false, attempts: maxAttempts, lastFailure, trajectory };
@@ -357,10 +343,11 @@ async function runPitstop(repo: string, args: string[]): Promise<number> {
  * from `pitstop next`, looping each `pitstop drive <id>` until verified, until the
  * repo is fully fixed or the round cap is hit.
  */
-async function driveRepoLoop(repo: string, agentCmd: string, maxAttempts: number): Promise<boolean> {
+async function driveRepoLoop(repo: string, agentCmd: string, maxAttempts: number, budget: AgentBudget): Promise<boolean> {
   const MAX_ROUNDS = 24;
   const paint = (ok: boolean) => (ok ? chalk.green : chalk.red);
   for (let round = 0; round < MAX_ROUNDS; round++) {
+    if (!budget.remainingMs()) { console.log("Global drive time limit reached."); return false; }
     const s = computeNext(repo);
     if (s.fullyFixed) {
       await celebrateCard();
@@ -407,7 +394,7 @@ async function driveRepoLoop(repo: string, agentCmd: string, maxAttempts: number
         markDriven(repo, id);
         continue;
       }
-      const res = await loopDriveFinding(repo, resolved.finding, resolved.fromPen, resolved.reproHint, agentCmd, maxAttempts);
+      const res = await loopDriveFinding(repo, resolved.finding, resolved.fromPen, resolved.reproHint, agentCmd, maxAttempts, budget);
       const ok = res.solved;
       console.log(
         boxen(
@@ -448,15 +435,29 @@ export const drive = new Command("drive")
   .argument("[finding-id]", "finding id from scan-latest.json or pen-latest.json (omit to drive the whole repo)")
   .argument("[repo]", "path to the repo", ".")
   .option("--agent <cmd>", "agent command with {prompt} placeholder (or set PITSTOP_AGENT)")
-  .option("--max-attempts <n>", "max drive loop attempts per finding", "5")
+  .option("--max-attempts <n>", "max attempts per finding, within the shared session budget", "3")
+  .option("--max-agent-calls <n>", "total agent launches across ALL findings", "3")
+  .option("--max-seconds <n>", "shared agent session deadline in seconds", "600")
+  .option("--max-prompt-chars <n>", "total prompt characters sent across ALL calls", "48000")
+  .option("--max-cost-usd <amount>", "provider-enforced dollar ceiling (Claude print mode only; other providers refuse)")
   .action(
     async (
       findingId: string | undefined,
       repoArg: string,
-      options: { agent?: string; maxAttempts?: string },
+      options: { agent?: string; maxAttempts?: string; maxAgentCalls?: string; maxSeconds?: string; maxPromptChars?: string; maxCostUsd?: string },
     ) => {
       const repo = path.resolve(repoArg);
-      const maxAttempts = Math.max(1, Math.floor(Number(options.maxAttempts) || 5));
+      let maxAttempts: number;
+      let budget: AgentBudget;
+      try {
+        maxAttempts = positiveLimit(options.maxAttempts ?? 3, "max-attempts");
+        budget = new AgentBudget(repo, { ...DEFAULT_AGENT_LIMITS,
+          maxCalls: positiveLimit(options.maxAgentCalls ?? 3, "max-agent-calls"),
+          maxSeconds: positiveLimit(options.maxSeconds ?? 600, "max-seconds"),
+          maxPromptChars: positiveLimit(options.maxPromptChars ?? 48000, "max-prompt-chars"),
+          ...(options.maxCostUsd !== undefined ? { maxCostUsd: positiveLimit(options.maxCostUsd, "max-cost-usd", false) } : {}),
+        });
+      } catch (error) { console.error(String(error)); process.exitCode = 2; return; }
       const agent = resolveAgentCmd(options.agent);
       const agentCmd = agent.cmd;
 
@@ -484,9 +485,11 @@ export const drive = new Command("drive")
       }
       if (agent.detected) console.log(chalk.dim(`(auto-detected agent: ${agent.detected})\n`));
 
+      try { budget.acquire(); } catch (error) { console.error(String(error)); process.exitCode = 2; return; }
+      try {
       // No id → drive the whole repo to fully-fixed.
       if (!findingId) {
-        const ok = await driveRepoLoop(repo, agentCmd, maxAttempts);
+        const ok = await driveRepoLoop(repo, agentCmd, maxAttempts, budget);
         process.exitCode = ok ? 0 : 1;
         return;
       }
@@ -504,6 +507,7 @@ export const drive = new Command("drive")
         resolved.reproHint,
         agentCmd,
         maxAttempts,
+        budget,
       );
       const ok = res.solved;
       const paint = ok ? chalk.green : chalk.red;
@@ -524,6 +528,7 @@ export const drive = new Command("drive")
         ),
       );
       process.exitCode = ok ? 0 : 1;
+      } finally { budget.release(); }
     },
   );
 

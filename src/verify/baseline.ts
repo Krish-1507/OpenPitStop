@@ -1,3 +1,4 @@
+import { candidateRun, type CandidateBinding } from "../candidate.js";
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
@@ -67,6 +68,7 @@ export type VerificationExecution = {
 export type BaselineVerdict = "VERIFIED" | "FAILED" | "UNPROVEN" | "INTEGRITY_FAILURE";
 
 export interface BaselineVerifyResult {
+  candidateBinding?: CandidateBinding | null;
   repo: string;
   verification: VerificationDef;
   baseline: VerificationExecution | null;
@@ -239,7 +241,7 @@ function buildEnvSnapshot(def: VerificationDef): Record<string, string> {
  *  5. seal evidence
  *  6. compare → verdict
  */
-export async function baselineAwareVerify(opts: {
+async function baselineAwareVerifyImpl(opts: {
   repo: string;
   baselineRef: string;
   candidateRef?: string;
@@ -571,4 +573,8 @@ export function checkBaselineEvidence(filePath: string): EvidenceCheck {
   } catch (e: any) {
     return { status: "tampered", digest: "", reason: e.message };
   }
+}
+
+export function baselineAwareVerify(opts: Parameters<typeof baselineAwareVerifyImpl>[0]): ReturnType<typeof baselineAwareVerifyImpl> {
+  return candidateRun(opts.repo, () => baselineAwareVerifyImpl(opts));
 }

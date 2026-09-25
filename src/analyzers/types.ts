@@ -209,6 +209,8 @@ export interface Cluster {
 }
 
 export interface ScanResult {
+  /** Content-bound reuse metadata, present only for a stable full scan. */
+  cache?: import("../scanCache.js").ScanCache;
   timestamp: string;
   repo: string;
   /** `try` was produced by the quick `pitstop try` pass (tests/perf/reliability intentionally skipped). */

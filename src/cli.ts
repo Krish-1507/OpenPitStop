@@ -91,7 +91,7 @@ const program = new Command();
 
 program
   .name("pitstop")
-  .description("OpenPitStop CLI")
+  .description('Repo-aware engineering for coding CLIs. Start with: pitstop ask "understand this repo"')
   .version(readVersion())
   .action(guidedFirstRun);
 

@@ -1,3 +1,4 @@
+import { candidateMismatch, captureCandidate } from "../candidate.js";
 import fs from "node:fs";
 import path from "node:path";
 import { seal, checkEvidence, canonicalize, type OpenPitStopEvidence, type EvidenceCheck } from "../evidence.js";
@@ -279,6 +280,17 @@ export function buildEvidenceChain(repo: string): EvidenceChain {
       reason: `${cat.label}: ${doc.verdict ?? "unknown"} — ${reasonText.slice(0, 300)}`,
     });
     if (blocking) reasons.push(`${cat.label}: ${doc.verdict} — ${reasonText.slice(0, 200)}`);
+  }
+
+  const currentCandidate = captureCandidate(repoAbs);
+  for (const item of items) {
+    if (item.status !== "PASS") continue;
+    let stale: string | null = "missing or unsealed evidence";
+    try {
+      const doc = JSON.parse(fs.readFileSync(path.join(repoAbs, item.evidenceRef), "utf8").replace(/^\uFEFF/, ""));
+      if (checkEvidence(doc).status === "verified") stale = candidateMismatch(repoAbs, doc, currentCandidate);
+    } catch {}
+    if (stale) { item.status = "UNPROVEN"; item.reason = stale; }
   }
 
   const summary = {
