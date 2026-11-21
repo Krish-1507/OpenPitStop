@@ -8,6 +8,7 @@ import { persistScan } from "./scan.js";
 import { stampFindings } from "../repro/ids.js";
 import { correlate } from "../graph/correlate.js";
 import { computeScore } from "../report/score.js";
+import { applySuppressions } from "../findings/suppressions.js";
 
 /**
  * `pitstop watch` — the live shield.
@@ -46,6 +47,7 @@ export const watch = new Command("watch")
       try {
         const result = await tryScan(repo);
         stampFindings(result);
+        applySuppressions(repo, result);
         result.clusters = correlate(repo, result).clusters;
         persistScan(repo, result);
 

@@ -15,6 +15,7 @@ import { correlate } from "../graph/correlate.js";
 import { computeScore } from "../report/score.js";
 import { createSpinner } from "../ui/spinner.js";
 import { persistScan, renderSecurityFixes } from "./scan.js";
+import { applySuppressions } from "../findings/suppressions.js";
 
 function rel(repo: string, p?: string): string {
   return p ? path.relative(repo, path.resolve(repo, p)) : "";
@@ -225,6 +226,7 @@ export const try_ = new Command("try")
     const elapsedMs = Math.max(1, Math.round(performance.now() - t0));
 
     stampFindings(result);
+    applySuppressions(repo, result);
     result.clusters = correlate(repo, result).clusters;
     persistScan(repo, result);
 

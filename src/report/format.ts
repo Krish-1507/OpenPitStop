@@ -165,6 +165,10 @@ export interface ReportModel {
   lines: MetricLine[];
   clusters: Cluster[];
   hasVerify: boolean;
+  /** Checks that could not run in the latest scan, with their honest reason. */
+  skippedChecks: { area: string; reason: string }[];
+  /** Scoped dismissals retained for audit; excluded from score and active counts. */
+  suppressedFindings: number;
   /** Committed repro tests that permanently prove each fix. */
   proofs: ReproProof[];
   /**
@@ -203,6 +207,22 @@ export function buildModel(repo: string): ReportModel {
   const latestVerify = hist.verifies[hist.verifies.length - 1] ?? null;
 
   const integrity = collectIntegrity(repo);
+  const skippedChecks: { area: string; reason: string }[] = [];
+  if (latestScan) {
+    const addSkipped = (area: string, result: { status: string; note?: string }) => {
+      if (result.status !== "ok") skippedChecks.push({ area, reason: result.note ?? "not available" });
+    };
+    addSkipped("Dependency graph", latestScan.dependencyGraph);
+    addSkipped("Security", latestScan.security);
+    addSkipped("Duplication", latestScan.duplication);
+    addSkipped("Tests", latestScan.tests);
+    addSkipped("Build / performance", latestScan.perf);
+    addSkipped("Accessibility", latestScan.accessibility);
+    addSkipped("Reliability", latestScan.reliability);
+    addSkipped("Developer experience", latestScan.devex);
+    if (latestScan.ledger) addSkipped("Ledger idempotency", latestScan.ledger);
+  }
+  const suppressedFindings = latestScan?.dismissed?.length ?? 0;
 
   const lines: MetricLine[] = [];
 
@@ -249,6 +269,11 @@ export function buildModel(repo: string): ReportModel {
       color,
     });
   }
+  lines.push({
+    label: "Suppressed findings",
+    value: suppressedFindings === 0 ? "none" : `${suppressedFindings} (visible for audit)`,
+    color: suppressedFindings === 0 ? "green" : "yellow",
+  });
 
   // Memory Leaks — no analyzer exists yet.
   lines.push({ label: "Memory Leaks", value: NOT_SCANNED, color: "dim" });
@@ -384,6 +409,8 @@ export function buildModel(repo: string): ReportModel {
     lines,
     clusters: latestScan?.clusters ?? [],
     hasVerify: !!latestVerify,
+    skippedChecks,
+    suppressedFindings,
     proofs: loadProofs(repo),
     integrity,
     proofCoverage,
@@ -428,6 +455,16 @@ export function renderTerminal(model: ReportModel): string {
   const contentParts = [header, "", ...lines, proofLine];
   const integrity = integrityTerminalBlock(model);
   if (integrity) contentParts.push("", integrity);
+  if (model.skippedChecks.length > 0) {
+    contentParts.push(
+      "",
+      chalk.yellow(`Skipped checks (not evidence of absence): ${model.skippedChecks.length}`),
+      ...model.skippedChecks.slice(0, 6).map((check) => `  - ${check.area}: ${check.reason}`),
+    );
+    if (model.skippedChecks.length > 6) {
+      contentParts.push(chalk.dim(`  … ${model.skippedChecks.length - 6} more in the markdown report`));
+    }
+  }
   const content = contentParts.join("\n");
 
   return boxen(content, {
@@ -645,6 +682,22 @@ function integritySection(model: ReportModel): string[] {
   return out;
 }
 
+function skippedSection(model: ReportModel): string[] {
+  const out: string[] = ["## Skipped checks", ""];
+  if (model.skippedChecks.length === 0) {
+    out.push("Every configured check ran. This is not a claim that the repository is secure — only that no check reported itself as unavailable.");
+    out.push("");
+    return out;
+  }
+  out.push("These checks did not run. Their absence is **not** evidence that the related problem is absent.");
+  out.push("");
+  out.push("| Area | Why it did not run |");
+  out.push("| --- | --- |");
+  for (const check of model.skippedChecks) out.push(`| ${check.area} | ${check.reason.replace(/\|/g, "\\|")} |`);
+  out.push("");
+  return out;
+}
+
 function notesSection(): string[] {
   return [
     `## Notes`,
@@ -682,6 +735,7 @@ export function renderMarkdown(model: ReportModel, opts: MarkdownOptions = {}): 
   }
 
   out.push(...beforeAfterSection(model));
+  out.push(...skippedSection(model));
   out.push(...proofSection(model.proofs, model.proofCoverage));
   out.push(...integritySection(model));
   if (model.latestVerify?.honesty) {
@@ -896,6 +950,13 @@ export function renderHtml(model: ReportModel): string {
 
   <h2>Summary</h2>
   <table><tbody>${summaryRows}</tbody></table>
+
+  <h2>Skipped checks</h2>
+  <div class="card">
+    ${model.skippedChecks.length === 0
+      ? `<p class="muted">Every configured check ran. That is not a claim of security or correctness.</p>`
+      : `<p class="muted">These checks did not run; their absence is not evidence that the related problem is absent.</p><table><thead><tr><th>Area</th><th>Why it did not run</th></tr></thead><tbody>${model.skippedChecks.map((check) => `<tr><td class="label">${escapeHtml(check.area)}</td><td>${escapeHtml(check.reason)}</td></tr>`).join("")}</tbody></table>`}
+  </div>
 
   <h2>Root-Cause Clusters</h2>
   ${clusterCards}

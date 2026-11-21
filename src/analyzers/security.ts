@@ -295,6 +295,8 @@ function parseOsvScanner(stdout: string): ScanIssue[] {
           type: "dependency",
           severity,
           description: summary ? `${desc} — ${summary}` : desc,
+          sourceTool: "osv-scanner",
+          confidence: "indicated",
         });
       }
     }
@@ -323,6 +325,8 @@ function parseNpmAudit(stdout: string): ScanIssue[] {
       type: "dependency",
       severity: v?.severity ?? "unknown",
       description: desc,
+      sourceTool: "npm-audit",
+      confidence: "indicated",
     });
   }
   return issues;
@@ -341,6 +345,8 @@ function parsePipAudit(stdout: string): ScanIssue[] {
       type: "dependency",
       severity: v.severity ?? "unknown",
       description: `${v.name} ${v.id ?? ""}`.trim(),
+      sourceTool: "pip-audit",
+      confidence: "indicated",
     });
   }
   return issues;
@@ -361,6 +367,8 @@ function parseGitleaks(stdout: string): ScanIssue[] {
       file: f.File,
       line: f.StartLine,
       description: f.Description ?? f.RuleID ?? "secret detected",
+      sourceTool: "gitleaks",
+      confidence: "indicated",
     });
   }
   return issues;
@@ -462,6 +470,11 @@ export function parseSemgrep(stdout: string, repo: string): ScanIssue[] {
       line: r.start?.line,
       description: `${checkId}: ${msg}`,
       fix,
+      sourceTool: "semgrep",
+      confidence: "indicated",
+      references: Array.isArray(meta?.references)
+        ? meta.references.map((value: unknown) => String(value)).filter(Boolean).slice(0, 10)
+        : [],
     });
   }
   return issues;

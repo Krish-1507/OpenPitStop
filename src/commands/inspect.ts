@@ -192,8 +192,9 @@ export const inspect = new Command("inspect")
       return;
     }
 
-    const f = result ? resolveFinding(result, id) : null;
-    if (!f && penResult) {
+    const dismissed = result?.dismissed?.find((entry) => entry.id === id);
+    const resolved = result ? resolveFinding(result, id) : null;
+    if (!resolved && penResult) {
       const pf = resolvePenFinding(penResult, id);
       if (pf) {
         renderPenInspect(repo, pf);
@@ -201,13 +202,23 @@ export const inspect = new Command("inspect")
       }
     }
 
-    if (!f) {
+    if (!resolved && !dismissed) {
       console.log(
         chalk.red(`finding "${id}" not found in scan-latest.json or pen-latest.json\n`) +
           chalk.dim(`hint: ids look like ${chalk.cyan("security-19c390c6")}; run \`pitstop scan\` to refresh.`),
       );
       return;
     }
+    const f = resolved ?? {
+      id: dismissed!.id,
+      source: dismissed!.source,
+      severity: dismissed!.severity,
+      type: dismissed!.type,
+      description: dismissed!.description,
+      file: dismissed!.file,
+      line: dismissed!.line,
+      data: dismissed,
+    };
 
     const c = result ? clusterOf(result, id) : null;
     const paint = severityPaint(f.severity);
@@ -227,12 +238,36 @@ export const inspect = new Command("inspect")
             `${chalk.bold("Permanent proof:")} ${chalk.yellow("none committed yet")} — run \`pitstop repro ${id}\` to capture a failing-then-passing regression test.`,
           ];
 
+    const issue = f.data as import("../analyzers/types.js").ScanIssue | undefined;
     const lines: string[] = [];
-    lines.push(`${chalk.bold("Finding")}: ${paint(f.severity.toUpperCase())} ${chalk.bold(f.type)}`);
+    lines.push(`${chalk.bold("Finding")}: ${paint(f.severity.toUpperCase())} ${chalk.bold(issue?.title ?? f.type)} ${chalk.dim(f.id)}`);
     lines.push(`${chalk.bold("Location")}: ${chalk.cyan(loc)}`);
+    if (issue?.confidence || issue?.sourceTool || issue?.reachability) {
+      lines.push(
+        `${chalk.bold("Evidence")}: confidence ${chalk.bold(issue.confidence ?? "unknown")} · source ${issue.sourceTool ?? f.source} · reachability ${issue.reachability ?? "unknown"}`,
+      );
+    }
     lines.push("");
     lines.push(f.description);
     lines.push("");
+    if (dismissed) {
+      const suppression = dismissed.suppression;
+      lines.push(
+        chalk.yellow(`Suppressed (${suppression.kind}, ${suppression.id}): ${suppression.reason}`) +
+          chalk.dim(suppression.expiresAt ? ` · expires ${suppression.expiresAt}` : ""),
+        "",
+      );
+    }
+    lines.push(chalk.bold("Why it matters:"), `  ${issue?.impact ?? "Review the affected behavior before deciding how urgently to act on this finding."}`, "");
+    lines.push(chalk.bold("Reproduce / verify:"), `  ${issue?.reproduction ?? `pitstop repro ${id} (when supported) or inspect the cited code and evidence path.`}`, "");
+    lines.push(chalk.bold("Fix:"), `  ${issue?.suggestedFix ?? issue?.fix ?? "Apply the smallest correction that preserves existing behavior, then re-run the check."}`, "");
+    if (issue?.verification) lines.push(chalk.bold("Verification after the fix:"), `  ${issue.verification}`, "");
+    if (issue?.fingerprint) lines.push(chalk.dim(`Fingerprint: ${issue.fingerprint}`), "");
+    if (issue?.references && issue.references.length > 0) {
+      lines.push(chalk.bold("References:"));
+      for (const reference of issue.references) lines.push(`  ${reference}`);
+      lines.push("");
+    }
 
     const snip = codeSnippet(repo, f);
     if (snip.length > 0) {
@@ -251,7 +286,7 @@ export const inspect = new Command("inspect")
       );
     }
 
-    if (f.source === "ledger" && f.data) {
+    if (!dismissed && f.source === "ledger" && f.data) {
       const ev = f.data as { scenario?: string; orderId?: string; idempotencyKey?: string; doubleCharged?: boolean; chargeCalls?: unknown[] };
       lines.push(
         chalk.bold("Ledger evidence:"),
@@ -261,7 +296,7 @@ export const inspect = new Command("inspect")
       );
     }
 
-    if (f.source === "perf" && f.data) {
+    if (!dismissed && f.source === "perf" && f.data) {
       const p = f.data as { buildTimeMs?: number; bundleSizeBytes?: number };
       lines.push(
         chalk.bold("Performance baseline:"),

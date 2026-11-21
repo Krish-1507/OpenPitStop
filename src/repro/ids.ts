@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import path from "node:path";
+import { normalizeScanIssue } from "../findings/schema.js";
 import type {
   ClusterFinding,
   FlakyTest,
@@ -56,13 +57,13 @@ export function clusterIdFor(f: ClusterFinding): string {
 export function stampFindings(r: ScanResult): void {
   const stamp = <T extends ScanIssue>(arr: T[], source: string) => {
     for (const i of arr) {
-      i.id = findingIdFor(source, i.type, i.file, i.description);
+      normalizeScanIssue(r.repo, i, source, findingIdFor(source, i.type, i.file, i.description));
     }
   };
   stamp(r.security.issues, "security");
   stamp(r.accessibility.issues, "a11y");
   for (const f of r.reliability.raceSmells) {
-    f.id = findingIdFor("reliability", "race-condition", f.file, f.description);
+    normalizeScanIssue(r.repo, f, "reliability", findingIdFor("reliability", "race-condition", f.file, f.description));
   }
   for (const f of r.reliability.flakyTests as FlakyTest[]) {
     f.id = findingIdFor("reliability", "flaky-test", f.file, f.name);

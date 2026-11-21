@@ -49,9 +49,12 @@ export function snapshotRepo(repo: string): RepoSnapshot | null {
   } catch { return null; }
 }
 
-export function scanInputs(opts: ScanCacheOptions = {}): string {
+export function scanInputs(opts: ScanCacheOptions = {}, repo = process.cwd()): string {
   const version = JSON.parse(fs.readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
+  let suppressions = "";
+  try { suppressions = fs.readFileSync(path.join(repo, ".pitstop", "suppressions.json"), "utf8"); } catch { /* no dismissals configured */ }
   return digestOf({ schema: 1, version, node: process.version, platform: process.platform,
+    suppressions: createHash("sha256").update(suppressions).digest("hex"),
     reliabilityRuns: opts.reliabilityRuns ?? 2, ledger: opts.ledger ?? false,
     semgrep: process.env.PITSTOP_SEMGREP_CONFIG ?? "", semgrepBin: process.env.PITSTOP_SEMGREP ?? "",
     path: process.env.PATH ?? "", nodeEnv: process.env.NODE_ENV ?? "" });
@@ -67,7 +70,7 @@ export function checkScanReuse(repo: string, opts: ScanCacheOptions = {}): { sca
     if (!cache || cache.schema !== 1) return { reason: "baseline has no content snapshot; run a full scan once" };
     const age = Date.now() - Date.parse(scan.timestamp);
     if (!Number.isFinite(age) || age < 0 || age > SCAN_CACHE_MAX_AGE_MS) return { reason: "baseline expired; external dependencies and tools may have changed" };
-    if (cache.inputs !== scanInputs(opts)) return { reason: "scan options, engine or environment changed" };
+    if (cache.inputs !== scanInputs(opts, repo)) return { reason: "scan options, engine, dismissals or environment changed" };
     const current = snapshotRepo(repo);
     if (!current) return { reason: "could not safely fingerprint every input; full scan required" };
     if (cache.snapshot.digest !== current.digest) {

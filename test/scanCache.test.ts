@@ -16,7 +16,7 @@ function fixture() {
   return repo;
 }
 function save(repo: string, overrides: Record<string, unknown> = {}) {
-  const scan = { repo, timestamp: new Date().toISOString(), mode: "full", cache: { schema: 1, inputs: scanInputs(), snapshot: snapshotRepo(repo) }, ...overrides };
+  const scan = { repo, timestamp: new Date().toISOString(), mode: "full", cache: { schema: 1, inputs: scanInputs({}, repo), snapshot: snapshotRepo(repo) }, ...overrides };
   fs.mkdirSync(path.join(repo, ".pitstop"), { recursive: true });
   fs.writeFileSync(path.join(repo, ".pitstop", "scan-latest.json"), JSON.stringify(seal(scan, "cache fixture")));
 }
