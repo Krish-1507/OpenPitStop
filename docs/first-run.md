@@ -136,4 +136,6 @@ partial fingerprints, confidence/source/reachability properties and scoped suppr
 - Missing tools, unavailable evidence and skipped layers always remain visible. They are
   never converted into a pass.
 - Findings are static indications unless a supported reproduction or live test proves them.
+- Language adapters currently describe detection only. Scan, test and build coverage is the
+  coverage of the underlying tools, not every language the adapters can recognize.
 - Onboarding state is UI preference, not evidence; it never affects a gate or report.

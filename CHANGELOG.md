@@ -20,6 +20,8 @@ All notable changes to this project are documented here.
 - Enhanced SARIF 2.1.0 export: stable partial fingerprints, rule CWE/OWASP metadata,
   confidence/source properties, repo-relative locations and scoped suppressions.
 - Reports expose suppressed findings and the exact checks that were skipped, with reasons.
+- Language-adapter boundary for marker/extension detection, shared by language detection,
+  onboarding and repo understanding. Existing analyzer coverage is unchanged.
 - Installer flags: `--agents`, `--dry-run`, `--no-subcommands`, `--rollback`, `--json`.
   Generated files carry a managed marker; uninstall removes managed files only unless
   `--force` is explicit.

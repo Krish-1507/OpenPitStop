@@ -27,6 +27,12 @@ import {
   type InstallTarget,
 } from "../src/installer/targets.js";
 import { detectAgents, detectGit, detectProject } from "../src/onboarding/detect.js";
+import {
+  LANGUAGE_ADAPTERS,
+  extensionsFor,
+  languageDisplayName,
+} from "../src/languages/adapters.js";
+import { detectLanguage } from "../src/analyzers/util.js";
 import { loadOnboardingState, saveOnboardingState, isOnboardingComplete } from "../src/onboarding/state.js";
 import { buildCheckReport, renderCheck, collectCheckFindings } from "../src/checks/report.js";
 import { runCheck } from "../src/checks/run.js";
@@ -421,6 +427,27 @@ test("detection: agents come from real paths and report configured state", () =>
   } finally {
     fs.rmSync(repo, { recursive: true, force: true });
     fs.rmSync(home, { recursive: true, force: true });
+  }
+});
+
+test("language adapters: detection is marker-driven and shared", () => {
+  const js = tempDir("pitstop-lang-js-");
+  const py = tempDir("pitstop-lang-py-");
+  const dotnet = tempDir("pitstop-lang-dotnet-");
+  try {
+    fs.writeFileSync(path.join(js, "package.json"), JSON.stringify({ name: "x" }));
+    fs.writeFileSync(path.join(py, "pyproject.toml"), "[project]\nname = 'x'\n");
+    fs.mkdirSync(path.join(dotnet, "src"), { recursive: true });
+    fs.writeFileSync(path.join(dotnet, "src", "App.csproj"), "<Project />\n");
+
+    assert.equal(detectLanguage(js), "js");
+    assert.equal(detectLanguage(py), "python");
+    assert.equal(detectLanguage(dotnet), "dotnet");
+    assert.equal(languageDisplayName("dotnet"), "C#");
+    assert.deepEqual(extensionsFor("go"), [".go"]);
+    assert.equal(new Set(LANGUAGE_ADAPTERS.map((adapter) => adapter.id)).size, LANGUAGE_ADAPTERS.length);
+  } finally {
+    for (const repo of [js, py, dotnet]) fs.rmSync(repo, { recursive: true, force: true });
   }
 });
 

@@ -3,6 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { commandExists, detectLanguage, walkFiles, type Language } from "../analyzers/util.js";
+import { languageDisplayName, languageMarkerFiles } from "../languages/adapters.js";
 import {
   AGENT_DEFINITIONS,
   type AgentId,
@@ -46,30 +47,18 @@ export interface ProjectDetection {
   manifests: string[];
 }
 
-const LANGUAGE_NAMES: Record<Language, string> = {
-  js: "JavaScript",
-  python: "Python",
-  go: "Go",
-  rust: "Rust",
-  dart: "Dart",
-  dotnet: "C#",
-  java: "Java",
-  unknown: "Unknown",
-};
-
-const MARKERS: Array<{ file: string; language: string }> = [
+const TECH_MARKERS: Array<{ file: string; language: string }> = [
   { file: "tsconfig.json", language: "TypeScript" },
   { file: "Dockerfile", language: "Docker" },
   { file: "docker-compose.yml", language: "Docker Compose" },
   { file: "docker-compose.yaml", language: "Docker Compose" },
-  { file: "requirements.txt", language: "Python" },
-  { file: "pyproject.toml", language: "Python" },
-  { file: "go.mod", language: "Go" },
-  { file: "Cargo.toml", language: "Rust" },
-  { file: "pom.xml", language: "Java" },
-  { file: "build.gradle", language: "Java" },
-  { file: "build.gradle.kts", language: "Java" },
-  { file: "pubspec.yaml", language: "Dart" },
+];
+
+// Language manifest markers come from the adapters, so adding a language in
+// Phase 2 also updates onboarding without a second list to keep in sync.
+const MARKERS: Array<{ file: string; language: string }> = [
+  ...TECH_MARKERS,
+  ...languageMarkerFiles(),
 ];
 
 const FRAMEWORK_DEPS: Record<string, string> = {
@@ -228,7 +217,7 @@ function entryPointsOf(root: string): string[] {
 export function detectProject(repoInput: string): ProjectDetection {
   const root = path.resolve(repoInput);
   const language = detectLanguage(root);
-  const languages = new Set<string>([LANGUAGE_NAMES[language]]);
+  const languages = new Set<string>([languageDisplayName(language)]);
   const manifests: string[] = [];
   for (const marker of MARKERS) {
     if (!exists(root, marker.file)) continue;

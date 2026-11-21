@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { seal, type OpenPitStopEvidence } from "../evidence.js";
 import { detectLanguage, walkFiles, type Language } from "../analyzers/util.js";
+import { LANGUAGE_ADAPTERS } from "../languages/adapters.js";
 import { discoverTestLayers, type TestLayerSpec } from "../commands/test.js";
 
 /**
@@ -221,14 +222,12 @@ export function buildUnderstanding(repo: string): RepoUnderstanding {
 
   // ---- languages: primary + presence of secondary markers
   u.languages = [u.primaryLanguage];
-  const extsByLang: Partial<Record<Language, string[]>> = {
-    js: [".mjs", ".cjs"], python: [".py"], go: [".go"], rust: [".rs"], dart: [".dart"], dotnet: [".cs"], java: [".java"],
-  };
-  for (const lang of ["js", "python", "go", "rust", "dart", "dotnet", "java"] as Language[]) {
-    if (lang !== u.primaryLanguage) {
-      const exts = extsByLang[lang] ?? [];
-      if (exts.length && walkFiles(repoAbs, exts).length > 0) u.languages.push(lang);
-    }
+  for (const adapter of LANGUAGE_ADAPTERS) {
+    if (adapter.id === u.primaryLanguage) continue;
+    // Only .mjs/.cjs count as secondary JavaScript in a mixed repo; package.json
+    // still makes JavaScript the primary language when it is the root marker.
+    const extensions = adapter.id === "js" ? [".mjs", ".cjs"] : adapter.extensions;
+    if (walkFiles(repoAbs, extensions).length > 0) u.languages.push(adapter.id);
   }
 
   // ---- package.json: scripts, frameworks, package manager, entry points
