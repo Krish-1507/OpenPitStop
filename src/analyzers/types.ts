@@ -257,5 +257,7 @@ export interface ScanResult {
   devex: DevexResult;
   /** Present only when the scan ran with `--ledger`. */
   ledger?: LedgerResult;
+  /** Phase 2 language discovery/parsing evidence; absent on quick `try` scans. */
+  languageAnalysis?: import("../languages/types.js").LanguageAnalysis;
   clusters: Cluster[];
 }

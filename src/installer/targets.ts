@@ -26,6 +26,9 @@ export interface Subcommand {
 
 export const SUBCOMMANDS: Subcommand[] = [
   { name: "menu", cli: "menu", description: "show a clickable menu card of every OpenPitStop action", special: "menu" },
+  { name: "check", cli: "check quick", description: "guided quick/deep/ship check with findings, skipped checks and next steps" },
+  { name: "languages", cli: "languages", description: "show language, parser, analyzer and verification support" },
+  { name: "map", cli: "map", description: "map candidate routes, entry points, auth/data evidence and infrastructure" },
   { name: "scan", cli: "scan", description: "measure the repo: score, secrets, deps, tests, duplication, a11y" },
   { name: "pen", cli: "pen --fix", description: "boot the app, fire real attacks, write failing-first repro tests + safe patches" },
   { name: "drive", cli: "drive", description: "drive an agent to fix one root cause, tamper-evident" },

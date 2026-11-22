@@ -443,7 +443,7 @@ test("language adapters: detection is marker-driven and shared", () => {
     assert.equal(detectLanguage(js), "js");
     assert.equal(detectLanguage(py), "python");
     assert.equal(detectLanguage(dotnet), "dotnet");
-    assert.equal(languageDisplayName("dotnet"), "C#");
+    assert.equal(languageDisplayName("dotnet"), "C# / .NET");
     assert.deepEqual(extensionsFor("go"), [".go"]);
     assert.equal(new Set(LANGUAGE_ADAPTERS.map((adapter) => adapter.id)).size, LANGUAGE_ADAPTERS.length);
   } finally {
