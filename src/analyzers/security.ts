@@ -3,6 +3,10 @@ import fs from "node:fs";
 import path from "node:path";
 import { commandExists, detectLanguage, safeExecAsync } from "./util.js";
 import { analyzeSecurityStatic } from "./securityStatic.js";
+import { analyzeAdvancedSecurity } from "../security/advanced.js";
+import { analyzeInfrastructure } from "../security/infrastructure.js";
+import { analyzeDependencyHygiene } from "../security/dependencies.js";
+import { assessRisk } from "../security/risk.js";
 import type { ScanIssue, SecurityResult } from "./types.js";
 
 /** How long an npm-audit result is reused before re-fetching from the registry. */
@@ -14,7 +18,12 @@ export async function analyzeSecurity(repo: string): Promise<SecurityResult> {
   // deterministic, needs no tooling, and covers the vulnerability classes
   // that AI-generated code ships most often (SQL injection, secrets, XSS,
   // authz gaps, money inputs). Its findings are labeled [indicated].
-  const issues: ScanIssue[] = [...analyzeSecurityStatic(repo)];
+  const issues: ScanIssue[] = [
+    ...analyzeSecurityStatic(repo),
+    ...analyzeAdvancedSecurity(repo),
+    ...analyzeInfrastructure(repo),
+    ...analyzeDependencyHygiene(repo),
+  ];
   let depNote: string | undefined;
 
   if (lang === "js") {
@@ -84,18 +93,29 @@ export async function analyzeSecurity(repo: string): Promise<SecurityResult> {
   if (semgrep.error) depNote = depNote ? `${depNote}; ${semgrep.error}` : semgrep.error;
   else issues.push(...semgrep.issues);
 
-  if (issues.length === 0 && lang === "unknown") {
+  // Deduplicate across the static, advanced and infrastructure passes. A
+  // line-level finding should appear once even when two engines agree.
+  const seen = new Set<string>();
+  const deduped = issues.filter((issue) => {
+    const key = `${issue.category ?? issue.type}|${issue.file ?? ""}|${issue.line ?? ""}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  assessRisk(repo, deduped);
+
+  if (deduped.length === 0 && lang === "unknown") {
     return {
       status: "skipped",
       note: "unsupported language / no security tooling",
       issues: [],
     };
   }
-  if (issues.length === 0 && depNote) {
+  if (deduped.length === 0 && depNote) {
     return { status: "skipped", note: depNote, issues: [] };
   }
 
-  return { status: "ok", issues };
+  return { status: "ok", issues: deduped };
 }
 
 /** The lockfile exists but npm refuses to read it — a real finding on its own. */

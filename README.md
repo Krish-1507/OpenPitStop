@@ -197,7 +197,11 @@ returns a nonzero exit. [Verification stack](docs/repo-discipline.md).
 local application and sends supported attack probes, recording requests, responses and
 intercepted outbound activity. Findings distinguish static indications from runtime evidence.
 The [security matrix](docs/security.md) describes the built-in checks; optional Semgrep
-adds a separate SAST engine.
+adds a separate SAST engine. Scans also include infrastructure analysis (Docker,
+Compose, Kubernetes/Helm, Terraform, GitHub Actions, SQL and config), promoted
+business-logic/access-control findings (IDOR, price tampering, JWT weakness), and a
+deterministic risk score that distinguishes "this file contains a route" from proof
+that a vulnerable line is reachable. `pitstop inspect` shows the score and its reasons.
 
 `pen --fix` writes repro tests for supported findings and patch files for a small set of
 deterministic fixes, including Express header hardening. It does not apply source patches.

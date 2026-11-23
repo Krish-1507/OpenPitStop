@@ -228,6 +228,7 @@ export interface DismissedFinding {
   confidence?: import("../findings/schema.js").FindingConfidence;
   sourceTool?: string;
   reachability?: string;
+  risk?: import("../findings/schema.js").FindingRisk;
   verificationStatus?: string;
   impact?: string;
   reproduction?: string;

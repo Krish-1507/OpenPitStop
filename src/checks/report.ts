@@ -5,7 +5,7 @@ import type { ScanResult } from "../analyzers/types.js";
 import type { GateDecision } from "../verify/gateMatrix.js";
 import type { StackResult } from "../verify/stack.js";
 import type { ProjectDetection } from "../onboarding/detect.js";
-import type { FindingConfidence, FindingSeverity } from "../findings/schema.js";
+import type { FindingConfidence, FindingRisk, FindingSeverity } from "../findings/schema.js";
 import { impactFor } from "../findings/schema.js";
 import { computeScore } from "../report/score.js";
 import { findingIdFor } from "../repro/ids.js";
@@ -29,6 +29,8 @@ export interface CheckFinding {
   verification: string;
   sourceTool: string;
   reachability: string;
+  /** Deterministic triage score and reasons; present after a full scan. */
+  risk?: FindingRisk;
   /** False for aggregate findings (clones, duplicate functions) without a repro id. */
   addressable: boolean;
 }
@@ -135,6 +137,7 @@ function baseFinding(
   input: {
     id: string; source: string; type: string; category?: string; severity: string;
     confidence?: string; description: string; file?: string; line?: number; fix?: string;
+    title?: string; sourceTool?: string; reachability?: string; risk?: FindingRisk;
     addressable?: boolean;
   },
 ): CheckFinding {
@@ -148,7 +151,7 @@ function baseFinding(
     category,
     severity,
     confidence: (input.confidence as FindingConfidence) ?? "unknown",
-    title: category.split(/[._/-]+/).filter(Boolean).map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(" ") || "Finding",
+    title: input.title ?? (category.split(/[._/-]+/).filter(Boolean).map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(" ") || "Finding"),
     description: input.description.replace(/^\[(?:indicated|proven|heuristic)\]\s*/i, ""),
     file: rel(repo, input.file),
     line: input.line,
@@ -160,8 +163,9 @@ function baseFinding(
     verification: input.addressable === false
       ? "Apply the correction, then run `pitstop check deep .` and compare the affected files."
       : `Apply the fix, then run \`pitstop check deep .\` and \`pitstop inspect ${input.id}\` again.`,
-    sourceTool: input.source === "security" ? "static-security" : input.source,
-    reachability: "unknown",
+    sourceTool: input.sourceTool ?? (input.source === "security" ? "static-security" : input.source),
+    reachability: input.reachability ?? "unknown",
+    risk: input.risk,
     addressable: input.addressable !== false,
   };
 }
@@ -173,7 +177,8 @@ export function collectCheckFindings(repo: string, scan: ScanResult): CheckFindi
     findings.push(baseFinding(repo, {
       id: issue.id, source: "security", type: issue.type, category: issue.category,
       severity: issue.severity, confidence: issue.confidence, description: issue.description,
-      file: issue.file, line: issue.line, fix: issue.fix,
+      file: issue.file, line: issue.line, fix: issue.fix, title: issue.title,
+      sourceTool: issue.sourceTool, reachability: issue.reachability, risk: issue.risk,
     }));
   }
   for (const issue of scan.accessibility.issues) {
@@ -181,7 +186,8 @@ export function collectCheckFindings(repo: string, scan: ScanResult): CheckFindi
     findings.push(baseFinding(repo, {
       id: issue.id, source: "a11y", type: issue.type, category: issue.category,
       severity: issue.severity, confidence: issue.confidence, description: issue.description,
-      file: issue.file, line: issue.line, fix: issue.fix,
+      file: issue.file, line: issue.line, fix: issue.fix, title: issue.title,
+      sourceTool: issue.sourceTool, reachability: issue.reachability, risk: issue.risk,
     }));
   }
   for (const issue of scan.reliability.raceSmells) {
@@ -189,7 +195,8 @@ export function collectCheckFindings(repo: string, scan: ScanResult): CheckFindi
     findings.push(baseFinding(repo, {
       id: issue.id, source: "reliability", type: "race-condition", category: issue.category,
       severity: issue.severity, confidence: issue.confidence, description: issue.description,
-      file: issue.file, line: issue.line, fix: issue.fix,
+      file: issue.file, line: issue.line, fix: issue.fix, title: issue.title,
+      sourceTool: issue.sourceTool, reachability: issue.reachability, risk: issue.risk,
     }));
   }
   for (const flake of scan.reliability.flakyTests) {
@@ -205,7 +212,8 @@ export function collectCheckFindings(repo: string, scan: ScanResult): CheckFindi
     findings.push(baseFinding(repo, {
       id: issue.id, source: "devex", type: "unused-export", category: issue.category,
       severity: issue.severity, confidence: issue.confidence, description: issue.description,
-      file: issue.file, line: issue.line, fix: issue.fix,
+      file: issue.file, line: issue.line, fix: issue.fix, title: issue.title,
+      sourceTool: issue.sourceTool, reachability: issue.reachability, risk: issue.risk,
     }));
   }
   for (const duplicate of scan.devex.duplicateFunctions) {
@@ -246,6 +254,7 @@ export function collectCheckFindings(repo: string, scan: ScanResult): CheckFindi
     }
   }
   return findings.sort((a, b) =>
+    (b.risk?.score ?? 0) - (a.risk?.score ?? 0) ||
     severityRank(a.severity) - severityRank(b.severity) ||
     confidenceRank(a.confidence) - confidenceRank(b.confidence) ||
     (a.file ?? "").localeCompare(b.file ?? "") ||
@@ -530,6 +539,12 @@ export function renderCheck(report: CheckReport): string {
     lines.push(`  What: ${top.description}`);
     lines.push(`  Why it matters: ${top.impact}`);
     lines.push(`  Confidence: ${top.confidence} · evidence: ${top.sourceTool}`);
+    if (top.risk) {
+      lines.push(`  Risk: ${top.risk.level} (${top.risk.score}/100) — ${top.risk.reasons.join("; ")}`);
+    }
+    if (top.reachability === "reachable") {
+      lines.push(`  Reachability: ${chalk.yellow("reachable")} — the cited file also contains a discovered HTTP route; review the path, not just the line.`);
+    }
     lines.push(`  Fix: ${top.suggestedFix}`);
     lines.push(
       top.addressable
