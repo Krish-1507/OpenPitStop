@@ -339,7 +339,10 @@ function scanRules(
   }
 }
 
+const GENERATED_LOCKFILE = /(?:package-lock\.json|npm-shrinkwrap\.json|pnpm-lock\.yaml|yarn\.lock|bun\.lockb?|Cargo\.lock|go\.sum|composer\.lock|Pipfile\.lock|poetry\.lock)$/i;
+
 function scanConfigSecrets(repo: string, file: string, out: ScanIssue[]): void {
+  if (GENERATED_LOCKFILE.test(file)) return;
   let content: string;
   try {
     const stat = fs.statSync(file);
