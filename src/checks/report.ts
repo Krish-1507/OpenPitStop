@@ -283,6 +283,7 @@ function skippedChecks(scan: ScanResult): CheckSkipped[] {
   const add = (area: string, reason?: string) => skipped.push({ area, reason: reason ?? "not available" });
   if (scan.dependencyGraph.status !== "ok") add("Dependency graph", scan.dependencyGraph.note);
   if (scan.security.status !== "ok") add("Security", scan.security.note);
+  else if (scan.security.note) add("Security coverage", scan.security.note);
   if (scan.duplication.status !== "ok") add("Duplication", scan.duplication.note);
   if (scan.tests.status !== "ok") add("Tests", scan.tests.note);
   if (scan.perf.status !== "ok") add("Build / performance", scan.perf.note);

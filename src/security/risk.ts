@@ -58,7 +58,7 @@ export function assessRisk(repoInput: string, issues: ScanIssue[]): ScanIssue[] 
 
   for (const issue of issues) {
     const file = relative(repo, issue.file);
-    const reachable = Boolean(file && routeFiles.has(file));
+    const reachable = issue.reachability === "reachable" || Boolean(file && routeFiles.has(file));
     if (reachable) issue.reachability = "reachable";
     else if (!issue.reachability) issue.reachability = "unknown";
 

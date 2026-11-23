@@ -115,7 +115,7 @@ export async function analyzeSecurity(repo: string): Promise<SecurityResult> {
     return { status: "skipped", note: depNote, issues: [] };
   }
 
-  return { status: "ok", issues: deduped };
+  return { status: "ok", note: depNote, issues: deduped };
 }
 
 /** The lockfile exists but npm refuses to read it — a real finding on its own. */

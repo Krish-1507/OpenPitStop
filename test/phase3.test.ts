@@ -208,3 +208,45 @@ test("risk: severity, confidence and route context produce deterministic triage"
     fs.rmSync(repo, { recursive: true, force: true });
   }
 });
+
+test("infrastructure precision: stage aliases, unrelated Terraform ports and duplicate config secrets", () => {
+  const repo = tempDir("pitstop-phase3-precision-");
+  try {
+    write(repo, "Dockerfile", [
+      "FROM scratch",
+      "FROM alpine:3.20 AS build",
+      "FROM build",
+      "USER 1000",
+    ].join("\n"));
+    write(repo, "infra/network.tf", [
+      'resource "aws_security_group" "web" {',
+      "  ingress {",
+      '    cidr_blocks = ["0.0.0.0/0"]',
+      "    from_port = 443",
+      "  }",
+      "}",
+      'resource "aws_db_instance" "db" {',
+      "  port = 5432",
+      "}",
+    ].join("\n"));
+    write(repo, "k8s/deploy.yaml", [
+      "apiVersion: v1",
+      "kind: Secret",
+      "metadata:",
+      "  name: app",
+      "stringData:",
+      "  DB_PASSWORD: supersecret",
+    ].join("\n"));
+    write(repo, "config/prod.yaml", "password: true\n");
+
+    const issues = analyzeInfrastructure(repo);
+    const found = new Set(issues.map((issue) => issue.category));
+    assert.ok(!found.has("container-base-latest"), "scratch and stage aliases are not floating images");
+    assert.ok(!found.has("terraform-open-ingress"), "a sensitive port elsewhere in the file is not evidence for this rule");
+    assert.ok(found.has("kubernetes-literal-secret"));
+    assert.ok(!found.has("config-literal-secret"), "Kubernetes manifests are not double-reported as generic config secrets");
+    assert.equal(issues.filter((issue) => issue.category === "config-literal-secret").length, 0, "boolean values are placeholders, not secrets");
+  } finally {
+    fs.rmSync(repo, { recursive: true, force: true });
+  }
+});

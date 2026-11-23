@@ -9,9 +9,10 @@ import type { ScanIssue } from "../analyzers/types.js";
  */
 const LOCKFILES = ["package-lock.json", "npm-shrinkwrap.json", "pnpm-lock.yaml", "yarn.lock", "bun.lock", "bun.lockb"];
 
-function lineOf(content: string, needle: string): number {
-  const index = content.indexOf(needle);
-  return index < 0 ? 1 : content.slice(0, index).split("\n").length;
+function lineForDependency(content: string, name: string): number {
+  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const match = new RegExp(`^\\s*"${escaped}"\\s*:`, "m").exec(content);
+  return match ? content.slice(0, match.index).split("\n").length : 1;
 }
 
 function issue(
@@ -57,7 +58,7 @@ export function analyzeDependencyHygiene(repoInput: string): ScanIssue[] {
   );
 
   for (const dependency of dependencies) {
-    const line = lineOf(content, `"${dependency.name}"`);
+    const line = lineForDependency(content, dependency.name);
     if (/^(?:\*|latest)$/i.test(dependency.spec)) {
       issues.push(issue(
         "package.json", line, "dependency-floating-version", "medium",
