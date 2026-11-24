@@ -46,6 +46,7 @@ import { check } from "./commands/check.js";
 import { suppress } from "./commands/suppress.js";
 import { languages } from "./commands/languages.js";
 import { map } from "./commands/map.js";
+import { impact } from "./commands/impact.js";
 
 /**
  * Last line of defense: a crash is a bug report, not a stack dump on someone's
@@ -109,6 +110,7 @@ program.addCommand(check);
 program.addCommand(suppress);
 program.addCommand(languages);
 program.addCommand(map);
+program.addCommand(impact);
 
 program.addCommand(install);
 program.addCommand(scan);

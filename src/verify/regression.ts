@@ -83,12 +83,31 @@ export interface RegressionResult {
 
 const sha256 = (t: string) => createHash("sha256").update(t, "utf8").digest("hex");
 
+/**
+ * Node's spec reporter appends a per-test duration to the name ("check A
+ * (2.24ms)"). Durations differ between the baseline and candidate runs, so an
+ * un-stripped name would look like a vanished check and downgrade a real pass
+ * to UNPROVEN — the comparison key must be the name only.
+ */
+const DURATION_SUFFIX = /\s+\(\d+(?:\.\d+)?\s*(?:ms|s|m)\)$/;
+
+function checkId(name: string): string {
+  return name.replace(DURATION_SUFFIX, "").trim();
+}
+
+/**
+ * node:test repeats every failure under a "✖ failing tests:" header. That
+ * header is section chrome, not a check — parsing it would invent a failing
+ * check that only exists in runs that already had failures.
+ */
+const SECTION_HEADER = /^(?:failing tests|failed tests)\s*:?$/i;
+
 /** Extract per-check results from runner output at the runner's natural granularity. */
 export function parseChecks(output: string, exitCode: number): CheckResult[] {
   const pass = new Map<string, boolean>();
   const add = (id: string, p: boolean) => {
-    const key = id.trim();
-    if (key) pass.set(key, p);
+    const key = checkId(id);
+    if (key && !SECTION_HEADER.test(key)) pass.set(key, p);
   };
   for (const rawLine of output.split(/\r?\n/)) {
     const line = rawLine.trim();
@@ -103,7 +122,8 @@ export function parseChecks(output: string, exitCode: number): CheckResult[] {
     }
     // spec reporters: ✓ / ✕ / ✗ name
     if ((m = line.match(/^[✓✔]\s+(.+)$/))) { add(m[1], true); continue; }
-    if ((m = line.match(/^[✕✗×]\s+(.+)$/))) { add(m[1], false); continue; }
+    // ✖ (U+2716) is what node:test's spec reporter prints for a failure.
+    if ((m = line.match(/^[✕✗✖✘×]\s+(.+)$/))) { add(m[1], false); continue; }
     // jest/mocha file granularity: PASS src/a.test.js / FAIL src/b.test.js
     if ((m = line.match(/^PASS\s+(\S+)$/))) { add(`file:${m[1]}`, true); continue; }
     if ((m = line.match(/^FAIL\s+(\S+)$/))) { add(`file:${m[1]}`, false); continue; }

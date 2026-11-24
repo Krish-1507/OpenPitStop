@@ -34,7 +34,8 @@
     "docs/release-controls.md",
     "docs/first-run.md",
     "docs/languages.md",
-    "docs/security.md"
+    "docs/security.md",
+    "docs/architecture.md"
   ],
   "engines": {
     "node": ">=22"

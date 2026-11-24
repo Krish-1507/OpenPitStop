@@ -2,6 +2,47 @@
 
 All notable changes to this project are documented here.
 
+## [Unreleased] — Phase 4: senior engineer workflows
+
+### Added
+
+- `pitstop map --architecture`: modules with file counts, cross-module dependencies,
+  import cycles, routes, entry points, external services from declared dependencies,
+  schema/SQL/ORM data relationships, route-to-data flows and declared boundary
+  violations. `--json` returns the same evidence. Madge and regex graphs are normalized
+  to one path form, and Prisma scalar types are no longer reported as relations.
+- `pitstop impact`: reverse import-graph analysis of a diff. Dependents are listed with
+  their hop distance and the importer that led there; the report adds affected modules,
+  routes at risk (sensitive flagged), tests matched by import edge or naming convention,
+  matching boundary/protected/forbidden rules, and the checks to run in order.
+  `--base`, `--to`, `--changed`, `--depth` and `--json` are supported. Repositories
+  without an import graph report that dependents were not discovered, never that none
+  exist.
+- `pitstop plan` derives verification commands from `understand` when `--verify-command`
+  is omitted, expands concrete paths and directories to files, and seals the impact it
+  was written against inside `plan-latest.json`. `pitstop plan --show` prints that
+  recorded impact next to the scope check.
+- `pitstop understand` points at the architecture map and impact analysis as next steps.
+- [Architecture and change impact](docs/architecture.md).
+
+### Fixed
+
+- `regression-check` and `test` parse current Node spec-reporter output: per-test
+  durations are stripped from check identity, `ℹ pass`/`ℹ fail` summary lines are read,
+  and the `✖ failing tests:` section header is no longer mistaken for a failing check
+  (which produced false UNPROVEN and REGRESSION verdicts).
+
+### Honest limits
+
+- Import edges exist for JS/TS and Python only; dynamic requires, cross-language calls and
+  runtime wiring are not edges.
+- A dependent imports a changed file; that does not prove the changed line executes, and a
+  matched test does not prove coverage.
+- Routes and data relationships are parsed patterns and schema declarations, not live
+  endpoints or queries.
+- Boundary conclusions require declared configuration; deleted files are absent from the
+  current graph.
+
 ## [Unreleased] — Phase 3: stronger security intelligence
 
 ### Added

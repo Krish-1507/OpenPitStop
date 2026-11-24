@@ -219,6 +219,17 @@ test("8c — tampered baseline evidence → INTEGRITY_FAILURE, never classified"
   fs.rmSync(repo, { recursive: true, force: true });
 });
 
+test("9b — spec-reporter durations are not part of a check's identity", () => {
+  const checks = parseChecks(
+    "✔ check A (2.2419ms)\n✖ check B (0.4466ms)\n\n✖ failing tests:\n\ntest at x.test.js:1:1\n✖ check B (0.5ms)\nℹ pass 1\nℹ fail 1",
+    1,
+  );
+  assert.deepEqual(checks, [
+    { id: "check A", pass: true },
+    { id: "check B", pass: false },
+  ]);
+});
+
 test("9 — unparseable output falls back to suite-level check", () => {
   const checks = parseChecks("some random build output\nwith no recognizable test lines", 1);
   assert.deepEqual(checks, [{ id: "suite", pass: false }]);

@@ -143,6 +143,7 @@ flowchart LR
 |---|---|
 | What system am I changing? | Languages, frameworks, entry points, module map, verification commands, CI and CODEOWNERS |
 | What may this change touch? | A sealed plan, declared import boundaries, protected/forbidden paths and scope checks |
+| What else does this change reach? | Reverse import graph: dependents with hop distance, affected modules, routes at risk, matching tests, declared constraints and the ordered checks to run (`pitstop impact`) |
 | Why did verification fail? | Per-layer results and diagnoses: assertion, type error, missing dependency, lint, environment or timeout |
 | Does the change fit this repo? | Declared architecture rules, ownership routing and suspicious shortcuts in the diff |
 | Did the fix address the actual bug? | The same verification against a known-bad baseline and the candidate |
@@ -170,6 +171,15 @@ paths, forbidden paths, CODEOWNERS routing and shortcuts in the diff.
 Configure boundaries in `openpitstop.architecture.json` or `.pitstop/architecture.json`.
 Protected-path approval is recorded through an explicit option; it is not an authenticated
 human identity. [Configuration and examples](docs/repo-discipline.md).
+
+`map --architecture` maps modules, cross-module dependencies, cycles, routes, data
+relationships, external services and boundary violations from the checkout. `impact`
+walks the reverse import graph from a diff: dependents at each hop with the importer that
+led there, affected modules, routes at risk, tests that import or pair with the change,
+declared constraints, and the checks to run in order. `plan` records that impact inside the
+sealed plan and derives the verification commands from the repository when you omit them.
+Both commands state their limits instead of implying reachability or coverage.
+[Architecture and change impact](docs/architecture.md).
 
 ### Scan and score
 
@@ -371,7 +381,7 @@ extension integration. [Installer targets](src/installer/targets.ts).
 | Job | Commands |
 |---|---|
 | Start and navigate | bare `pitstop`, `check`, `ask`, `next`, `try`, `demo` |
-| Understand and plan | `understand`, `plan`, `architecture-check`, `memory` |
+| Understand, map and plan | `understand`, `map`, `impact`, `plan`, `architecture-check`, `memory` |
 | Measure and diagnose | `scan`, `check`, `test`, `verify-stack`, `doctor`, `ready-check` |
 | Triage findings | `inspect`, `suppress` |
 | Fix and inspect | `inspect`, `repro`, `drive`, `fix` |

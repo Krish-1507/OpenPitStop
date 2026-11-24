@@ -193,7 +193,7 @@ function resolvePythonAbs(
   return null;
 }
 
-function findCycles(edges: Map<string, Set<string>>): string[][] {
+export function findCycles(edges: Map<string, Set<string>>): string[][] {
   const WHITE = 0;
   const GRAY = 1;
   const BLACK = 2;
