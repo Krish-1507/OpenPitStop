@@ -70,7 +70,7 @@ export interface RepoUnderstanding {
 
 const IGNORE = new Set([
   "node_modules", "dist", "build", ".git", ".pitstop", "coverage", ".next",
-  ".venv", "venv", "__pycache__", "demo-repo", "templates", ".pytest_cache",
+  ".venv", "venv", "__pycache__", "demo-repo", "templates", "bench", ".pytest_cache",
 ]);
 
 const FRAMEWORKS: Record<string, string> = {

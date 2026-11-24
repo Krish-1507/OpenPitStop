@@ -61,6 +61,7 @@ const SKIP_DIRS = new Set([
   "out",
   "demo-repo",
   "templates",
+  "bench",
 ]);
 
 const CODE_EXTS = new Set([

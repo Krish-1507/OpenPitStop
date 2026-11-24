@@ -1,0 +1,9 @@
+{
+  "id": "sql-injection-parameterized",
+  "title": "The same query with a bound parameter",
+  "kind": "fixed",
+  "stack": "node",
+  "pairOf": "sql-injection-concat",
+  "expect": {},
+  "note": "Same query, safe form: the value is bound, never concatenated. Must stay quiet."
+}

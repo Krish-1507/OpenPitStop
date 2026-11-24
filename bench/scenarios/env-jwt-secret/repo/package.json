@@ -1,0 +1,8 @@
+{
+  "name": "auth-api",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "jsonwebtoken": "^9.0.2"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "id": "xss-innerhtml",
+  "title": "Request data written into innerHTML",
+  "kind": "vulnerable",
+  "stack": "node",
+  "expect": {
+    "findings": [
+      {
+        "category": "xss",
+        "file": "src/notice.js"
+      }
+    ]
+  },
+  "note": "The HTML sink every XSS rule should find: innerHTML receives a query value."
+}

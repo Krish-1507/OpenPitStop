@@ -150,6 +150,7 @@ flowchart LR
 | Did it meet the requirement? | An acceptance contract with command, HTTP and file criteria |
 | Did it break existing behavior? | Check-level baseline/candidate comparison and optional repeated runs |
 | Why trust the verdict? | Inspectable artifacts, content digests, evidence references and explicit missing checks |
+| How do I know the detector still works? | A reproducible benchmark: vulnerable/fixed pairs, benign near-misses, documented misses, precision and recall with their denominators, and stacks the check does not read (`pitstop bench`) |
 
 Repo awareness is structural analysis and declared rules. Semantic design judgment still
 belongs to the developer and host agent. A plan or gate checks behavior within its scope;
@@ -180,6 +181,16 @@ declared constraints, and the checks to run in order. `plan` records that impact
 sealed plan and derives the verification commands from the repository when you omit them.
 Both commands state their limits instead of implying reachability or coverage.
 [Architecture and change impact](docs/architecture.md).
+
+### Measure the detector
+
+`bench` runs the analyzer against fixtures that live in the repository: vulnerable and
+fixed pairs of the same defect, benign near-misses, documented misses, a documented false
+positive and a stack the rules do not read. It publishes the counts it can defend — expected
+findings, detected, missed, precision and recall with their denominators, pairs that
+discriminate, and skipped coverage — plus the limits that keep the numbers in context.
+`--json` is the machine-readable report; `--strict` turns an unmet expectation into a
+non-zero exit for CI. [Benchmark methodology and current numbers](docs/benchmark.md).
 
 ### Scan and score
 
@@ -382,7 +393,7 @@ extension integration. [Installer targets](src/installer/targets.ts).
 |---|---|
 | Start and navigate | bare `pitstop`, `check`, `ask`, `next`, `try`, `demo` |
 | Understand, map and plan | `understand`, `map`, `impact`, `plan`, `architecture-check`, `memory` |
-| Measure and diagnose | `scan`, `check`, `test`, `verify-stack`, `doctor`, `ready-check` |
+| Measure and diagnose | `scan`, `check`, `test`, `verify-stack`, `doctor`, `ready-check`, `bench` |
 | Triage findings | `inspect`, `suppress` |
 | Fix and inspect | `inspect`, `repro`, `drive`, `fix` |
 | Security | `pen`, `pen --static`, `pen --fix`, `scan --ledger` |

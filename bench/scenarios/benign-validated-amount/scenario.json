@@ -1,0 +1,17 @@
+{
+  "id": "benign-validated-amount",
+  "title": "Validated numeric amount",
+  "kind": "benign",
+  "stack": "node",
+  "expect": {
+    "forbid": [
+      "input-validation",
+      "sql-injection",
+      "command-injection",
+      "xss",
+      "path-traversal",
+      "ssrf"
+    ]
+  },
+  "note": "A money field parsed and range-checked: the analyzer must not invent an input-validation bug."
+}

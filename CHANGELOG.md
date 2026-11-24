@@ -2,6 +2,42 @@
 
 All notable changes to this project are documented here.
 
+## [Unreleased] — Phase 5: public benchmark
+
+### Added
+
+- `pitstop bench`: a reproducible detection benchmark over the fixtures in `bench/scenarios`.
+  Each fixture is a small repository plus a recorded expectation, and the command runs the
+  same static security check the CLI runs. Verdicts are explicit: `detected`, `partial` and
+  `missed` for vulnerable fixtures; `clean` and `noisy` for fixed and benign ones;
+  `as-documented` for recorded misses and false positives; `skipped` for stacks the rules do
+  not read; `survived` and `crashed` for broken repositories. `--json`, `--markdown`,
+  `--filter` and `--strict` are supported.
+- 22 fixtures: 8 vulnerable/fixed pairs across Node and Python (SQL injection, cleartext
+  password comparison, unguarded admin route, HTML sink, inline JWT secret, command
+  injection, SSRF), 1 benign near-miss, 2 documented misses, 1 documented false positive,
+  1 unsupported stack and 1 broken manifest.
+- Precision, recall, false passes, pair discrimination, skipped coverage and per-scenario
+  runtime, each with its denominator. Documented misses and false positives are reported
+  separately and kept out of the ratios; a skipped fixture is never counted as clean.
+- [Benchmark methodology and current numbers](docs/benchmark.md) and
+  [the fixture contract](bench/README.md).
+- Benchmark fixtures are an ignored fixture directory for this repository's own `scan`,
+  `understand` and security analysis, the same way `demo-repo` is, so they are not measured
+  as production code.
+
+### Honest limits
+
+- The fixture set is curated canonical examples, not a sample of real repositories. 100%
+  precision and recall describe the recorded expectations and are not a field estimate.
+- Two documented misses bound the reach: taint that crosses a helper return or a variable
+  assignment before the sink is not followed by the current rules.
+- One documented false positive: an HTML-escaped value written to `innerHTML` is still
+  reported, and the fixture records that rather than hiding it.
+- The static security check reads JS/TS, Python, Go, Ruby, PHP, Java and C#; Rust and other
+  stacks are reported as skipped coverage, never as clean.
+- Timing is in-process analyzer time, not CLI startup, network work, Docker isolation or
+  agent calls.
 ## [Unreleased] — Phase 4: senior engineer workflows
 
 ### Added

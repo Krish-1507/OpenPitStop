@@ -28,6 +28,7 @@
     "demo-repo-integrity",
     "demo-repo-fintech",
     "demo-repo-generators",
+    "bench",
     "README.md",
     "PRIVACY.md",
     "LICENSE",
@@ -35,7 +36,8 @@
     "docs/first-run.md",
     "docs/languages.md",
     "docs/security.md",
-    "docs/architecture.md"
+    "docs/architecture.md",
+    "docs/benchmark.md"
   ],
   "engines": {
     "node": ">=22"

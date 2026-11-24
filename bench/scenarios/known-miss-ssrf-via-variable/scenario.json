@@ -1,0 +1,15 @@
+{
+  "id": "known-miss-ssrf-via-variable",
+  "title": "SSRF where the URL is assigned before fetch",
+  "kind": "known-miss",
+  "stack": "node",
+  "expect": {
+    "findings": [
+      {
+        "category": "ssrf",
+        "file": "src/preview.js"
+      }
+    ]
+  },
+  "note": "The request value is held in a variable one statement before fetch, which the rules do not follow. Recorded limit."
+}

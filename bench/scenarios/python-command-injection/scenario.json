@@ -1,0 +1,15 @@
+{
+  "id": "python-command-injection",
+  "title": "Python shell command built from a request value",
+  "kind": "vulnerable",
+  "stack": "python",
+  "expect": {
+    "findings": [
+      {
+        "category": "command-injection",
+        "file": "app.py"
+      }
+    ]
+  },
+  "note": "The benchmark is not JavaScript-only: Flask plus subprocess with shell=True."
+}

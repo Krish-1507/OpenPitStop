@@ -1,0 +1,15 @@
+{
+  "id": "command-injection-exec",
+  "title": "Shell string built from a request value",
+  "kind": "vulnerable",
+  "stack": "node",
+  "expect": {
+    "findings": [
+      {
+        "category": "command-injection",
+        "file": "src/tools.js"
+      }
+    ]
+  },
+  "note": "exec with a concatenated request value: the shell interprets it."
+}

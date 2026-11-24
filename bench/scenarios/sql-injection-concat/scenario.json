@@ -1,0 +1,15 @@
+{
+  "id": "sql-injection-concat",
+  "title": "SQL built by string concatenation",
+  "kind": "vulnerable",
+  "stack": "node",
+  "expect": {
+    "findings": [
+      {
+        "category": "sql-injection",
+        "file": "src/db.js"
+      }
+    ]
+  },
+  "note": "The classic injection: a request value pasted into SQL. The rule must catch it."
+}
