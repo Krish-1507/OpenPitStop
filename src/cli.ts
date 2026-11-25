@@ -48,6 +48,7 @@ import { languages } from "./commands/languages.js";
 import { map } from "./commands/map.js";
 import { impact } from "./commands/impact.js";
 import { bench } from "./commands/bench.js";
+import { mcp } from "./commands/mcp.js";
 
 /**
  * Last line of defense: a crash is a bug report, not a stack dump on someone's
@@ -113,6 +114,7 @@ program.addCommand(languages);
 program.addCommand(map);
 program.addCommand(impact);
 program.addCommand(bench);
+program.addCommand(mcp);
 
 program.addCommand(install);
 program.addCommand(scan);

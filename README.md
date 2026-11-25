@@ -352,6 +352,20 @@ Use `--no-subcommands` to install just `/pitstop`. `pitstop prompt` prints the f
 for inspection or manual installation. In a host that supports the installed command, use
 `/pitstop` or `/pitstop check the security of this app`.
 
+### Use OpenPitStop from any agent over MCP
+
+```bash
+pitstop mcp          # stdio MCP server; the host agent calls the tools
+```
+
+The server exposes `pitstop_understand`, `pitstop_map`, `pitstop_scan`,
+`pitstop_release_gate`, `pitstop_reproduce` and `pitstop_bench`. The gate reads sealed
+evidence, so an agent that claims a fix works still needs a verdict from OpenPitStop's own
+records; a missing or tampered baseline is never a pass. Only `.pitstop/` and a repro test
+file are written, and nothing on stdout is anything but JSON-RPC. Configuration snippets for
+Claude Code, Cursor, VS Code, Gemini CLI, Codex CLI, OpenCode and other stdio hosts are in
+the [MCP guide](docs/mcp.md).
+
 ### Dismiss findings without hiding them
 
 False positives and accepted risks are scoped, explained and time-limited:
@@ -399,14 +413,14 @@ extension integration. [Installer targets](src/installer/targets.ts).
 | Security | `pen`, `pen --static`, `pen --fix`, `scan --ledger` |
 | Verify | `verify`, `flow`, `gate`, `integrity`, `baseline-verify`, `state-verify`, `verifier-check`, `holdout-verify`, `acceptance-verify`, `regression-check` |
 | Explain and share | `explain`, `honesty`, `report`, `share`, `trends`, `digest`, `budget` |
-| Integrate | `install`, `prompt`, `watch`, `ci` |
+| Integrate | `install`, `prompt`, `watch`, `ci`, `mcp` |
 
 Use `pitstop <command> --help` for exact options. `report --html` produces a self-contained
 HTML report and a README badge; `report --sarif` exports standardized findings with stable
 fingerprints, confidence, source tool and scoped suppressions. `share` creates a
 screenshot-ready card. `ci` produces PR-ready reports, and `install --hooks` installs a
-pre-commit gate. See the [GitHub Action guide](docs/github-action.md) and
-[repository workflow guide](docs/repo-discipline.md).
+pre-commit gate. See the [GitHub Action guide](docs/github-action.md),
+[repository workflow guide](docs/repo-discipline.md) and [MCP guide](docs/mcp.md).
 
 ## Where OpenPitStop fits
 

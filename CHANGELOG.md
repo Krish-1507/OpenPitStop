@@ -2,6 +2,39 @@
 
 All notable changes to this project are documented here.
 
+## [Unreleased] — Phase 5: MCP tools for coding agents
+
+### Added
+
+- `pitstop mcp`: an MCP stdio server that exposes `pitstop_understand`, `pitstop_map`,
+  `pitstop_scan`, `pitstop_release_gate`, `pitstop_reproduce` and `pitstop_bench` to any
+  MCP-capable coding agent. stdin/stdout carry JSON-RPC only; diagnostics go to stderr.
+- `pitstop_release_gate` returns the deterministic gate verdict over sealed evidence: the
+  scan baseline, integrity detectors, every sealed verification layer and the working tree.
+  The calling agent cannot supply, override or waive that verdict, and a missing, stale or
+  tampered baseline fails instead of passing. The server states the rule in its `initialize`
+  instructions and in the tool description, so the host agent sees it before it calls.
+- Tools that write do so narrowly: `pitstop_scan` seals its baseline under `.pitstop/`, and
+  `pitstop_reproduce` writes one repro test. No tool edits source, installs packages, starts
+  the application or calls a model.
+- [MCP guide](docs/mcp.md): tool reference, setup snippets for Claude Code, Cursor, VS Code,
+  Gemini CLI, Codex CLI, OpenCode and generic stdio hosts, the intended
+  understand → scan → change → reproduce → gate loop, and the limits.
+- `test/mcp.test.ts` covers JSON-RPC framing (initialize, ping, notifications, unknown
+  method, unknown tool, parse errors, tool failures as `isError`), the advertised tool set
+  and its independence wording, honest failure paths, the `.pitstop/`-only write footprint of
+  `pitstop_scan`, and the stdio transport (one response per request, silence for
+  notifications).
+
+### Honest limits
+
+- Stdio only: no network listener, no remote transport, no authentication layer of its own.
+- The tools are adapters over existing CLI logic and inherit its reach. `pitstop_scan` is the
+  quick pass and does not run the test suite or the build; route and architecture maps are
+  leads, not reachability proof.
+- MCP adds an interface, not detection. Missing verification layers are reported as
+  `NOT_CONFIGURED`, never as passes.
+
 ## [Unreleased] — Phase 5: public benchmark
 
 ### Added
