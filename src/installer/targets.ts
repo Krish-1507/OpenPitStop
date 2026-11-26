@@ -41,112 +41,187 @@ export const SUBCOMMANDS: Subcommand[] = [
   { name: "install", cli: "install -y", description: "(re)install the slash command and git hooks" },
 ];
 
+/**
+ * Per-agent layout. Paths intentionally match the long-standing `install`
+ * targets; the registry exists so onboarding can offer one agent at a time
+ * without changing the default all-agents install.
+ */
+export type AgentId =
+  | "claude-code"
+  | "cursor"
+  | "opencode"
+  | "antigravity"
+  | "kilo-code"
+  | "gemini-cli"
+  | "codex";
+
+export interface AgentDefinition {
+  id: AgentId;
+  name: string;
+  /** Executable names that indicate the tool is installed. */
+  binaries: string[];
+  /** Home-relative directories that indicate the tool is installed or used. */
+  homeDirs: string[];
+  /** Project-relative directories that indicate this project is configured for the tool. */
+  projectDirs: string[];
+  note?: string;
+  projectTargets(cwd: string): InstallTarget[];
+  homeTargets(home: string): InstallTarget[];
+}
+
+const p = (root: string, ...parts: string[]) => path.resolve(root, ...parts);
+const h = (root: string, ...parts: string[]) => path.join(root, ...parts);
+
+export const AGENT_DEFINITIONS: AgentDefinition[] = [
+  {
+    id: "claude-code",
+    name: "Claude Code",
+    binaries: ["claude"],
+    homeDirs: [".claude"],
+    projectDirs: [".claude"],
+    projectTargets: (cwd) => [
+      { path: p(cwd, ".claude", "commands", "pitstop.md"), tool: "Claude Code (project)", level: "project" },
+      { path: p(cwd, ".claude", "skills", "pitstop", "SKILL.md"), tool: "Claude Code Skill", level: "project", transform: "skill" },
+    ],
+    homeTargets: (home) => [
+      { path: h(home, ".claude", "commands", "pitstop.md"), tool: "Claude Code (user)", level: "home" },
+    ],
+  },
+  {
+    id: "cursor",
+    name: "Cursor",
+    binaries: ["cursor", "cursor-agent"],
+    homeDirs: [".cursor"],
+    projectDirs: [".cursor"],
+    projectTargets: (cwd) => [
+      { path: p(cwd, ".cursor", "commands", "pitstop.md"), tool: "Cursor (project)", level: "project" },
+    ],
+    homeTargets: (home) => [
+      { path: h(home, ".cursor", "commands", "pitstop.md"), tool: "Cursor (user)", level: "home" },
+    ],
+  },
+  {
+    id: "opencode",
+    name: "OpenCode",
+    binaries: ["opencode"],
+    homeDirs: [".config/opencode", ".opencode"],
+    projectDirs: [".opencode"],
+    projectTargets: (cwd) => [
+      { path: p(cwd, ".opencode", "commands", "pitstop.md"), tool: "OpenCode (project)", level: "project" },
+      { path: p(cwd, ".opencode", "command", "pitstop.md"), tool: "OpenCode (project, legacy)", level: "project" },
+    ],
+    homeTargets: (home) => [
+      { path: h(home, ".config", "opencode", "commands", "pitstop.md"), tool: "OpenCode (user)", level: "home" },
+      { path: h(home, ".opencode", "commands", "pitstop.md"), tool: "OpenCode (user, legacy)", level: "home" },
+    ],
+  },
+  {
+    id: "antigravity",
+    name: "Antigravity",
+    binaries: [],
+    homeDirs: [".agent", ".agents"],
+    projectDirs: [".agent", ".agents"],
+    projectTargets: (cwd) => [
+      { path: p(cwd, ".agent", "workflows", "pitstop.md"), tool: "Antigravity (project)", level: "project", transform: "workflow" },
+      { path: p(cwd, ".agents", "workflows", "pitstop.md"), tool: "Antigravity (project, plural legacy)", level: "project", transform: "workflow" },
+    ],
+    homeTargets: (home) => [
+      { path: h(home, ".agent", "workflows", "pitstop.md"), tool: "Antigravity (user)", level: "home", transform: "workflow" },
+      { path: h(home, ".agents", "workflows", "pitstop.md"), tool: "Antigravity (user, plural legacy)", level: "home", transform: "workflow" },
+    ],
+  },
+  {
+    id: "kilo-code",
+    name: "Kilo Code",
+    binaries: ["kilo", "kilocode"],
+    homeDirs: [".kilo", ".config/kilo", ".kilocode"],
+    projectDirs: [".kilo", ".kilocode"],
+    projectTargets: (cwd) => [
+      { path: p(cwd, ".kilo", "commands", "pitstop.md"), tool: "Kilo Code (project)", level: "project" },
+      { path: p(cwd, ".kilocode", "workflows", "pitstop.md"), tool: "Kilo Code (project, legacy — auto-migrated)", level: "project" },
+    ],
+    homeTargets: (home) => [
+      { path: h(home, ".config", "kilo", "commands", "pitstop.md"), tool: "Kilo Code (user)", level: "home" },
+      { path: h(home, ".kilocode", "workflows", "pitstop.md"), tool: "Kilo Code (user, legacy — auto-migrated)", level: "home" },
+    ],
+  },
+  {
+    id: "gemini-cli",
+    name: "Gemini CLI",
+    binaries: ["gemini"],
+    homeDirs: [".gemini"],
+    projectDirs: [".gemini"],
+    projectTargets: (cwd) => [
+      { path: p(cwd, ".gemini", "commands", "pitstop.toml"), tool: "Gemini CLI (project)", level: "project", transform: "gemini" },
+    ],
+    homeTargets: (home) => [
+      { path: h(home, ".gemini", "commands", "pitstop.toml"), tool: "Gemini CLI (user)", level: "home", transform: "gemini" },
+    ],
+  },
+  {
+    id: "codex",
+    name: "Codex CLI",
+    binaries: ["codex"],
+    homeDirs: [".codex"],
+    projectDirs: [],
+    note: "Codex supports prompts only at user level",
+    projectTargets: () => [],
+    homeTargets: (home) => [
+      {
+        path: h(home, ".codex", "prompts", "pitstop.md"),
+        tool: "Codex CLI (user)",
+        level: "home",
+        note: "Codex supports prompts only at user level",
+      },
+    ],
+  },
+];
+
+export const AGENT_IDS: AgentId[] = AGENT_DEFINITIONS.map((agent) => agent.id);
+
+export function getAgentDefinition(id: AgentId): AgentDefinition {
+  return AGENT_DEFINITIONS.find((agent) => agent.id === id) as AgentDefinition;
+}
+
+export function isAgentId(value: string): value is AgentId {
+  return AGENT_IDS.includes(value as AgentId);
+}
+
 /** Absolute project-level targets, relative to the given repo/cwd. */
 export function projectTargets(cwd: string): InstallTarget[] {
-  const p = (...parts: string[]) => path.resolve(cwd, ...parts);
-  return [
-    { path: p(".claude", "commands", "pitstop.md"), tool: "Claude Code (project)", level: "project" },
-    {
-      path: p(".claude", "skills", "pitstop", "SKILL.md"),
-      tool: "Claude Code Skill",
-      level: "project",
-      transform: "skill",
-    },
-    { path: p(".cursor", "commands", "pitstop.md"), tool: "Cursor (project)", level: "project" },
-    { path: p(".opencode", "commands", "pitstop.md"), tool: "OpenCode (project)", level: "project" },
-    {
-      path: p(".opencode", "command", "pitstop.md"),
-      tool: "OpenCode (project, legacy)",
-      level: "project",
-    },
-    // Antigravity workflows: markdown files in .agent/workflows/ (singular,
-    // current docs) with YAML frontmatter `description` + title + steps,
-    // invoked as /pitstop. Older versions/3rd-party guides use the plural
-    // .agents/workflows/ — write both, one is harmless dead weight.
-    {
-      path: p(".agent", "workflows", "pitstop.md"),
-      tool: "Antigravity (project)",
-      level: "project",
-      transform: "workflow",
-    },
-    {
-      path: p(".agents", "workflows", "pitstop.md"),
-      tool: "Antigravity (project, plural legacy)",
-      level: "project",
-      transform: "workflow",
-    },
-    // Kilo Code current docs: slash commands live in .kilo/commands/ (project)
-    // and ~/.config/kilo/commands/ (global). .kilocode/workflows/ is the LEGACY
-    // location the new extension auto-migrates on startup — kept for old builds.
-    { path: p(".kilo", "commands", "pitstop.md"), tool: "Kilo Code (project)", level: "project" },
-    {
-      path: p(".kilocode", "workflows", "pitstop.md"),
-      tool: "Kilo Code (project, legacy — auto-migrated)",
-      level: "project",
-    },
-    {
-      path: p(".gemini", "commands", "pitstop.toml"),
-      tool: "Gemini CLI (project)",
-      level: "project",
-      transform: "gemini",
-    },
-  ];
+  return AGENT_DEFINITIONS.flatMap((agent) => agent.projectTargets(cwd));
 }
 
-/** Absolute user-level (home) targets. */
-export function homeTargets(): InstallTarget[] {
-  const h = (...parts: string[]) => path.join(os.homedir(), ...parts);
-  return [
-    {
-      path: h(".codex", "prompts", "pitstop.md"),
-      tool: "Codex CLI (user)",
-      level: "home",
-      note: "Codex supports prompts only at user level",
-    },
-    { path: h(".claude", "commands", "pitstop.md"), tool: "Claude Code (user)", level: "home" },
-    { path: h(".cursor", "commands", "pitstop.md"), tool: "Cursor (user)", level: "home" },
-    // OpenCode current docs: global commands in ~/.config/opencode/commands/;
-    // ~/.opencode/commands/ is the older location — keep both.
-    {
-      path: h(".config", "opencode", "commands", "pitstop.md"),
-      tool: "OpenCode (user)",
-      level: "home",
-    },
-    {
-      path: h(".opencode", "commands", "pitstop.md"),
-      tool: "OpenCode (user, legacy)",
-      level: "home",
-    },
-    // Antigravity global workflows (home) mirror the project layout.
-    {
-      path: h(".agent", "workflows", "pitstop.md"),
-      tool: "Antigravity (user)",
-      level: "home",
-      transform: "workflow",
-    },
-    {
-      path: h(".agents", "workflows", "pitstop.md"),
-      tool: "Antigravity (user, plural legacy)",
-      level: "home",
-      transform: "workflow",
-    },
-    { path: h(".config", "kilo", "commands", "pitstop.md"), tool: "Kilo Code (user)", level: "home" },
-    {
-      path: h(".kilocode", "workflows", "pitstop.md"),
-      tool: "Kilo Code (user, legacy — auto-migrated)",
-      level: "home",
-    },
-    {
-      path: h(".gemini", "commands", "pitstop.toml"),
-      tool: "Gemini CLI (user)",
-      level: "home",
-      transform: "gemini",
-    },
-  ];
+/** Absolute user-level (home) targets. Order matches the historical installer. */
+const HOME_ORDER: AgentId[] = ["codex", "claude-code", "cursor", "opencode", "antigravity", "kilo-code", "gemini-cli"];
+
+export function homeTargets(home: string = os.homedir()): InstallTarget[] {
+  return HOME_ORDER.flatMap((id) => getAgentDefinition(id).homeTargets(home));
 }
 
-export function getTargets(cwd: string): InstallTarget[] {
-  return [...projectTargets(cwd), ...homeTargets()];
+export function getTargets(cwd: string, home: string = os.homedir()): InstallTarget[] {
+  return [...projectTargets(cwd), ...homeTargets(home)];
+}
+
+/** Every target for the selected agents, project and home, deduplicated by path. */
+export function targetsForAgents(
+  cwd: string,
+  agents: AgentId[],
+  home: string = os.homedir(),
+): InstallTarget[] {
+  const seen = new Set<string>();
+  const out: InstallTarget[] = [];
+  for (const id of agents) {
+    const definition = getAgentDefinition(id);
+    if (!definition) continue;
+    for (const target of [...definition.projectTargets(cwd), ...definition.homeTargets(home)]) {
+      const key = path.resolve(target.path);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(target);
+    }
+  }
+  return out;
 }
 
 /** Locate templates/pitstop-menu.command.md — the interactive menu card. */
@@ -188,15 +263,14 @@ function subcommandBody(sc: Subcommand): string {
 
 /**
  * Generate one InstallTarget per subcommand, derived from every *command-style*
- * main target (a file named `pitstop.md` / `pitstop.toml`) in project + home
- * layouts. Skills (SKILL.md) and unsupported tools (targets with a `note`,
- * i.e. Codex) are skipped. Each subcommand keeps the parent's transform so the
- * Gemini TOML / Antigravity workflow rewriting still applies.
+ * main target (a file named `pitstop.md` / `pitstop.toml`). Skills (SKILL.md)
+ * and unsupported tools (targets with a `note`, i.e. Codex) are skipped. Each
+ * subcommand keeps the parent's transform so the Gemini TOML / Antigravity
+ * workflow rewriting still applies.
  */
-export function getSubcommandTargets(cwd: string): InstallTarget[] {
-  const mains = [...projectTargets(cwd), ...homeTargets()];
+export function getSubcommandTargetsFor(targets: InstallTarget[]): InstallTarget[] {
   const out: InstallTarget[] = [];
-  for (const t of mains) {
+  for (const t of targets) {
     if (t.note) continue;
     const base = path.basename(t.path);
     const m = base.match(/^pitstop\.(md|toml)$/);
@@ -214,6 +288,10 @@ export function getSubcommandTargets(cwd: string): InstallTarget[] {
     }
   }
   return out;
+}
+
+export function getSubcommandTargets(cwd: string, home: string = os.homedir()): InstallTarget[] {
+  return getSubcommandTargetsFor([...projectTargets(cwd), ...homeTargets(home)]);
 }
 
 /** Locate templates/pitstop.prompt.md relative to this module or cwd. */
@@ -245,6 +323,28 @@ export function resolveCommandTemplatePath(): string {
 }
 
 /**
+ * Marker written into every generated file. New installs are identifiable
+ * without guessing; `isManagedContent` still recognizes files generated by
+ * older versions so upgrades remain safe.
+ */
+export const MANAGED_MARKER = "<!-- openpitstop:managed -->";
+
+const MANAGED_PATTERNS = [
+  /<!--\s*openpitstop:managed\s*-->/i,
+  /^#\s*openpitstop:managed\s*$/im,
+  /^#\s*\/pitstop\b/m,
+  /description:\s*"?OpenPitStop\b/i,
+  /description\s*=\s*"OpenPitStop\b/i,
+  /pitstop\s+prompt\s+--args/i,
+  /OpenPitStop\s+—/,
+];
+
+/** True when a file was generated by OpenPitStop and may be safely refreshed. */
+export function isManagedContent(content: string): boolean {
+  return MANAGED_PATTERNS.some((pattern) => pattern.test(content));
+}
+
+/**
  * Render the file content for a target. The Claude Code skill variant rewrites
  * the frontmatter to { name, description } as skills require. The Antigravity
  * workflow variant normalizes the frontmatter to `description` only (their
@@ -255,31 +355,33 @@ export function resolveCommandTemplatePath(): string {
 export function renderContent(target: InstallTarget, templateText: string): string {
   if (target.transform === "skill") {
     const m = templateText.match(/^---\s*\n([\s\S]*?)\n---\s*\n?([\s\S]*)$/);
-    if (!m) return templateText;
+    if (!m) return `${MANAGED_MARKER}\n${templateText}`;
     const fm = m[1];
     const body = m[2];
     const descMatch = fm.match(/description:\s*(.+?)\s*$/m);
     const description = descMatch ? descMatch[1].trim() : "";
-    return `---\nname: pitstop\ndescription: ${description}\n---\n\n${body}`;
+    return `---\nname: pitstop\ndescription: ${description}\n---\n\n${MANAGED_MARKER}\n\n${body}`;
   }
   if (target.transform === "workflow") {
     const m = templateText.match(/^---\s*\n([\s\S]*?)\n---\s*\n?([\s\S]*)$/);
-    if (!m) return templateText;
+    if (!m) return `${MANAGED_MARKER}\n${templateText}`;
     const fm = m[1];
     const body = m[2];
     const descMatch = fm.match(/description:\s*(.+?)\s*$/m);
     const description = descMatch ? descMatch[1].trim() : "";
-    return `---\ndescription: ${description}\n---\n\n${body}`;
+    return `---\ndescription: ${description}\n---\n\n${MANAGED_MARKER}\n\n${body}`;
   }
   if (target.transform === "gemini") {
     const m = templateText.match(/^---\s*\n([\s\S]*?)\n---\s*\n?([\s\S]*)$/);
-    if (!m) return templateText;
+    if (!m) return `# openpitstop:managed\n${templateText}`;
     const fm = m[1];
     const body = m[2];
     const descMatch = fm.match(/description:\s*(.+?)\s*$/m);
     let description = descMatch ? descMatch[1].trim() : "";
     description = description.replace(/^"|"$/g, "");
-    return `description = "${description}"\nprompt = """\n${body.trim()}\n"""\n`;
+    return `# openpitstop:managed\ndescription = "${description}"\nprompt = """\n${body.trim()}\n"""\n`;
   }
-  return templateText;
+  const m = templateText.match(/^(---\s*\n[\s\S]*?\n---\s*\n?)([\s\S]*)$/);
+  if (!m) return `${MANAGED_MARKER}\n${templateText}`;
+  return `${m[1]}\n${MANAGED_MARKER}\n\n${m[2]}`;
 }

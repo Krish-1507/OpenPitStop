@@ -18,23 +18,56 @@ and explicit `UNPROVEN` results when the checks cannot establish an answer.
 
 **Local CLI · Bring your own coding agent · No PitStop account · No telemetry · MIT**
 
-## Start with one command:
+## Start in 60 seconds
 
 Requires **Node.js 22+** and npm. Git is needed for change comparison and isolated worktrees.
 
 ```bash
 npm install -g openpitstop
-pitstop ask "understand this repo"
+cd my-project
+pitstop
 ```
 
-Or get a quick first scan without a global install:
+Bare `pitstop` is the guided entry point. It detects the project and the coding agents that
+are actually installed or configured, shows the project type, package manager, Git state,
+languages and frameworks, then offers:
+
+- a scoped coding-agent integration with an exact file preview and a permission prompt;
+- **Quick Check** (fast static pass), **Deep Audit** (tests/build/reliability) or
+  **Ship Check** (typecheck, lint, verification stack and the strict release gate).
+
+Existing files are never silently overwritten: OpenPitStop updates its own generated files,
+leaves user-authored files alone, keeps a backup and writes a local install manifest. Undo
+with `pitstop install --rollback`.
+
+Non-interactive use stays non-interactive. In CI or a pipe, `pitstop` prints a short status
+and exits without waiting for input or writing anything. `pitstop --help` remains available,
+`pitstop --setup` repeats the setup, `--no-input` disables prompts and `--skip-onboarding`
+exits immediately. Every pre-existing command keeps its own behavior.
+
+Prefer explicit commands, or need a quick scan without a global install?
 
 ```bash
+pitstop ask "understand this repo"
 npx openpitstop try .
 ```
 
 `try` runs the lighter checks and saves a baseline. It does not run the full test/build
 stack; duration depends on the repository and installed tools.
+
+### Check at three depths
+
+| Command | Runs | Honest limit |
+|---|---|---|
+| `pitstop check quick .` | Project understanding, dependency graph, static security, duplication, accessibility, DevEx | Tests, build and flaky detection are reported as skipped |
+| `pitstop check deep .` | The full `pitstop scan` stack | Missing tools/layers remain visible as skipped |
+| `pitstop check ship .` | Deep scan plus typecheck, lint, build, verification stack and strict gate | Insufficient evidence returns a nonzero exit; it is never presented as ready |
+
+Every check writes sealed evidence to `.pitstop/check-latest.json`, explains the highest
+priority finding (what, where, why it matters, confidence, reproduce, verify, fix), lists
+skipped checks with reasons, and ends with concrete next steps. `--json` returns the same
+report for automation. Quick/deep exit `0` when the check completed; ship propagates the
+strict gate exit code (`0` verified, `1` failed/unproven, `2` tamper/cheat).
 
 Install the slash command into your coding CLI, then speak naturally:
 
@@ -269,13 +302,37 @@ show the repository's recorded progress.
 ## Install into your coding CLI
 
 ```bash
-pitstop install
+pitstop install --dry-run          # preview every path; write nothing
+pitstop install --agents cursor    # configure one detected agent
+pitstop install                    # configure every supported target
+pitstop install --rollback         # undo the most recent install transaction
 ```
 
-The installer writes agent instruction files. Check its displayed destinations; use
-`--force`/`-y` deliberately when replacing existing files. `pitstop prompt` prints the
-full workflow for inspection or manual installation. In a host that supports the
-installed command, use `/pitstop` or `/pitstop check the security of this app`.
+The installer writes agent instruction files and shows every destination. Files generated
+by OpenPitStop carry a managed marker. With `--force`/`-y` they are updated deliberately and
+the previous content is backed up under `.pitstop/install-backups/`; user-authored files are
+otherwise left untouched. `--uninstall` removes managed files only unless `--force` is used.
+Use `--no-subcommands` to install just `/pitstop`. `pitstop prompt` prints the full workflow
+for inspection or manual installation. In a host that supports the installed command, use
+`/pitstop` or `/pitstop check the security of this app`.
+
+### Dismiss findings without hiding them
+
+False positives and accepted risks are scoped, explained and time-limited:
+
+```bash
+pitstop suppress security-19c390c6 --kind false-positive --reason "sanitized by the upstream allowlist"
+pitstop suppress security-19c390c6 --kind accepted-risk --reason "legacy path" --expires 2026-12-31
+pitstop suppress --rule xss --path 'src/legacy/**' --reason "component scheduled for removal"
+pitstop suppress --list
+pitstop suppress --remove sup-1a2b3c4d
+```
+
+A finding-specific dismissal is bound to the finding's code fingerprint. If the relevant
+code changes, the old dismissal stops applying and the finding is reconsidered. Expired
+dismissals stop applying too. Dismissed findings stay visible in scan history and reports,
+are excluded from active counts and the score, and are exported to SARIF as suppressed
+results with the reason. [First-run and trust controls](docs/first-run.md).
 
 | Bundled target | Command location |
 |---|---|
@@ -298,9 +355,10 @@ extension integration. [Installer targets](src/installer/targets.ts).
 
 | Job | Commands |
 |---|---|
-| Start and navigate | `ask`, `next`, `try`, `demo`, bare `pitstop` onboarding |
+| Start and navigate | bare `pitstop`, `check`, `ask`, `next`, `try`, `demo` |
 | Understand and plan | `understand`, `plan`, `architecture-check`, `memory` |
-| Measure and diagnose | `scan`, `test`, `verify-stack`, `doctor`, `ready-check` |
+| Measure and diagnose | `scan`, `check`, `test`, `verify-stack`, `doctor`, `ready-check` |
+| Triage findings | `inspect`, `suppress` |
 | Fix and inspect | `inspect`, `repro`, `drive`, `fix` |
 | Security | `pen`, `pen --static`, `pen --fix`, `scan --ledger` |
 | Verify | `verify`, `flow`, `gate`, `integrity`, `baseline-verify`, `state-verify`, `verifier-check`, `holdout-verify`, `acceptance-verify`, `regression-check` |
@@ -308,9 +366,11 @@ extension integration. [Installer targets](src/installer/targets.ts).
 | Integrate | `install`, `prompt`, `watch`, `ci` |
 
 Use `pitstop <command> --help` for exact options. `report --html` produces a self-contained
-HTML report and a README badge; `share` creates a screenshot-ready card. `ci` produces
-PR-ready reports, and `install --hooks` installs a pre-commit gate. See the
-[GitHub Action guide](docs/github-action.md) and [repository workflow guide](docs/repo-discipline.md).
+HTML report and a README badge; `report --sarif` exports standardized findings with stable
+fingerprints, confidence, source tool and scoped suppressions. `share` creates a
+screenshot-ready card. `ci` produces PR-ready reports, and `install --hooks` installs a
+pre-commit gate. See the [GitHub Action guide](docs/github-action.md) and
+[repository workflow guide](docs/repo-discipline.md).
 
 ## Where OpenPitStop fits
 

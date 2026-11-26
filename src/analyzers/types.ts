@@ -1,6 +1,12 @@
 import type { Language } from "./util.js";
+import type { Finding } from "../findings/schema.js";
 
-export interface ScanIssue {
+/**
+ * Analyzer input shape. Legacy fields stay optional for backwards-compatible
+ * adapters; stampFindings enriches every persisted issue to the full Finding
+ * contract before evidence is sealed.
+ */
+export interface ScanIssue extends Omit<Partial<Finding>, "severity"> {
   type: string;
   severity: string;
   file?: string;
@@ -208,7 +214,32 @@ export interface Cluster {
   size: number;
 }
 
+export interface DismissedFinding {
+  id: string;
+  source: string;
+  type: string;
+  category: string;
+  description: string;
+  severity: string;
+  file?: string;
+  line?: number;
+  fingerprint?: string;
+  title?: string;
+  confidence?: import("../findings/schema.js").FindingConfidence;
+  sourceTool?: string;
+  reachability?: string;
+  verificationStatus?: string;
+  impact?: string;
+  reproduction?: string;
+  suggestedFix?: string;
+  verification?: string;
+  references?: string[];
+  suppression: import("../findings/suppressions.js").Suppression;
+}
+
 export interface ScanResult {
+  /** Suppressed/accepted findings stay visible here and never affect the active score. */
+  dismissed?: DismissedFinding[];
   /** Content-bound reuse metadata, present only for a stable full scan. */
   cache?: import("../scanCache.js").ScanCache;
   timestamp: string;

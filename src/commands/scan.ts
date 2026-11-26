@@ -14,6 +14,7 @@ import { stampFindings, findingIdFor } from "../repro/ids.js";
 import { computeScore, type ScoreResult } from "../report/score.js";
 import { createSpinner } from "../ui/spinner.js";
 import { seal } from "../evidence.js";
+import { applySuppressions } from "../findings/suppressions.js";
 import type { ScanResult } from "../analyzers/types.js";
 
 function memTypeColor(t: MemoryType): (s: string) => string {
@@ -129,6 +130,12 @@ export function renderBox(r: ScanResult): string {
   } else {
     lines.push(
       `${label("Security")}: ${chalk.yellow(skippedLine(sec.status, sec.note))}`,
+    );
+  }
+
+  if (r.dismissed && r.dismissed.length > 0) {
+    lines.push(
+      `${label("Dismissed")}: ${chalk.yellow(`${r.dismissed.length} suppressed`)} — kept for audit; excluded from the score`,
     );
   }
 
@@ -333,7 +340,7 @@ async function runScanImpl(
     if (cached) return { result: cached, file: path.join(repo, ".pitstop", "scan-latest.json") };
   }
   const before = snapshotRepo(repo);
-  const inputs = scanInputs(opts);
+  const inputs = scanInputs(opts, repo);
   const result = await runAllAnalyzers(repo, { reliabilityRuns: opts.reliabilityRuns });
 
   // Ledger mode is invasive (it boots the app and probes live endpoints), so it
@@ -344,12 +351,13 @@ async function runScanImpl(
   // Stable finding ids first, so clusters and scan-latest.json carry the ids
   // that `pitstop repro <id>` (and committed repro tests) reference.
   stampFindings(result);
+  applySuppressions(repo, result);
 
   const { clusters } = correlate(repo, result);
   result.clusters = clusters;
 
   const after = snapshotRepo(repo);
-  if (before && after && before.digest === after.digest && inputs === scanInputs(opts) && !opts.ledger) {
+  if (before && after && before.digest === after.digest && inputs === scanInputs(opts, repo) && !opts.ledger) {
     result.cache = { schema: 1, inputs, snapshot: after };
   }
 

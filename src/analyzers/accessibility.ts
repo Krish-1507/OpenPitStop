@@ -124,6 +124,8 @@ function parsePa11y(arr: any[], file: string): ScanIssue[] {
       severity,
       file,
       description: `${item.code}: ${item.message}${item.selector ? ` (${item.selector})` : ""}`,
+      sourceTool: "pa11y",
+      confidence: "indicated",
     });
   }
   return out;
@@ -144,6 +146,8 @@ function parseAxe(json: any, file: string): ScanIssue[] {
       severity,
       file,
       description: `${v.id}: ${v.help ?? v.description ?? ""}`,
+      sourceTool: "axe",
+      confidence: "indicated",
     });
   }
   return out;

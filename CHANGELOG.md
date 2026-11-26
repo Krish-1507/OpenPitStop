@@ -2,6 +2,43 @@
 
 All notable changes to this project are documented here.
 
+## [Unreleased] — Phase 1: first-run experience and trust
+
+### Added
+
+- Bare `pitstop` guided setup: real project and agent detection, scoped agent selection,
+  an exact file preview, a permission prompt, managed-file updates, backups and rollback.
+- `pitstop check quick|deep|ship`: one guided workflow with project understanding, grouped
+  findings, actionable finding explanations, visible skipped checks, verification results,
+  next steps and sealed `.pitstop/check-latest.json` evidence.
+- `pitstop suppress`: scoped false-positive/accepted-risk/suppressed dismissals with a
+  required reason, optional expiry and rule/path scope. Changed code invalidates a
+  finding-specific dismissal; dismissed findings remain visible for audit.
+- Versioned finding contract on every persisted scan issue: stable id, confidence, source tool,
+  structured evidence, reachability, impact, reproduction, verification, references and a
+  content-bound fingerprint.
+- Enhanced SARIF 2.1.0 export: stable partial fingerprints, rule CWE/OWASP metadata,
+  confidence/source properties, repo-relative locations and scoped suppressions.
+- Reports expose suppressed findings and the exact checks that were skipped, with reasons.
+- Language-adapter boundary for marker/extension detection, shared by language detection,
+  onboarding and repo understanding. Existing analyzer coverage is unchanged.
+- Installer flags: `--agents`, `--dry-run`, `--no-subcommands`, `--rollback`, `--json`.
+  Generated files carry a managed marker; uninstall removes managed files only unless
+  `--force` is explicit.
+- [First-run guide](docs/first-run.md).
+
+### Changed
+
+- Installing over an existing OpenPitStop-managed file creates a backup and records the
+  transaction. User-authored files are never overwritten by onboarding.
+- `pitstop verify` and the gate count active security findings only; scoped dismissals no
+  longer lower the measured pass criteria.
+
+### Compatibility
+
+- Existing `try`, `scan`, `verify`, `gate`, `flow`, `install`, `report` and `--help`
+  behavior is preserved. Onboarding is additive; named commands are not redirected.
+
 ## [1.10.0] - 2026-09-25
 
 ### Added

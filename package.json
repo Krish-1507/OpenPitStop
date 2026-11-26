@@ -31,7 +31,8 @@
     "README.md",
     "PRIVACY.md",
     "LICENSE",
-    "docs/release-controls.md"
+    "docs/release-controls.md",
+    "docs/first-run.md"
   ],
   "engines": {
     "node": ">=22"

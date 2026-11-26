@@ -21,6 +21,7 @@ import { buildIntegrityReport } from "../graph/integrity.js";
 import type { IntegrityFinding, Verdict } from "../analyzers/integrity/types.js";
 import { seal, checkEvidence, type EvidenceCheck, type OpenPitStopEvidence } from "../evidence.js";
 import { computeHonesty, type HonestyScore } from "../verify/honesty.js";
+import { filterSuppressedIssues } from "../findings/suppressions.js";
 
 interface IntegrityGate {
   verdict: Verdict;
@@ -100,7 +101,8 @@ async function currentMetrics(repo: string): Promise<VerifyMetrics> {
       buildTimeMs: perf.buildTimeMs,
       bundleSizeBytes: perf.bundleSizeBytes,
     },
-    securityCount: security.issues.length,
+    // Scoped dismissals alter the active count, never the underlying evidence.
+    securityCount: filterSuppressedIssues(repo, security.issues, "security").length,
     duplicationCount: duplication.cloneCount,
   };
 }
