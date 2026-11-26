@@ -1,0 +1,15 @@
+{
+  "id": "inline-jwt-secret",
+  "title": "JWT signed with an inline literal secret",
+  "kind": "vulnerable",
+  "stack": "node",
+  "expect": {
+    "findings": [
+      {
+        "category": "authentication",
+        "file": "src/tokens.js"
+      }
+    ]
+  },
+  "note": "A short hard-coded signing secret, the pattern that makes tokens forgeable."
+}

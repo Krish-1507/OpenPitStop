@@ -1,0 +1,15 @@
+{
+  "id": "password-cleartext-compare",
+  "title": "Password compared in cleartext",
+  "kind": "vulnerable",
+  "stack": "node",
+  "expect": {
+    "findings": [
+      {
+        "category": "authentication",
+        "file": "src/auth.js"
+      }
+    ]
+  },
+  "note": "A request password compared with === against the stored value."
+}

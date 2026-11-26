@@ -1,0 +1,9 @@
+{
+  "id": "ssrf-allowlisted-fetch",
+  "title": "Destination allowlisted before fetch",
+  "kind": "fixed",
+  "stack": "node",
+  "pairOf": "ssrf-unvalidated-fetch",
+  "expect": {},
+  "note": "The origin is checked against an allowlist before the request is made."
+}

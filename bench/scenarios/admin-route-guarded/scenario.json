@@ -1,0 +1,9 @@
+{
+  "id": "admin-route-guarded",
+  "title": "The same route behind auth and role checks",
+  "kind": "fixed",
+  "stack": "node",
+  "pairOf": "admin-route-unguarded",
+  "expect": {},
+  "note": "requireAuth, requireRole and an explicit role check in the handler."
+}

@@ -1,0 +1,9 @@
+{
+  "id": "password-bcrypt-compare",
+  "title": "Password compared through bcrypt",
+  "kind": "fixed",
+  "stack": "node",
+  "pairOf": "password-cleartext-compare",
+  "expect": {},
+  "note": "bcrypt.compare against a stored hash: no cleartext comparison to report."
+}

@@ -1,0 +1,9 @@
+{
+  "id": "xss-textcontent",
+  "title": "The same data written with textContent",
+  "kind": "fixed",
+  "stack": "node",
+  "pairOf": "xss-innerhtml",
+  "expect": {},
+  "note": "textContent cannot execute markup; there is no sink to report."
+}

@@ -116,6 +116,7 @@ const IGNORE_DIRS = new Set([
   // Fixture / seed directories that are not part of the codebase under analysis.
   "demo-repo",
   "templates",
+  "bench",
 ]);
 
 /**

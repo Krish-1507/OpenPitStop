@@ -1,0 +1,15 @@
+{
+  "id": "known-miss-sql-in-helper",
+  "title": "SQL built inside a helper function",
+  "kind": "known-miss",
+  "stack": "node",
+  "expect": {
+    "findings": [
+      {
+        "category": "sql-injection",
+        "file": "src/db.js"
+      }
+    ]
+  },
+  "note": "The taint crosses a function return value, which the rules do not follow. Recorded limit, not a pass."
+}

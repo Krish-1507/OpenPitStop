@@ -1,0 +1,9 @@
+{
+  "id": "env-jwt-secret",
+  "title": "JWT signed with an environment secret",
+  "kind": "fixed",
+  "stack": "node",
+  "pairOf": "inline-jwt-secret",
+  "expect": {},
+  "note": "The secret comes from the environment, so no literal is exposed."
+}

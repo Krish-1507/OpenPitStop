@@ -1,0 +1,12 @@
+{
+  "id": "benign-escaped-innerhtml",
+  "title": "Escaped value written into innerHTML",
+  "kind": "known-false-positive",
+  "stack": "node",
+  "expect": {
+    "forbid": [
+      "xss"
+    ]
+  },
+  "note": "The value is HTML-escaped before the sink, which is a real mitigation the rule does not model. Recorded, not hidden."
+}
