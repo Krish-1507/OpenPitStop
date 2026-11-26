@@ -17,7 +17,7 @@ Seeded problems (so you can check the numbers in `PITSTOP_REPORT.md`):
 - **2 failing unit tests** in `test/user.test.js` (assert correct behavior; the implementation
   is buggy on purpose).
 - **N+1 query pattern** spanning `userController` → `userService` → `userRepo` (the service
-  loops users and queries posts per-user). Phase 2's clustering groups these three files into
+  loops users and queries posts per-user). The clustering pass groups these three files into
   one root-cause cluster.
 
 Run it: `pitstop demo` copies this into a temp dir, installs the slash command, and tells you

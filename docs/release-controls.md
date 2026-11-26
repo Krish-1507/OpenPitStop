@@ -1,6 +1,6 @@
 # Execution, evidence and spending controls
 
-OpenPitStop 1.10.0 makes three controls part of normal execution.
+OpenPitStop 1.11.0 makes four controls part of normal execution.
 
 ## Candidate-bound evidence
 
@@ -102,6 +102,19 @@ refuse a requested dollar ceiling before launching; their call/time/prompt limit
 still work. Provider billing and native cap semantics remain the provider's authority.
 PitStop cannot impose an account-wide dollar limit on unrelated processes or work a
 provider continues remotely after a client disconnects.
+
+## MCP results are not agent-authored
+
+`pitstop mcp` speaks JSON-RPC over stdio, so the host agent chooses *when* to call a tool
+but never supplies the result. Scans and gates run in the CLI process against the same
+sealed artifacts described above. `pitstop_release_gate` defaults to strict: only
+`VERIFIED` returns a pass, and a missing or stale candidate binding is `UNPROVEN`, not a
+pass. Tool output is bounded, the server opens no network listener, and it reads no
+credentials.
+
+The server can write scan and repro artifacts to `.pitstop/`, exactly like the equivalent
+CLI command. It is an interface, not a new authority: a client that can run `pitstop`
+could already run these commands.
 
 Sources: [Docker execution controls](https://docs.docker.com/engine/containers/run/),
 [Claude CLI budget semantics](https://code.claude.com/docs/en/cli-reference#flags).

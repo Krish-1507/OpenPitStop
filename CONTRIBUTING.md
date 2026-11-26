@@ -6,7 +6,7 @@ but it also covers setup, conventions, and how to open a PR.
 
 ## Development setup
 
-Requires **Node.js â‰¥ 22** (execa 10 needs `Set.union`, an ES2024 feature). CI uses Node 22.
+Requires **Node.js ≥ 22** (execa 10 needs `Set.union`, an ES2024 feature), plus Python 3 (`python3`, or `PITSTOP_PYTHON`) for Python structural parsing. CI uses Node 22.
 
 ```bash
 npm install
@@ -14,7 +14,7 @@ npm run build      # tsc → dist/  (the CLI runs from dist/, not src/)
 npm run dev        # tsx watch src/cli.ts — live-reloading entry point
 ```
 
-The CLI's own regression suite is `node:test` (198 tests, real filesystem + git
+The CLI's own regression suite is `node:test` (301 tests, real filesystem + git
 fixtures): `npm test`. Verification is both automated and hands-on: `npm run build`,
 `npm test`, then run the real commands against a test repo (see [Testing](#testing)).
 
@@ -34,14 +34,21 @@ src/sandbox/          non-Node sandboxing (recording HTTP(S)_PROXY server + star
 src/installer/         slash-command install targets (Claude, Cursor, OpenCode, Antigravity,
   Kilo Code, Gemini CLI, Codex) + the template transforms (skill / workflow frontmatter
   rewrites, gemini TOML conversion)
+src/onboarding/        first-run detection, install state and the guided `pitstop` entry
+src/languages/         language adapters, parser discovery and the capability matrix behind
+  `pitstop languages` and `map`
+src/checks/            quick/deep/ship check orchestration behind `pitstop check`
+src/bench/             fixture loader, scenarios and scorer behind `pitstop bench`
+src/mcp/               stdio JSON-RPC server and tool handlers behind `pitstop mcp`
 src/graph/correlate.ts   flattens findings into ClusterFinding[] and clusters them
 src/graph/integrity.ts   combines detector output into one verdict (CLEAN/SUSPICIOUS/CONFIRMED_CHEAT)
 src/verify/         deep-verification library (baseline.ts baseline-aware verification,
   state.ts external state verification, verifier.ts falsifiability self-test,
   holdout.ts final hidden holdout suites, acceptance.ts requirement contracts) —
   all seal their evidence via src/evidence.ts and run in isolated git worktrees
-src/commands/         the CLI surface (scan, verify, integrity, report, memory, demo, ci, install,
-  baseline-verify, state-verify, verifier-check, holdout-verify, acceptance-verify, ...)
+src/commands/         the CLI surface (check, scan, verify, languages, map, impact, bench, mcp,
+  install, integrity, report, memory, demo, ci, baseline-verify, state-verify, verifier-check,
+  holdout-verify, acceptance-verify, ...)
 src/report/format.ts  PITSTOP_REPORT.md + boxed renderers
 src/verify/metrics.ts verify metrics + Regression Risk classification
 templates/pitstop.prompt.md  the /pitstop slash-command that drives the agent
@@ -205,12 +212,15 @@ present in `pitstop ci` and the GitHub Action comment automatically.
 ## Testing
 
 ```bash
-npm test                              # 198 node:test regression tests (real fs + git fixtures)
+npm test                              # 301 node:test regression tests (real fs + git fixtures)
 npm run typecheck                     # tsc --noEmit for src and test
 npm run build
 node dist/cli.js scan .              # scan this repo (a11y/perf will skip — that's correct)
 node dist/cli.js scan demo-repo       # the seeded-broken repo: expect a real cluster
+node dist/cli.js check quick .        # quick/deep/ship check report in .pitstop/check-latest.json
+node dist/cli.js bench                # detector benchmark against the committed fixtures
 node dist/cli.js demo                 # full loop rehearsal in a temp dir
+npm run mcp:smoke                     # MCP handshake, tool listing and a read-only tool call
 node fixtures/assertion-literal-tamper/verify.mjs  # integrity detector fixture (cheat vs honest)
 ```
 

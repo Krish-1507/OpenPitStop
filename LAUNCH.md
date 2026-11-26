@@ -24,16 +24,19 @@ finding with its fix one line below, honest skips, no invented numbers.
 
 ## The one-liner
 
-One command installs it everywhere — project-level in the repo you're in, user-level so it
-works in any repo:
+Install the CLI, then run the guided entry point once:
 
 ```bash
-npx openpitstop install
+npm install -g openpitstop
+cd my-project
+pitstop
 ```
 
-Re-run it after updates with `-y` to refresh without prompts:
-`npx openpitstop install -y`. Then `/pitstop` just works in Claude Code, Cursor, OpenCode,
-Antigravity, Kilo Code, Codex CLI, and Gemini CLI.
+It detects the project and the agents that are actually installed, previews every file it
+would write, asks before writing, and records what it changed (`pitstop install --rollback`
+undoes it). Non-interactive runs print status and exit without writing. Re-run with
+`pitstop install -y` to refresh without prompts. Then `/pitstop` works in Claude Code,
+Cursor, OpenCode, Antigravity, Kilo Code, Codex CLI, and Gemini CLI.
 
 OpenPitStop is two pieces glued together: a **deterministic CLI** that scans your repo and
 produces numbers, and **your existing coding agent's reasoning** — the CLI does the
@@ -139,6 +142,10 @@ in the code before you watch it get fixed.
   iterations max, then it stops and tells you what's left.
 - Static security findings are **indicated, never proven** — the pen test is what proves.
   The referee never sells a guess as a fact.
+- It has no editor extension or inline diagnostics, and it does not execute CodeQL, Trivy
+  or Checkov. Missing tools are reported as skipped, never as clean.
+- Evidence digests are tamper-evident, not signed attestations. Someone with write access
+  can recompute them; authoritative verification belongs in trusted CI.
 
 ## Show, don't tell
 
@@ -185,6 +192,12 @@ was built and deleted.
   `drive` makes the agent prove FAIL → PASS. `pen --fix` only auto-generates
   patches that are provably safe (pure insertions) and regression-tests that
   every patch passes `git apply`.
+- **Phase 5 — measure it and make it portable (1.11.0).** `languages` publishes what
+  each parser can actually do, `impact` walks the reverse import graph from a diff,
+  `bench` scores the detector on committed fixtures (22 fixtures, 8/8 expected findings
+  detected, documented misses and one skipped stack), and `pitstop mcp` exposes the checks to
+  agents over stdio without letting the agent author the verdict. The first run became one
+  guided command with quick/deep/ship depths instead of a wall of flags.
 - **The cheat-catch demo.** `scripts/cheat-demo.cjs` is the whole thesis in
   90 seconds: a lazy agent focuses the suite on the passing tests (gate
   blocks, exit 1), then deletes the failing test (gate blocks, exit 2) —
@@ -209,8 +222,8 @@ was sketched, found to dilute the thesis, and cut.
 
 The git history shows the cuts in order: `scan` → `try`/`gate`/evidence →
 `share`/`honesty` → `pen`/`watch`/`drive`/`budget` → security round 2 +
-`test` pyramid. Five phases, each one a layer of the same promise: *the
-agent finally has a referee.*
+`test` pyramid → `check`/`languages`/`impact`/`bench`/MCP. Six phases, each one
+a layer of the same promise: *the agent finally has a referee.*
 
 ## Built for the boring, important stuff
 

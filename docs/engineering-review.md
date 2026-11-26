@@ -1,6 +1,7 @@
 # OpenPitStop: engineering assessment and product direction
 
-Reviewed **2026-09-25**, against the 1.10.0 release changes. This is a code review and primary-source capability comparison, not a head-to-head
+Reviewed **2026-11-26** against the 1.11.0 release, with the 1.10.0 review of 2026-09-25 kept below.
+This is a code review and primary-source capability comparison, not a head-to-head
 detection benchmark. No production application was attacked during the review.
 
 ## The product worth building
@@ -16,6 +17,21 @@ not testable promises. Detection coverage, execution boundaries and evidence fre
 where the project should earn trust. More command names or stronger adjectives will not
 substitute for those guarantees.
 
+## What 1.11.0 changes
+
+The release closes four gaps this review named: first-run clarity, language and change-impact
+visibility, a measured detector, and a portable agent interface. It does not close the
+remaining authority, execution and coverage gaps.
+
+| Area | Shipped | Evidence and limits |
+|---|---|---|
+| First run | Bare `pitstop` detects the project and installed agents, previews every file it would write and asks before writing; `check quick\|deep\|ship` answers "which command do I run?" | Non-interactive runs print status and exit without writing; existing user files are left alone; `install --rollback` restores generated files. |
+| Language support | `pitstop languages` publishes four support levels and the exact parser per language; `map` and `impact` consume the same matrix | Structural JS/TS parsing, Python via the standard `ast` module, and 12 tree-sitter grammars when installed. Dependency graphs remain JS/TS/Python-only. |
+| Change impact | `impact` walks the reverse import graph from a diff; `plan` seals the impact it was written against | Import-graph evidence only. Dynamic dispatch, reflection and undeclared path aliases stay invisible. |
+| MCP | `pitstop mcp` exposes six tools over stdio JSON-RPC: understand, map, scan, release gate, reproduce and bench | The agent cannot author a verdict: `pitstop_release_gate` computes it locally and defaults to strict, where only `VERIFIED` passes. The server has no network listener. |
+| Benchmark | `pitstop bench` scores 22 committed fixtures: 8/8 expected findings detected across 8 vulnerable/fixed pairs, 100% precision and recall, with two documented misses, one documented false positive and one skipped stack | Curated canonical examples, not a field sample. The 100% is not a general accuracy claim. |
+| Security depth | Infrastructure, dependency-hygiene and business-logic passes in `scan`; static risk/reachability triage; scoped, expiring `suppress` | Pattern-based and `indicated`. CodeQL, Trivy and Checkov execution is still not wired. |
+
 ## How the implementation works
 
 | Area | Source | Role and limits |
@@ -27,10 +43,12 @@ substitute for those guarantees.
 | Security | `src/pen/`, `src/analyzers/ledger/`, `src/sandbox/`, `templates/pen/` | Pattern detection, local dynamic probes, payment scenarios and repro/patch generation |
 | Verification | `src/verify/` | Baseline, actual state, contracts, holdouts, regression and verifier-health checks |
 | Decision | `src/verify/gateMatrix.ts`, `src/verify/flow.ts` | Ordered evidence decisions; configured stages must not disappear behind a green aggregate |
-| Agent interface | `templates/`, `src/commands/drive.ts` | Instructions and optional invocation of an external coding agent; its own credentials, permissions and costs apply |
+| Agent interface | `templates/`, `src/commands/drive.ts`, `src/mcp/` | Instructions, optional invocation of an external coding agent and a stdio MCP server. The agent's own credentials, permissions and costs apply; MCP tool results are computed by the CLI, not the agent |
+| Language adapters | `src/languages/` | Capability matrix, parser discovery and structural parsing; JS/TS, Python and optional tree-sitter grammars, with explicit file caps and skipped files |
+| Benchmark | `src/bench/`, `bench/` | Fixture loader, scenario scoring and published ratios with denominators; curated fixtures, not field measurements |
 | History and communication | `src/evidence.ts`, `src/memory/`, report/next/digest/trends commands | Content-digested artifacts, decisions, progress and next actions |
 
-## Defects addressed in this checkout
+## Defects addressed before 1.11.0
 
 | Finding | Previous behavior | Change and regression evidence |
 |---|---|---|
@@ -46,10 +64,11 @@ substitute for those guarantees.
 | Generated short-file patches had phantom context | Splitting a newline-terminated file added a nonexistent final line to the hunk | Remove the terminator entry before generating the diff; verify a real generated patch with git apply. |
 | Cost display overstated evidence | Latest aliases inflated run counts; cache files were presented as saved requests | Count history once and label stored cache entries honestly; no fabricated model bill. |
 
-The complete 1.10.0 suite passed **224 tests** on Windows after these code changes, with normal
-process permissions. The initial restricted run could not clean up a test-owned HTTP server;
-that exposed the wrong-process verification hazard above. Validation is limited to the
-included fixtures, not a claim of broad production or cross-platform certification.
+The complete 1.11.0 suite passed **301 tests** on Windows and in Linux CI after these code
+changes, with normal process permissions. The initial restricted 1.10.0 run could not clean
+up a test-owned HTTP server; that exposed the wrong-process verification hazard above.
+Validation is limited to the included fixtures, not a claim of broad production or
+cross-platform certification.
 
 ## Comparison with existing projects
 
@@ -106,9 +125,10 @@ but time and character estimates must never masquerade as provider token billing
 
 ## Release controls and remaining work
 
-The 1.10.0 release adds candidate bindings to historical gate evidence and the live
-verification result, enforced Docker isolation for live pen/ledger/repro runs, and a
-shared external-agent budget. [Implementation, setup and limits](release-controls.md).
+The 1.11.0 release keeps the 1.10.0 controls (candidate-bound gate evidence, Docker
+isolation for live pen/ledger/repro runs, one shared external-agent budget) and adds a
+portable interface with the same rule: MCP tool output is CLI evidence, and the gate verdict
+is never supplied by the calling agent. [Implementation, setup and limits](release-controls.md).
 
 Finding-specific proof still needs broader coverage: a static observation disappearing
 is weaker than a discriminative failing-first repro. Drive now refuses a failing repro
@@ -125,11 +145,10 @@ Make the first experience small: one sentence, a clear scope, evidence of what r
 one useful next action. Keep the full command catalog for experts rather than making it
 the onboarding task. The revised README follows that structure.
 
-Publish a reproducible evaluation set with vulnerable/fixed pairs, benign near-misses,
-false-pass traps, unsupported stacks and broken environments. Measure detection precision,
-false negatives, incorrect passes, execution time and any actual model usage. Report skipped
-coverage separately. Seed it with deleted tests, duplicate charges, stale evidence, weak
-acceptance checks, architecture violations and setup failures.
+Keep the published evaluation set honest: vulnerable/fixed pairs, benign near-misses,
+documented misses and false positives, unsupported stacks and broken environments. `bench`
+scores it on demand and states each denominator. A field sample, execution time and actual
+model usage remain unmeasured; do not present the curated 8/8 as field accuracy.
 
 Ship a short demonstration that shows a failure, a minimal fix and the same verification
 passing. Keep the transcript and fixture alongside the clip. Launch with an honest support
@@ -138,11 +157,13 @@ README. GitHub attention is an outcome to earn; it cannot be guaranteed by copyw
 
 ## Suggested milestones and acceptance bars
 
-| Milestone | Acceptance bar |
-|---|---|
-| Candidate-bound evidence | No previously passing layer can authorize a changed candidate without rerunning or an explicitly valid reuse policy |
-| Isolated security runner | Bypass fixtures cannot reach external network or host secrets; incomplete containment produces no clean verdict |
-| Finding-specific proof | Repro fails for the intended bug, stays identical, passes after the fix and fails again after a deliberate revert |
-| Bounded agent work | Hard total-call/time/context caps; unchanged failure stops the loop; actual provider usage is labeled separately |
-| Public benchmark | Reproducible vulnerable/fixed/benign fixtures, published limitations and per-stack results |
-| Stable release | Full tests, typecheck, build, packaged CLI smoke tests and verified installation instructions on supported systems |
+| Milestone | Status | Acceptance bar |
+|---|---|---|
+| Candidate-bound evidence | Delivered (1.10.0) | No previously passing layer can authorize a changed candidate without rerunning or an explicitly valid reuse policy |
+| Isolated security runner | Delivered (1.10.0) | Bypass fixtures cannot reach external network or host secrets; incomplete containment produces no clean verdict |
+| Finding-specific proof | Partial | Repro fails for the intended bug, stays identical, passes after the fix and fails again after a deliberate revert; coverage is still limited to findings with a generator |
+| Bounded agent work | Partial | Hard total-call/time/context caps; unchanged failure stops the loop; actual provider usage is labeled separately |
+| Public benchmark | Delivered (1.11.0) | Reproducible vulnerable/fixed/benign fixtures, published limitations and per-stack results: 22 fixtures, 8/8 detected, 100% precision/recall, documented misses and one skipped stack |
+| Stable release | Delivered (1.11.0) | Full tests, typecheck, build, packaged CLI smoke tests and verified installation instructions on supported systems |
+| Independent authority | Open | Signed attestations or a verifier outside the editing agent's write access; SHA-256 digests are tamper-evident, not authenticated |
+| Editor and execution coverage | Open | VS Code diagnostics, CodeQL/Trivy/Checkov execution and a diff-scoped review tool are not shipped |

@@ -102,7 +102,7 @@ pitstop map . --json
 Routes and path labels are leads. The map does not prove reachability, live
 exposure, authentication coverage, or authorization behavior.
 
-## What Phase 2 does not claim
+## What language support does not claim
 
 - No language is `Verified` without a supported reproduction and independent fix
   verification.

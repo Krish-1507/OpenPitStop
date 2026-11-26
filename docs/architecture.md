@@ -95,8 +95,8 @@ pitstop plan --goal "add session rotation" \
 ```
 
 `plan` is a sealed contract: `architecture-check --against-plan` detects scope creep by
-comparing the files the agent actually changed against `expectedPaths`. Two Phase 4
-additions make that contract informed rather than ceremonial:
+comparing the files the agent actually changed against `expectedPaths`. Two additions
+make that contract informed rather than ceremonial:
 
 - **Verification is derived when you omit it.** With no `--verify-command`, the plan uses
   the repository's own commands from `understand` (test, typecheck, lint, build — in that

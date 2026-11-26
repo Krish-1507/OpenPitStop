@@ -54,7 +54,7 @@ blocked** and the job fails, which fails the check, which blocks the merge.
   assertion literals edited to match buggy output, swallowed errors,
   suppression comments, mocked module-under-test, forced exits
 - Regression risk vs the base branch's baseline (tests, perf, security, duplication)
-- The baseline's tamper-evident evidence signature
+- The baseline's tamper-evident evidence seal (content digest, not a signature)
 - The newest sealed deep-verification reports, when present: `baseline-verify`
   (mismatches and unproven results surfaced, tampered evidence hard-blocks),
   `state-verify` (a claimed change that was not observed on disk/git), and
@@ -64,12 +64,16 @@ blocked** and the job fails, which fails the check, which blocks the merge.
 Exit codes (the gate never lies): `0` clean · `1` fail — human review ·
 `2` confirmed cheat — blocked.
 
+The action keeps the legacy gate for compatibility, so an `UNPROVEN` result can still exit
+`0` in older repositories. For a release that must prove itself, run
+`npx openpitstop check ship` (strict gate) in your workflow as a separate step.
+
 ## Options
 
 | Input | Default | Purpose |
 |---|---|---|
 | `score` | `60` | Minimum OpenPitStop Score to pass (`0` disables the check). |
-| `version` | `latest` | Pin the CLI, e.g. `1.1.0`, for reproducible gates. |
+| `version` | `latest` | Pin the CLI, e.g. `1.11.0`, for reproducible gates. |
 
 ## The badge loop
 

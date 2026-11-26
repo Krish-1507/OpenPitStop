@@ -406,7 +406,7 @@ extension integration. [Installer targets](src/installer/targets.ts).
 | Job | Commands |
 |---|---|
 | Start and navigate | bare `pitstop`, `check`, `ask`, `next`, `try`, `demo` |
-| Understand, map and plan | `understand`, `map`, `impact`, `plan`, `architecture-check`, `memory` |
+| Understand, map and plan | `understand`, `languages`, `map`, `impact`, `plan`, `architecture-check`, `memory` |
 | Measure and diagnose | `scan`, `check`, `test`, `verify-stack`, `doctor`, `ready-check`, `bench` |
 | Triage findings | `inspect`, `suppress` |
 | Fix and inspect | `inspect`, `repro`, `drive`, `fix` |
@@ -435,8 +435,9 @@ remain useful alongside it; the project does not claim universal detection super
 | [ZAP](https://www.zaproxy.org/docs/automate/automation-framework/) | Web security automation, authenticated contexts and active/passive scanning | Broader web-testing infrastructure; a future adapter would complement the built-in probes. |
 | [Aider](https://aider.chat/docs/repomap.html) | AI coding with repository maps and relevant context | A host editing agent; PitStop adds independently executed checks around its changes. |
 
-Research checked **2026-09-25** against the linked primary sources. This is a capability
-comparison, not a benchmark. [Detailed audit, research and next milestones](docs/engineering-review.md).
+Research checked **2026-09-25** against the linked primary sources; the command surface was
+re-verified for **2026-11-26** (1.11.0). This is a capability comparison, not a benchmark.
+[Detailed audit, research and next milestones](docs/engineering-review.md).
 
 ## Architecture and limits
 

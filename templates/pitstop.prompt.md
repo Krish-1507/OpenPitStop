@@ -145,6 +145,12 @@ the closest match. Never run the full scan just to decide:
 | one file or route | a scoped `!npx openpitstop scan` / `inspect` on the relevant finding | only that area |
 | overall repo quality / health | `!npx openpitstop scan` | show the box and stop (no fixes unless asked) |
 | one category (duplication, circular imports, secrets…) | `!npx openpitstop scan` | read only that category's lines |
+| language support / "what can it actually parse" | `!npx openpitstop languages` | print the support levels and parser limits verbatim |
+| endpoints, routes, attack surface, modules, architecture | `!npx openpitstop map` | routes and path labels are leads, not proof of reachability |
+| "what does this change touch" / dependents / blast radius | `!npx openpitstop impact` | import-graph evidence only; dynamic calls and reflection stay invisible |
+| release readiness / "can I ship" / "is this safe to merge" | `!npx openpitstop check ship` | a nonzero exit means failed or unproven, never "ready" |
+| "how accurate is the scanner" / benchmark / precision | `!npx openpitstop bench` | state the denominators, documented misses and skipped stack |
+| MCP / "connect PitStop to my agent" / tool setup | `!npx openpitstop mcp --help` and point to docs/mcp.md | never start the blocking stdio server inside the chat |
 | anything not in the table | the cheapest read-only check that answers them | ask one clarifying question if still unsure |
 
 **Step B — State your interpretation, then confirm before fixing.** Your first message is

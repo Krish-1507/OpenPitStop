@@ -245,7 +245,7 @@ it. Tests run on your machine, against your repo, with no external calls.
 - The static pass is fully offline: it never sends your code anywhere.
   See [PRIVACY.md](../PRIVACY.md).
 
-## Phase 3: infrastructure, business logic and triage
+## Infrastructure, business logic and triage
 
 `pitstop scan` now combines the source rules with two additional deterministic
 passes and a risk score:

@@ -36,6 +36,10 @@ continue to Act 1.
 npx openpitstop demo
 ```
 
+Or start from the guided entry point in your own repo — bare `pitstop` detects the project,
+previews the agent integration, and offers quick/deep/ship checks. `pitstop check deep .`
+writes the same evidence to `.pitstop/check-latest.json`.
+
 OpenPitStop copies an intentionally-broken app into a temp dir and scans it
 immediately. You get the boxed report: circular dependency, known-CVE
 dependency, failing tests, a hardcoded secret — each with its own finding id.
@@ -100,7 +104,7 @@ the root cause, re-run it, it must PASS, don't break anything.* Then OpenPitStop
 verifies the result — not the agent's claims:
 
 - the **repro test** must flip FAIL → PASS;
-- `pitstop verify` diffs the change against the signed baseline and flags
+- `pitstop verify` diffs the change against the sealed baseline and flags
   deleted tests, swallowed errors, hardcoded-to-pass values — the classic
   agent-cheat patterns.
 
@@ -119,7 +123,13 @@ npx openpitstop verify   # VERIFIED / NOT VERIFIED — no grey
 ## If they want depth
 
 - `npx openpitstop install` — registers the `/pitstop` slash command in
-  Claude Code, Cursor, OpenCode, Codex CLI, Gemini CLI.
+  Claude Code, Cursor, OpenCode, Kilo, Antigravity, Codex CLI, Gemini CLI.
+- `npx openpitstop languages` / `map` / `impact` — what each parser supports, the
+  candidate attack surface, and the reverse import graph for the current diff.
+- `npx openpitstop bench` — the detector measured on committed fixtures, with its
+  documented misses and false positive.
+- `npx openpitstop mcp` — the same checks as MCP tools inside an agent host;
+  the gate verdict stays CLI-computed.
 - `npx openpitstop honesty` — the evidence report: every number traced to a
   sealed file.
 - `pitstop gate` / `pitstop ci` — the same contract as a CI gate.

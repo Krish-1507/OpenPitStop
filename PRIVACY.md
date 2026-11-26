@@ -16,6 +16,8 @@ coding agent have their own behavior and privacy policies.
 | HTTP acceptance criteria | Send the requests declared in the acceptance contract |
 | Live pen / ledger | Run inside a Linux Docker container with networking disabled; the preload/proxy records supported traffic internally |
 | External coding agent (`drive` or your host CLI) | May send prompts and repository context to its configured provider and consume provider credits |
+| MCP server (`pitstop mcp`) | Local stdio only: no listener and no outbound connection. Tools read the repository and write `.pitstop/` artifacts like the equivalent CLI command |
+| Benchmark (`pitstop bench`) | Runs the bundled fixtures locally; no repository code executes and no network request is made |
 
 The built-in static pass does not upload source. This is not a blanket guarantee about
 the external tools or scripts invoked by a full workflow. To require offline execution,
