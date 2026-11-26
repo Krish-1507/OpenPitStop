@@ -32,7 +32,8 @@
     "PRIVACY.md",
     "LICENSE",
     "docs/release-controls.md",
-    "docs/first-run.md"
+    "docs/first-run.md",
+    "docs/languages.md"
   ],
   "engines": {
     "node": ">=22"

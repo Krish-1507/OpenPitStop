@@ -2,6 +2,34 @@
 
 All notable changes to this project are documented here.
 
+## [Unreleased] — Phase 2: universal language architecture
+
+### Added
+
+- Language adapters for JavaScript/TypeScript, Python, Java, Go, C#/.NET, PHP, Ruby,
+  C, C++, Rust, Kotlin, Swift and Dart, plus Docker, Terraform, Kubernetes, Helm,
+  GitHub Actions, SQL, YAML and JSON infrastructure detection.
+- Explicit support levels: `Detected`, `Parsed`, `Analyzed`, `Verified`. Verification is
+  an evidence outcome and is reported `unproven` unless a supported reproduction and fix
+  verification actually ran.
+- Structural parsers: Babel for JS/TS and an isolated Python AST interpreter for Python.
+  Optional Tree-sitter grammars are used when installed; otherwise files fall back to a
+  clearly labeled heuristic and are never reported as parsed.
+- `pitstop languages`: per-language parser, analyzer, test/build, framework, dependency,
+  entry-point, infrastructure and tool support. `--json` returns the full report.
+- `pitstop map`: candidate routes, privileged-route leads, entry points, auth/data-path
+  evidence and infrastructure, with explicit limits. Routes are leads, not live proof.
+- Full scans now include a `languageAnalysis` artifact and an 80-file-per-language parse
+  limit; skipped files are reported instead of silently dropped.
+- [Language support contract](docs/languages.md).
+
+### Honest limits
+
+- Dependency graphs remain JS/TS/Python-only; other adapters mark this as unsupported.
+- CodeQL, Trivy and Checkov are detected and shown in the tool plan but are not executed
+  by this build. Semgrep deeper SAST remains opt-in.
+- Parsing is structural, not full semantic or cross-file taint analysis.
+
 ## [Unreleased] — Phase 1: first-run experience and trust
 
 ### Added
