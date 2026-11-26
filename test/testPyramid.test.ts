@@ -78,6 +78,11 @@ test("parseTestCounts handles jest, vitest, mocha, pytest and node:test output",
   assert.deepEqual(parseTestCounts("  7 passing\n  1 failing"), { passed: 7, failed: 1, total: 8 });
   assert.deepEqual(parseTestCounts("5 passed, 1 failed in 1.2s"), { passed: 5, failed: 1, total: 6 });
   assert.deepEqual(parseTestCounts("# pass 36\n# fail 0"), { passed: 36, failed: 0, total: 36 });
+  // Node >=22 spec reporter: durations on the test lines, "ℹ" summary markers.
+  assert.deepEqual(
+    parseTestCounts("✔ adds (1.3507ms)\n✔ multiplies (0.3977ms)\nℹ tests 2\nℹ pass 2\nℹ fail 0"),
+    { passed: 2, failed: 0, total: 2 },
+  );
   assert.deepEqual(parseTestCounts("no summary here"), { passed: 0, failed: 0, total: 0 });
 });
 

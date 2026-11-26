@@ -1,0 +1,8 @@
+{
+  "id": "unsupported-rust-service",
+  "title": "Rust service outside the security check",
+  "kind": "unsupported",
+  "stack": "rust",
+  "expect": {},
+  "note": "The static security rules do not read Rust. The honest report is skipped coverage, never clean."
+}

@@ -26,6 +26,24 @@ export interface ChangePlan {
   /** Protected/boundary constraints the plan acknowledges it must respect. */
   boundariesAcknowledged?: string[];
   risks?: string[];
+  /** What the declared scope already touched when the plan was written. */
+  impact?: PlanImpact;
+}
+
+/**
+ * Impact recorded at planning time: the checkout's own evidence of what the
+ * declared scope reaches (importers, tests, routes, boundaries). It is sealed
+ * with the plan, so a later reviewer can see what the author knew upfront.
+ */
+export interface PlanImpact {
+  files: string[];
+  dependents: number;
+  directDependents: number;
+  modules: string[];
+  routes: string[];
+  tests: string[];
+  constraints: string[];
+  recommended: string[];
 }
 
 export interface PlanScopeResult {

@@ -28,13 +28,17 @@
     "demo-repo-integrity",
     "demo-repo-fintech",
     "demo-repo-generators",
+    "bench",
     "README.md",
     "PRIVACY.md",
     "LICENSE",
     "docs/release-controls.md",
     "docs/first-run.md",
     "docs/languages.md",
-    "docs/security.md"
+    "docs/security.md",
+    "docs/architecture.md",
+    "docs/benchmark.md",
+    "docs/mcp.md"
   ],
   "engines": {
     "node": ">=22"
@@ -51,6 +55,7 @@
     "build": "tsc",
     "dev": "tsx watch src/cli.ts",
     "smoke": "node dist/cli.js scan demo-repo",
+    "mcp:smoke": "node scripts/mcp-smoke.mjs",
     "test": "node --import tsx --test \"test/*.test.ts\"",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.test.json",
     "prepublishOnly": "npm run build"

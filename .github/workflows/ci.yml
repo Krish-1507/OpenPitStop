@@ -45,6 +45,13 @@ jobs:
           node dist/cli.js scan demo-repo
           node -e "const j=require('./demo-repo/.pitstop/scan-latest.json'); if(!j||!j.security){throw new Error('scan produced no security results');} console.log('smoke OK — scan status:', j.security.status);"
 
+      # Protocol guard: the MCP server writes one JSON-RPC object per request and
+      # nothing else to stdout — including while a real scan and gate run inside
+      # it. A stray console.log would corrupt the channel for every connected
+      # host, so this asserts stdout purity end to end against the built binary.
+      - name: MCP stdio smoke (stdout is JSON-RPC only)
+        run: node scripts/mcp-smoke.mjs
+
   isolated-security:
     runs-on: ubuntu-latest
     timeout-minutes: 10

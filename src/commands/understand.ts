@@ -38,7 +38,13 @@ export const understand = new Command("understand")
         console.log(
           boxen(lines.join("\n"), { title: " PITSTOP — REPO UNDERSTANDING ", titleAlignment: "center", borderStyle: "round", padding: 1, borderColor: "cyan" }),
         );
-        if (u.sealedPath) console.log(chalk.dim(`\nSealed understanding written to ${u.sealedPath}\n`));
+        if (u.sealedPath) console.log(chalk.dim(`\nSealed understanding written to ${u.sealedPath}`));
+        console.log(
+          chalk.dim(
+            "next: `pitstop map --architecture` for modules, dependencies, cycles and boundaries · " +
+              "`pitstop plan --goal … --path …` to plan with impact, or `pitstop impact` for an existing change",
+          ),
+        );
       }
       addEntry(repo, { type: "fix", summary: "understand: repo awareness artifact built", context: `${u.primaryLanguage}, ${u.frameworks.length} frameworks, ${u.testLayers.length} test layers` });
     } catch (e: any) {

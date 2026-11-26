@@ -1,0 +1,9 @@
+{
+  "id": "python-command-injection-fixed",
+  "title": "The same Python command with an argv list",
+  "kind": "fixed",
+  "stack": "python",
+  "pairOf": "python-command-injection",
+  "expect": {},
+  "note": "An argv list with shell=False: the request value stays one argument."
+}

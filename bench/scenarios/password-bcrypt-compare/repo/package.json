@@ -1,0 +1,9 @@
+{
+  "name": "sessions-api",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "express": "^4.18.2",
+    "bcrypt": "^5.1.1"
+  }
+}

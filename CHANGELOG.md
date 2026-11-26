@@ -2,6 +2,132 @@
 
 All notable changes to this project are documented here.
 
+## [Unreleased] — Phase 5: MCP tools for coding agents
+
+### Added
+
+- `pitstop mcp`: an MCP stdio server that exposes `pitstop_understand`, `pitstop_map`,
+  `pitstop_scan`, `pitstop_release_gate`, `pitstop_reproduce` and `pitstop_bench` to any
+  MCP-capable coding agent. stdin/stdout carry JSON-RPC only; diagnostics go to stderr.
+- `pitstop_release_gate` returns the deterministic gate verdict over sealed evidence: the
+  scan baseline, integrity detectors, every sealed verification layer and the working tree.
+  The calling agent cannot supply, override or waive that verdict, and a missing, stale or
+  tampered baseline fails instead of passing. The server states the rule in its `initialize`
+  instructions and in the tool description, so the host agent sees it before it calls.
+- Tools that write do so narrowly: `pitstop_scan` seals its baseline under `.pitstop/`, and
+  `pitstop_reproduce` writes one repro test. No tool edits source, installs packages, starts
+  the application or calls a model.
+- [MCP guide](docs/mcp.md): tool reference, setup snippets for Claude Code, Cursor, VS Code,
+  Gemini CLI, Codex CLI, OpenCode and generic stdio hosts, the intended
+  understand → scan → change → reproduce → gate loop, and the limits.
+- `test/mcp.test.ts` covers JSON-RPC framing (initialize, ping, notifications, unknown
+  method, unknown tool, parse errors, tool failures as `isError`), protocol-version
+  negotiation, `"id": null` versus a notification, `tools/call` param validation, the
+  advertised tool set and its independence wording, honest failure paths, the
+  `.pitstop/`-only write footprint of `pitstop_scan`, and the stdio transport (one response
+  per request, silence for notifications).
+
+### Corrected during review
+
+- Protocol versions are negotiated, not echoed: a host that asks for an unsupported revision
+  gets `2025-06-18` back, so it cannot believe it is speaking a dialect this server does not
+  implement. `"id": null` is answered as a request (only a missing `id` is a notification),
+  and malformed `tools/call` params are rejected with `-32602` instead of being guessed into
+  a tool name.
+- `pitstop_release_gate` is fail-closed for agents: `strict` defaults to true, so `UNPROVEN`
+  exits 1, and `pass` is true only for `VERIFIED`. `strict:false` restores `pitstop gate`
+  CLI parity, where `UNPROVEN` exits 0.
+- `npm run mcp:smoke` spawns the built binary against the seeded SQL-injection fixture and
+  asserts that stdout is JSON-RPC only and carries exactly one response per request; CI runs
+  it after the build, because a unit test cannot prove the binary keeps its channel clean.
+
+### Honest limits
+
+- Stdio only: no network listener, no remote transport, no authentication layer of its own.
+- The tools are adapters over existing CLI logic and inherit its reach. `pitstop_scan` is the
+  quick pass and does not run the test suite or the build; route and architecture maps are
+  leads, not reachability proof.
+- MCP adds an interface, not detection. Missing verification layers are reported as
+  `NOT_CONFIGURED`, never as passes; `UNPROVEN` is a fail for agents even though `pitstop
+  gate` exits 0 for it without `--strict`.
+
+## [Unreleased] — Phase 5: public benchmark
+
+### Added
+
+- `pitstop bench`: a reproducible detection benchmark over the fixtures in `bench/scenarios`.
+  Each fixture is a small repository plus a recorded expectation, and the command runs the
+  same static security check the CLI runs. Verdicts are explicit: `detected`, `partial` and
+  `missed` for vulnerable fixtures; `clean` and `noisy` for fixed and benign ones;
+  `as-documented` for recorded misses and false positives; `skipped` for stacks the rules do
+  not read; `survived` and `crashed` for broken repositories. `--json`, `--markdown`,
+  `--filter` and `--strict` are supported.
+- 22 fixtures: 8 vulnerable/fixed pairs across Node and Python (SQL injection, cleartext
+  password comparison, unguarded admin route, HTML sink, inline JWT secret, command
+  injection, SSRF), 1 benign near-miss, 2 documented misses, 1 documented false positive,
+  1 unsupported stack and 1 broken manifest.
+- Precision, recall, false passes, pair discrimination, skipped coverage and per-scenario
+  runtime, each with its denominator. Documented misses and false positives are reported
+  separately and kept out of the ratios; a skipped fixture is never counted as clean.
+- [Benchmark methodology and current numbers](docs/benchmark.md) and
+  [the fixture contract](bench/README.md).
+- Benchmark fixtures are an ignored fixture directory for this repository's own `scan`,
+  `understand` and security analysis, the same way `demo-repo` is, so they are not measured
+  as production code.
+
+### Honest limits
+
+- The fixture set is curated canonical examples, not a sample of real repositories. 100%
+  precision and recall describe the recorded expectations and are not a field estimate.
+- Two documented misses bound the reach: taint that crosses a helper return or a variable
+  assignment before the sink is not followed by the current rules.
+- One documented false positive: an HTML-escaped value written to `innerHTML` is still
+  reported, and the fixture records that rather than hiding it.
+- The static security check reads JS/TS, Python, Go, Ruby, PHP, Java and C#; Rust and other
+  stacks are reported as skipped coverage, never as clean.
+- Timing is in-process analyzer time, not CLI startup, network work, Docker isolation or
+  agent calls.
+## [Unreleased] — Phase 4: senior engineer workflows
+
+### Added
+
+- `pitstop map --architecture`: modules with file counts, cross-module dependencies,
+  import cycles, routes, entry points, external services from declared dependencies,
+  schema/SQL/ORM data relationships, route-to-data flows and declared boundary
+  violations. `--json` returns the same evidence. Madge and regex graphs are normalized
+  to one path form, and Prisma scalar types are no longer reported as relations.
+- `pitstop impact`: reverse import-graph analysis of a diff. Dependents are listed with
+  their hop distance and the importer that led there; the report adds affected modules,
+  routes at risk (sensitive flagged), tests matched by import edge or naming convention,
+  matching boundary/protected/forbidden rules, and the checks to run in order.
+  `--base`, `--to`, `--changed`, `--depth` and `--json` are supported. Repositories
+  without an import graph report that dependents were not discovered, never that none
+  exist.
+- `pitstop plan` derives verification commands from `understand` when `--verify-command`
+  is omitted, expands concrete paths and directories to files, and seals the impact it
+  was written against inside `plan-latest.json`. `pitstop plan --show` prints that
+  recorded impact next to the scope check.
+- `pitstop understand` points at the architecture map and impact analysis as next steps.
+- [Architecture and change impact](docs/architecture.md).
+
+### Fixed
+
+- `regression-check` and `test` parse current Node spec-reporter output: per-test
+  durations are stripped from check identity, `ℹ pass`/`ℹ fail` summary lines are read,
+  and the `✖ failing tests:` section header is no longer mistaken for a failing check
+  (which produced false UNPROVEN and REGRESSION verdicts).
+
+### Honest limits
+
+- Import edges exist for JS/TS and Python only; dynamic requires, cross-language calls and
+  runtime wiring are not edges.
+- A dependent imports a changed file; that does not prove the changed line executes, and a
+  matched test does not prove coverage.
+- Routes and data relationships are parsed patterns and schema declarations, not live
+  endpoints or queries.
+- Boundary conclusions require declared configuration; deleted files are absent from the
+  current graph.
+
 ## [Unreleased] — Phase 3: stronger security intelligence
 
 ### Added

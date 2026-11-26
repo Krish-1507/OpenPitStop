@@ -1,0 +1,9 @@
+{
+  "id": "command-injection-execfile",
+  "title": "argv array with no shell",
+  "kind": "fixed",
+  "stack": "node",
+  "pairOf": "command-injection-exec",
+  "expect": {},
+  "note": "execFile takes an argv array: the value is an argument, never shell syntax."
+}

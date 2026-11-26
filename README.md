@@ -143,12 +143,14 @@ flowchart LR
 |---|---|
 | What system am I changing? | Languages, frameworks, entry points, module map, verification commands, CI and CODEOWNERS |
 | What may this change touch? | A sealed plan, declared import boundaries, protected/forbidden paths and scope checks |
+| What else does this change reach? | Reverse import graph: dependents with hop distance, affected modules, routes at risk, matching tests, declared constraints and the ordered checks to run (`pitstop impact`) |
 | Why did verification fail? | Per-layer results and diagnoses: assertion, type error, missing dependency, lint, environment or timeout |
 | Does the change fit this repo? | Declared architecture rules, ownership routing and suspicious shortcuts in the diff |
 | Did the fix address the actual bug? | The same verification against a known-bad baseline and the candidate |
 | Did it meet the requirement? | An acceptance contract with command, HTTP and file criteria |
 | Did it break existing behavior? | Check-level baseline/candidate comparison and optional repeated runs |
 | Why trust the verdict? | Inspectable artifacts, content digests, evidence references and explicit missing checks |
+| How do I know the detector still works? | A reproducible benchmark: vulnerable/fixed pairs, benign near-misses, documented misses, precision and recall with their denominators, and stacks the check does not read (`pitstop bench`) |
 
 Repo awareness is structural analysis and declared rules. Semantic design judgment still
 belongs to the developer and host agent. A plan or gate checks behavior within its scope;
@@ -170,6 +172,25 @@ paths, forbidden paths, CODEOWNERS routing and shortcuts in the diff.
 Configure boundaries in `openpitstop.architecture.json` or `.pitstop/architecture.json`.
 Protected-path approval is recorded through an explicit option; it is not an authenticated
 human identity. [Configuration and examples](docs/repo-discipline.md).
+
+`map --architecture` maps modules, cross-module dependencies, cycles, routes, data
+relationships, external services and boundary violations from the checkout. `impact`
+walks the reverse import graph from a diff: dependents at each hop with the importer that
+led there, affected modules, routes at risk, tests that import or pair with the change,
+declared constraints, and the checks to run in order. `plan` records that impact inside the
+sealed plan and derives the verification commands from the repository when you omit them.
+Both commands state their limits instead of implying reachability or coverage.
+[Architecture and change impact](docs/architecture.md).
+
+### Measure the detector
+
+`bench` runs the analyzer against fixtures that live in the repository: vulnerable and
+fixed pairs of the same defect, benign near-misses, documented misses, a documented false
+positive and a stack the rules do not read. It publishes the counts it can defend — expected
+findings, detected, missed, precision and recall with their denominators, pairs that
+discriminate, and skipped coverage — plus the limits that keep the numbers in context.
+`--json` is the machine-readable report; `--strict` turns an unmet expectation into a
+non-zero exit for CI. [Benchmark methodology and current numbers](docs/benchmark.md).
 
 ### Scan and score
 
@@ -331,6 +352,20 @@ Use `--no-subcommands` to install just `/pitstop`. `pitstop prompt` prints the f
 for inspection or manual installation. In a host that supports the installed command, use
 `/pitstop` or `/pitstop check the security of this app`.
 
+### Use OpenPitStop from any agent over MCP
+
+```bash
+pitstop mcp          # stdio MCP server; the host agent calls the tools
+```
+
+The server exposes `pitstop_understand`, `pitstop_map`, `pitstop_scan`,
+`pitstop_release_gate`, `pitstop_reproduce` and `pitstop_bench`. The gate reads sealed
+evidence, so an agent that claims a fix works still needs a verdict from OpenPitStop's own
+records; a missing or tampered baseline is never a pass. Only `.pitstop/` and a repro test
+file are written, and nothing on stdout is anything but JSON-RPC. Configuration snippets for
+Claude Code, Cursor, VS Code, Gemini CLI, Codex CLI, OpenCode and other stdio hosts are in
+the [MCP guide](docs/mcp.md).
+
 ### Dismiss findings without hiding them
 
 False positives and accepted risks are scoped, explained and time-limited:
@@ -371,21 +406,21 @@ extension integration. [Installer targets](src/installer/targets.ts).
 | Job | Commands |
 |---|---|
 | Start and navigate | bare `pitstop`, `check`, `ask`, `next`, `try`, `demo` |
-| Understand and plan | `understand`, `plan`, `architecture-check`, `memory` |
-| Measure and diagnose | `scan`, `check`, `test`, `verify-stack`, `doctor`, `ready-check` |
+| Understand, map and plan | `understand`, `map`, `impact`, `plan`, `architecture-check`, `memory` |
+| Measure and diagnose | `scan`, `check`, `test`, `verify-stack`, `doctor`, `ready-check`, `bench` |
 | Triage findings | `inspect`, `suppress` |
 | Fix and inspect | `inspect`, `repro`, `drive`, `fix` |
 | Security | `pen`, `pen --static`, `pen --fix`, `scan --ledger` |
 | Verify | `verify`, `flow`, `gate`, `integrity`, `baseline-verify`, `state-verify`, `verifier-check`, `holdout-verify`, `acceptance-verify`, `regression-check` |
 | Explain and share | `explain`, `honesty`, `report`, `share`, `trends`, `digest`, `budget` |
-| Integrate | `install`, `prompt`, `watch`, `ci` |
+| Integrate | `install`, `prompt`, `watch`, `ci`, `mcp` |
 
 Use `pitstop <command> --help` for exact options. `report --html` produces a self-contained
 HTML report and a README badge; `report --sarif` exports standardized findings with stable
 fingerprints, confidence, source tool and scoped suppressions. `share` creates a
 screenshot-ready card. `ci` produces PR-ready reports, and `install --hooks` installs a
-pre-commit gate. See the [GitHub Action guide](docs/github-action.md) and
-[repository workflow guide](docs/repo-discipline.md).
+pre-commit gate. See the [GitHub Action guide](docs/github-action.md),
+[repository workflow guide](docs/repo-discipline.md) and [MCP guide](docs/mcp.md).
 
 ## Where OpenPitStop fits
 

@@ -1,0 +1,15 @@
+{
+  "id": "admin-route-unguarded",
+  "title": "Privileged route with no access control",
+  "kind": "vulnerable",
+  "stack": "node",
+  "expect": {
+    "findings": [
+      {
+        "category": "authorization",
+        "file": "src/routes/admin.js"
+      }
+    ]
+  },
+  "note": "An /admin route that returns every user with no authn/authz in the handler."
+}

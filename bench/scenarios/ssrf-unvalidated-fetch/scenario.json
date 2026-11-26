@@ -1,0 +1,15 @@
+{
+  "id": "ssrf-unvalidated-fetch",
+  "title": "User URL passed straight to fetch",
+  "kind": "vulnerable",
+  "stack": "node",
+  "expect": {
+    "findings": [
+      {
+        "category": "ssrf",
+        "file": "src/preview.js"
+      }
+    ]
+  },
+  "note": "A link preview endpoint that fetches whatever URL it is given."
+}

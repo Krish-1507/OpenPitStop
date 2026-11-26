@@ -128,8 +128,10 @@ function lastCount(out: string, re: RegExp): number | null {
  * ("runner exited 0, counts unparsed") instead of inventing numbers.
  */
 export function parseTestCounts(out: string): { passed: number; failed: number; total: number } {
-  const passHash = lastCount(out, /^\s*#\s*pass\s+(\d+)\s*$/gm);
-  const failHash = lastCount(out, /^\s*#\s*fail\s+(\d+)\s*$/gm);
+  // node:test prints TAP ("# pass 2") on old reporters and the spec reporter
+  // summary ("ℹ pass 2") on Node >=22, so accept both markers.
+  const passHash = lastCount(out, /^\s*#\s*pass\s+(\d+)\s*$/gm) ?? lastCount(out, /^\s*ℹ\s*pass\s+(\d+)\s*$/gm);
+  const failHash = lastCount(out, /^\s*#\s*fail\s+(\d+)\s*$/gm) ?? lastCount(out, /^\s*ℹ\s*fail\s+(\d+)\s*$/gm);
   const passed =
     passHash ??
     lastCount(out, /(\d+)\s+passed/g) ??

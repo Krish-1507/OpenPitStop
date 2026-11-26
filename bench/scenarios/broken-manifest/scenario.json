@@ -1,0 +1,8 @@
+{
+  "id": "broken-manifest",
+  "title": "Repository with a malformed package.json",
+  "kind": "broken",
+  "stack": "node",
+  "expect": {},
+  "note": "The analyzer must survive a broken repository and still report what it can read."
+}
