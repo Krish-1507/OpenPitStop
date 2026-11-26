@@ -44,6 +44,8 @@ import { flow } from "./commands/flow.js";
 import { guidedFirstRun } from "./firstRun.js";
 import { check } from "./commands/check.js";
 import { suppress } from "./commands/suppress.js";
+import { languages } from "./commands/languages.js";
+import { map } from "./commands/map.js";
 
 /**
  * Last line of defense: a crash is a bug report, not a stack dump on someone's
@@ -105,6 +107,8 @@ program
 
 program.addCommand(check);
 program.addCommand(suppress);
+program.addCommand(languages);
+program.addCommand(map);
 
 program.addCommand(install);
 program.addCommand(scan);

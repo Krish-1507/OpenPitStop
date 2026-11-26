@@ -7,6 +7,7 @@ import { analyzeAccessibility } from "./accessibility.js";
 import { analyzeReliability } from "./reliability.js";
 import { analyzeDevex } from "./devex.js";
 import { detectLanguage } from "./util.js";
+import { analyzeLanguages } from "../languages/index.js";
 import type { ScanResult } from "./types.js";
 
 export interface AnalyzerOptions {
@@ -24,11 +25,12 @@ export async function runAllAnalyzers(
   repo: string,
   opts: AnalyzerOptions = {},
 ): Promise<ScanResult> {
-  const [security, tests, perf, reliability] = await Promise.all([
+  const [security, tests, perf, reliability, languageAnalysis] = await Promise.all([
     analyzeSecurity(repo),
     analyzeTests(repo),
     analyzePerf(repo),
     analyzeReliability(repo, { runs: opts.reliabilityRuns }),
+    analyzeLanguages(repo),
   ]);
   return {
     timestamp: new Date().toISOString(),
@@ -42,6 +44,7 @@ export async function runAllAnalyzers(
     accessibility: analyzeAccessibility(repo),
     reliability,
     devex: analyzeDevex(repo),
+    languageAnalysis,
     clusters: [],
   };
 }

@@ -69,6 +69,17 @@ skipped checks with reasons, and ends with concrete next steps. `--json` returns
 report for automation. Quick/deep exit `0` when the check completed; ship propagates the
 strict gate exit code (`0` verified, `1` failed/unproven, `2` tamper/cheat).
 
+### See language support and attack surface
+
+| Command | Runs | Honest limit |
+|---|---|---|
+| `pitstop languages .` | Detection, parser, analyzer, test/build, framework and verification support per language | `Parsed` is not `Analyzed`; `Verified` is never inferred. [Details](docs/languages.md) |
+| `pitstop map .` | Candidate routes, entry points, auth/data-path evidence and infrastructure | Routes and path labels are leads, not live reachability or permission proof |
+
+JavaScript/TypeScript use Babel, Python uses its AST in an isolated process, and other
+languages use Tree-sitter when the user installs a grammar or an explicitly labeled
+heuristic when they do not. Missing grammars and tools stay visible.
+
 Install the slash command into your coding CLI, then speak naturally:
 
 ```bash
