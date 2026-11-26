@@ -10,6 +10,12 @@
  * The handler is transport-agnostic and fully testable: `createMcpHandler`
  * maps one inbound JSON-RPC line to at most one outbound line (`null` for
  * notifications, which get no response).
+ *
+ * Protocol versions are negotiated, not echoed blindly: a version this server
+ * implements is echoed back, and anything else — newer, older or invented —
+ * gets the newest version this server actually speaks, as the MCP specification
+ * requires. A client therefore cannot believe it is talking a dialect we do not
+ * implement.
  */
 
 export interface McpTool {
@@ -24,7 +30,15 @@ export interface McpTool {
   handler: (args: Record<string, unknown>) => unknown | Promise<unknown>;
 }
 
-const DEFAULT_PROTOCOL_VERSION = "2024-11-05";
+/** MCP revisions this server implements, oldest first. */
+const SUPPORTED_PROTOCOL_VERSIONS: readonly string[] = ["2024-11-05", "2025-03-26", "2025-06-18"];
+const LATEST_PROTOCOL_VERSION = SUPPORTED_PROTOCOL_VERSIONS[SUPPORTED_PROTOCOL_VERSIONS.length - 1];
+
+function negotiateProtocolVersion(requested: unknown): string {
+  return typeof requested === "string" && SUPPORTED_PROTOCOL_VERSIONS.includes(requested)
+    ? requested
+    : LATEST_PROTOCOL_VERSION;
+}
 
 const ErrorCode = {
   parse: -32700,
@@ -52,34 +66,24 @@ export function createMcpHandler(options: {
 }): (line: string) => Promise<string | null> {
   const tools = new Map(options.tools.map((tool) => [tool.name, tool]));
 
-  return async function handle(line: string): Promise<string | null> {
-    let message: unknown;
-    try {
-      message = JSON.parse(line);
-    } catch {
-      return respond(null, null, { code: ErrorCode.parse, message: "Parse error: input was not valid JSON" });
-    }
-    if (!isRecord(message) || message.jsonrpc !== "2.0" || typeof message.method !== "string") {
-      const id = isRecord(message) && "id" in message ? message.id : null;
-      return respond(id, null, { code: ErrorCode.invalidRequest, message: "Invalid Request: not a JSON-RPC 2.0 message" });
-    }
-
-    const { id, method, params } = message as { id?: unknown; method: string; params?: unknown };
-    const isNotification = id === undefined || id === null;
+  async function dispatch(
+    id: unknown,
+    method: string,
+    params: unknown,
+    isNotification: boolean,
+  ): Promise<string | null> {
+    // A notification is never answered, and never triggers a tool: a client that
+    // omits the id is not waiting for a result, so running a scan on its behalf
+    // would surprise it.
+    if (isNotification) return null;
 
     switch (method) {
-      case "notifications/initialized":
-      case "notifications/cancelled":
-      case "notifications/roots/list_changed":
-        return null;
-
       case "initialize": {
-        if (isNotification) return null;
-        const requested = isRecord(params) && typeof params.protocolVersion === "string" ? params.protocolVersion : DEFAULT_PROTOCOL_VERSION;
+        const requested = isRecord(params) ? params.protocolVersion : undefined;
         return respond(
           id,
           {
-            protocolVersion: requested,
+            protocolVersion: negotiateProtocolVersion(requested),
             capabilities: { tools: { listChanged: false } },
             serverInfo: options.serverInfo,
             instructions:
@@ -93,10 +97,9 @@ export function createMcpHandler(options: {
       }
 
       case "ping":
-        return isNotification ? null : respond(id, {}, null);
+        return respond(id, {}, null);
 
       case "tools/list":
-        if (isNotification) return null;
         return respond(
           id,
           {
@@ -110,13 +113,21 @@ export function createMcpHandler(options: {
         );
 
       case "tools/call": {
-        if (isNotification) return null;
-        const name = isRecord(params) && typeof params.name === "string" ? params.name : "";
+        if (!isRecord(params)) {
+          return respond(id, null, {
+            code: ErrorCode.invalidParams,
+            message: "Invalid params: expected an object with a tool name and optional arguments",
+          });
+        }
+        const name = typeof params.name === "string" ? params.name.trim() : "";
+        if (!name) {
+          return respond(id, null, { code: ErrorCode.invalidParams, message: "Invalid params: missing tool name" });
+        }
         const tool = tools.get(name);
         if (!tool) {
-          return respond(id, null, { code: ErrorCode.invalidParams, message: `Unknown tool: ${name || "(none)"}` });
+          return respond(id, null, { code: ErrorCode.invalidParams, message: `Unknown tool: ${name}` });
         }
-        const callArgs = isRecord(params) && isRecord(params.arguments) ? (params.arguments as Record<string, unknown>) : {};
+        const callArgs = isRecord(params.arguments) ? (params.arguments as Record<string, unknown>) : {};
         try {
           const value = await tool.handler(callArgs);
           return respond(id, { content: [{ type: "text", text: JSON.stringify(value, null, 2) }] }, null);
@@ -131,16 +142,40 @@ export function createMcpHandler(options: {
       }
 
       case "resources/list":
-        if (isNotification) return null;
         return respond(id, { resources: [] }, null);
 
       case "prompts/list":
-        if (isNotification) return null;
         return respond(id, { prompts: [] }, null);
 
       default:
-        if (isNotification) return null;
         return respond(id, null, { code: ErrorCode.methodNotFound, message: `Method not found: ${method}` });
+    }
+  }
+
+  return async function handle(line: string): Promise<string | null> {
+    let message: unknown;
+    try {
+      message = JSON.parse(line);
+    } catch {
+      return respond(null, null, { code: ErrorCode.parse, message: "Parse error: input was not valid JSON" });
+    }
+    if (!isRecord(message) || message.jsonrpc !== "2.0" || typeof message.method !== "string") {
+      const id = isRecord(message) && "id" in message ? message.id : null;
+      return respond(id, null, { code: ErrorCode.invalidRequest, message: "Invalid Request: not a JSON-RPC 2.0 message" });
+    }
+
+    const { id, method, params } = message as { id?: unknown; method: string; params?: unknown };
+    // JSON-RPC 2.0: a notification is a request *without* an id member.
+    // `"id": null` is a discouraged but legal request id, and still gets an answer.
+    const isNotification = !("id" in message);
+
+    try {
+      return await dispatch(id, method, params, isNotification);
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      return isNotification
+        ? null
+        : respond(id, null, { code: ErrorCode.internal, message: `Internal error: ${detail}` });
     }
   };
 }

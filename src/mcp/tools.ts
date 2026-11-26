@@ -113,7 +113,10 @@ async function gateTool(args: Record<string, unknown>, fallbackRepo: string) {
   if (!Number.isFinite(threshold) || threshold < 0 || threshold > 100) {
     throw new Error("threshold must be a number from 0 to 100");
   }
-  const strict = args.strict === true;
+  // Fail closed by default: an agent asking "may I merge?" must not read a
+  // run with insufficient deep evidence as approval. `strict: false` restores
+  // CLI parity (UNPROVEN exits 0 there, where a human reads the matrix).
+  const strict = args.strict !== false;
   const requireLayers = typeof args.require === "string" ? args.require.split(",").map((s) => s.trim()).filter(Boolean) : [];
 
   const outcome = await runVerify(repo);
@@ -144,13 +147,17 @@ async function gateTool(args: Record<string, unknown>, fallbackRepo: string) {
   return {
     repo,
     verdict: decision.verdict,
-    pass: decision.exitCode === 0,
+    // Agents read one field for "may I merge". It is true only for VERIFIED, so
+    // UNPROVEN can never be mistaken for approval, whatever `strict` says.
+    pass: decision.verdict === "VERIFIED",
     exitCode: decision.exitCode,
     layers: decision.layers,
     reasons: decision.reasons,
     summary: decision.summary,
     note:
       "This verdict reasons over sealed evidence and the working tree, not over the calling agent's claim. " +
+      "`pass` is true only for VERIFIED; UNPROVEN means the evidence is insufficient, which is not a pass. " +
+      "`strict` defaults to true here (it exits 1 on UNPROVEN); strict=false mirrors the CLI, where UNPROVEN exits 0. " +
       "A missing, stale or tampered baseline is never converted into a pass.",
   };
 }
@@ -206,14 +213,14 @@ export function mcpTools(fallbackRepo: string): McpTool[] {
       description:
         "The independent release gate: deterministic matrix over the scan baseline, integrity detectors, " +
         "evidence seals and every sealed deep-verification layer. The verdict comes from evidence, " +
-        "NEVER from the calling agent's own claim. threshold 0-100 (default 60), strict=true requires " +
-        "VERIFIED, require=<layer,...> demands specific passing layers.",
+        "NEVER from the calling agent's own claim. threshold 0-100 (default 60); strict defaults to true, " +
+        "so only VERIFIED passes and UNPROVEN fails; require=<layer,...> demands specific passing layers.",
       inputSchema: {
         type: "object",
         properties: {
           repo: REPO_ARG,
           threshold: { type: "number", description: "Minimum OpenPitStop Score (0-100, default 60; 0 disables the score check)." },
-          strict: { type: "boolean", description: "Only VERIFIED passes; UNPROVEN fails." },
+          strict: { type: "boolean", description: "Only VERIFIED passes; UNPROVEN fails. Default true; false gives CLI parity." },
           require: { type: "string", description: "Comma-separated layers that must pass, e.g. 'baseline,acceptance,holdout'." },
         },
         additionalProperties: false,

@@ -106,11 +106,25 @@ A useful loop for the host agent:
 3. Make the change with the host agent, as usual.
 4. `pitstop_reproduce` — for a finding that should now be fixed, keep the bug from returning.
 5. `pitstop_release_gate` — ask for the verdict. Read the layer list; `NOT_CONFIGURED` means
-   never run, not passed.
+   never run, not passed. Only `VERIFIED` is approval: `pass` is true for nothing else, and
+   `UNPROVEN` (insufficient deep evidence) is a fail here even though `pitstop gate` exits 0
+   for it unless `--strict` is passed.
 
 Deep verification layers (acceptance, holdout, regression, verify-stack) are produced by the
 CLI commands of the same name. The gate reports the ones that exist and never treats a missing
 layer as a pass.
+
+## Protocol
+
+The server implements MCP revisions `2024-11-05`, `2025-03-26` and `2025-06-18`. A client that
+requests one of them gets the same version back; a client that requests anything else is answered
+with `2025-06-18`, so it never believes it is speaking a dialect OpenPitStop does not implement.
+Requests get one JSON-RPC object per line. Notifications (no `id` member) are never answered and
+never start a tool; `"id": null` is a legal request id and is answered normally.
+
+`npm run mcp:smoke` spawns the built binary against the seeded SQL-injection fixture and asserts
+this end to end: stdout is JSON-RPC only, there is exactly one response per request, the scan
+seals a baseline, and the gate refuses to pass it. CI runs the same check after the build.
 
 ## Limits
 

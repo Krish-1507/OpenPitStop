@@ -21,10 +21,25 @@ All notable changes to this project are documented here.
   Gemini CLI, Codex CLI, OpenCode and generic stdio hosts, the intended
   understand → scan → change → reproduce → gate loop, and the limits.
 - `test/mcp.test.ts` covers JSON-RPC framing (initialize, ping, notifications, unknown
-  method, unknown tool, parse errors, tool failures as `isError`), the advertised tool set
-  and its independence wording, honest failure paths, the `.pitstop/`-only write footprint of
-  `pitstop_scan`, and the stdio transport (one response per request, silence for
-  notifications).
+  method, unknown tool, parse errors, tool failures as `isError`), protocol-version
+  negotiation, `"id": null` versus a notification, `tools/call` param validation, the
+  advertised tool set and its independence wording, honest failure paths, the
+  `.pitstop/`-only write footprint of `pitstop_scan`, and the stdio transport (one response
+  per request, silence for notifications).
+
+### Corrected during review
+
+- Protocol versions are negotiated, not echoed: a host that asks for an unsupported revision
+  gets `2025-06-18` back, so it cannot believe it is speaking a dialect this server does not
+  implement. `"id": null` is answered as a request (only a missing `id` is a notification),
+  and malformed `tools/call` params are rejected with `-32602` instead of being guessed into
+  a tool name.
+- `pitstop_release_gate` is fail-closed for agents: `strict` defaults to true, so `UNPROVEN`
+  exits 1, and `pass` is true only for `VERIFIED`. `strict:false` restores `pitstop gate`
+  CLI parity, where `UNPROVEN` exits 0.
+- `npm run mcp:smoke` spawns the built binary against the seeded SQL-injection fixture and
+  asserts that stdout is JSON-RPC only and carries exactly one response per request; CI runs
+  it after the build, because a unit test cannot prove the binary keeps its channel clean.
 
 ### Honest limits
 
@@ -33,7 +48,8 @@ All notable changes to this project are documented here.
   quick pass and does not run the test suite or the build; route and architecture maps are
   leads, not reachability proof.
 - MCP adds an interface, not detection. Missing verification layers are reported as
-  `NOT_CONFIGURED`, never as passes.
+  `NOT_CONFIGURED`, never as passes; `UNPROVEN` is a fail for agents even though `pitstop
+  gate` exits 0 for it without `--strict`.
 
 ## [Unreleased] — Phase 5: public benchmark
 

@@ -47,6 +47,63 @@ test("mcp — initialize echoes the requested protocol version and advertises to
   assert.match(response.result.instructions, /never accept a verdict|sealed/);
 });
 
+test("mcp — an unsupported protocol version gets the newest supported one, never a blind echo", async () => {
+  const handle = handlerWithTools(process.cwd());
+  const future = await rpc(handle, {
+    jsonrpc: "2.0",
+    id: 11,
+    method: "initialize",
+    params: { protocolVersion: "2027-01-01", clientInfo: { name: "future-client", version: "0" } },
+  });
+  assert.equal(future.result.protocolVersion, "2025-06-18");
+
+  const older = await rpc(handle, {
+    jsonrpc: "2.0",
+    id: 12,
+    method: "initialize",
+    params: { protocolVersion: "2024-11-05", clientInfo: { name: "old-client", version: "0" } },
+  });
+  assert.equal(older.result.protocolVersion, "2024-11-05");
+
+  const garbage = await rpc(handle, {
+    jsonrpc: "2.0",
+    id: 13,
+    method: "initialize",
+    params: { protocolVersion: 42 },
+  });
+  assert.equal(garbage.result.protocolVersion, "2025-06-18");
+});
+
+test("mcp — a request with \"id\": null is answered; a request with no id is a notification", async () => {
+  const handle = handlerWithTools(process.cwd());
+  const nullId = await rpc(handle, { jsonrpc: "2.0", id: null, method: "tools/list" });
+  assert.ok(nullId, "id: null is a legal request id and must get a response");
+  assert.equal(nullId.id, null);
+  assert.ok(Array.isArray(nullId.result.tools));
+
+  const notification = await rpc(handle, { jsonrpc: "2.0", method: "tools/list" });
+  assert.equal(notification, null);
+});
+
+test("mcp — tools/call validates params instead of guessing a tool name", async () => {
+  const handle = handlerWithTools(process.cwd());
+  const missing = await rpc(handle, { jsonrpc: "2.0", id: 21, method: "tools/call" });
+  assert.equal(missing.error.code, -32602);
+  assert.match(missing.error.message, /expected an object/);
+
+  const notAnObject = await rpc(handle, { jsonrpc: "2.0", id: 22, method: "tools/call", params: ["pitstop_scan"] });
+  assert.equal(notAnObject.error.code, -32602);
+  assert.match(notAnObject.error.message, /expected an object/);
+
+  const noName = await rpc(handle, { jsonrpc: "2.0", id: 23, method: "tools/call", params: { arguments: {} } });
+  assert.equal(noName.error.code, -32602);
+  assert.match(noName.error.message, /missing tool name/);
+
+  const blankName = await rpc(handle, { jsonrpc: "2.0", id: 24, method: "tools/call", params: { name: "   " } });
+  assert.equal(blankName.error.code, -32602);
+  assert.match(blankName.error.message, /missing tool name/);
+});
+
 test("mcp — notifications get no response; ping does", async () => {
   const handle = handlerWithTools(process.cwd());
   assert.equal(await handle(JSON.stringify({ jsonrpc: "2.0", method: "notifications/initialized" })), null);
@@ -180,10 +237,22 @@ test("mcp — pitstop_scan finds the seeded injection, seals a baseline and writ
   }
 });
 
-test("mcp — pitstop_release_gate fails honestly without a baseline and reads sealed layers when present", async () => {
+test("mcp — pitstop_release_gate fails honestly without a baseline, then reads the sealed one", async () => {
   const repo = tmp();
   try {
     put(path.join(repo, "package.json"), '{ "name": "gate-fixture", "version": "1.0.0" }');
+    put(
+      path.join(repo, "src", "client.js"),
+      "export const pool = { query: async () => [] };\n",
+    );
+    put(
+      path.join(repo, "src", "db.js"),
+      "import { pool } from \"./client.js\";\n\n" +
+        "export async function findOrder(req) {\n" +
+        "  const ref = req.query.ref;\n" +
+        "  return pool.query(\"SELECT id, total FROM orders WHERE ref = '\" + ref + \"'\");\n" +
+        "}\n",
+    );
     const handle = handlerWithTools(repo);
 
     const noBaseline = await rpc(handle, { jsonrpc: "2.0", id: 9, method: "tools/call", params: { name: "pitstop_release_gate", arguments: {} } });
@@ -192,10 +261,42 @@ test("mcp — pitstop_release_gate fails honestly without a baseline and reads s
     assert.equal(value.pass, false);
     assert.equal(value.exitCode, 1);
     assert.match(value.note, /not over the calling agent's claim/);
+    assert.match(value.note, /`pass` is true only for VERIFIED/);
+
+    // Sealing a scan gives the gate real evidence. The integrity layer now
+    // verifies that baseline, but no deep layer has run, so the honest answer is
+    // UNPROVEN — and `pass` must stay false rather than becoming approval.
+    const scan = await rpc(handle, { jsonrpc: "2.0", id: 10, method: "tools/call", params: { name: "pitstop_scan", arguments: {} } });
+    assert.ok(JSON.parse(scan.result.content[0].text).findings.length >= 1, "the fixture must produce a finding");
+    const sealed = JSON.parse(
+      (await rpc(handle, { jsonrpc: "2.0", id: 11, method: "tools/call", params: { name: "pitstop_release_gate", arguments: {} } }))
+        .result.content[0].text,
+    );
+    assert.equal(sealed.verdict, "UNPROVEN");
+    assert.equal(sealed.pass, false);
+    assert.equal(sealed.exitCode, 1);
+    assert.equal(
+      sealed.layers.find((layer: { id: string }) => layer.id === "integrity").status,
+      "PASS",
+      "the sealed baseline is verified as intact",
+    );
+
+    // CLI parity is opt-in; even then `pass` stays VERIFIED-only.
+    const parity = JSON.parse(
+      (await rpc(handle, {
+        jsonrpc: "2.0",
+        id: 12,
+        method: "tools/call",
+        params: { name: "pitstop_release_gate", arguments: { strict: false } },
+      })).result.content[0].text,
+    );
+    assert.equal(parity.verdict, "UNPROVEN");
+    assert.equal(parity.exitCode, 0);
+    assert.equal(parity.pass, false);
 
     const badArgs = await rpc(handle, {
       jsonrpc: "2.0",
-      id: 10,
+      id: 13,
       method: "tools/call",
       params: { name: "pitstop_release_gate", arguments: { threshold: 200 } },
     });

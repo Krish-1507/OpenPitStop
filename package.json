@@ -55,6 +55,7 @@
     "build": "tsc",
     "dev": "tsx watch src/cli.ts",
     "smoke": "node dist/cli.js scan demo-repo",
+    "mcp:smoke": "node scripts/mcp-smoke.mjs",
     "test": "node --import tsx --test \"test/*.test.ts\"",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.test.json",
     "prepublishOnly": "npm run build"
