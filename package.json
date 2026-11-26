@@ -1,6 +1,6 @@
 {
   "name": "openpitstop",
-  "version": "1.10.0",
+  "version": "1.11.0",
   "description": "Repo-aware engineering workflows for coding CLIs: understand, plan, check architecture, test security, and verify changes with local evidence.",
   "license": "MIT",
   "author": "Krish-1507",

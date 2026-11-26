@@ -2,9 +2,16 @@
 
 All notable changes to this project are documented here.
 
-## [Unreleased] — Phase 5: MCP tools for coding agents
+## [1.11.0] - 2026-11-26
 
-### Added
+One release for the five phases built on `1.10.0`: first-run and trust, the language and
+architecture layer, deeper security intelligence, senior-engineer workflows, and the detection
+benchmark plus the MCP server. Each phase keeps its own entry below, including every recorded
+limit, so the release notes do not claim more than the build does.
+
+### Phase 5: MCP tools for coding agents
+
+#### Added
 
 - `pitstop mcp`: an MCP stdio server that exposes `pitstop_understand`, `pitstop_map`,
   `pitstop_scan`, `pitstop_release_gate`, `pitstop_reproduce` and `pitstop_bench` to any
@@ -27,7 +34,7 @@ All notable changes to this project are documented here.
   `.pitstop/`-only write footprint of `pitstop_scan`, and the stdio transport (one response
   per request, silence for notifications).
 
-### Corrected during review
+#### Corrected during review
 
 - Protocol versions are negotiated, not echoed: a host that asks for an unsupported revision
   gets `2025-06-18` back, so it cannot believe it is speaking a dialect this server does not
@@ -41,7 +48,7 @@ All notable changes to this project are documented here.
   asserts that stdout is JSON-RPC only and carries exactly one response per request; CI runs
   it after the build, because a unit test cannot prove the binary keeps its channel clean.
 
-### Honest limits
+#### Honest limits
 
 - Stdio only: no network listener, no remote transport, no authentication layer of its own.
 - The tools are adapters over existing CLI logic and inherit its reach. `pitstop_scan` is the
@@ -51,9 +58,9 @@ All notable changes to this project are documented here.
   `NOT_CONFIGURED`, never as passes; `UNPROVEN` is a fail for agents even though `pitstop
   gate` exits 0 for it without `--strict`.
 
-## [Unreleased] — Phase 5: public benchmark
+### Phase 5: public benchmark
 
-### Added
+#### Added
 
 - `pitstop bench`: a reproducible detection benchmark over the fixtures in `bench/scenarios`.
   Each fixture is a small repository plus a recorded expectation, and the command runs the
@@ -75,7 +82,7 @@ All notable changes to this project are documented here.
   `understand` and security analysis, the same way `demo-repo` is, so they are not measured
   as production code.
 
-### Honest limits
+#### Honest limits
 
 - The fixture set is curated canonical examples, not a sample of real repositories. 100%
   precision and recall describe the recorded expectations and are not a field estimate.
@@ -87,9 +94,10 @@ All notable changes to this project are documented here.
   stacks are reported as skipped coverage, never as clean.
 - Timing is in-process analyzer time, not CLI startup, network work, Docker isolation or
   agent calls.
-## [Unreleased] — Phase 4: senior engineer workflows
 
-### Added
+### Phase 4: senior engineer workflows
+
+#### Added
 
 - `pitstop map --architecture`: modules with file counts, cross-module dependencies,
   import cycles, routes, entry points, external services from declared dependencies,
@@ -110,14 +118,14 @@ All notable changes to this project are documented here.
 - `pitstop understand` points at the architecture map and impact analysis as next steps.
 - [Architecture and change impact](docs/architecture.md).
 
-### Fixed
+#### Fixed
 
 - `regression-check` and `test` parse current Node spec-reporter output: per-test
   durations are stripped from check identity, `ℹ pass`/`ℹ fail` summary lines are read,
   and the `✖ failing tests:` section header is no longer mistaken for a failing check
   (which produced false UNPROVEN and REGRESSION verdicts).
 
-### Honest limits
+#### Honest limits
 
 - Import edges exist for JS/TS and Python only; dynamic requires, cross-language calls and
   runtime wiring are not edges.
@@ -128,9 +136,9 @@ All notable changes to this project are documented here.
 - Boundary conclusions require declared configuration; deleted files are absent from the
   current graph.
 
-## [Unreleased] — Phase 3: stronger security intelligence
+### Phase 3: stronger security intelligence
 
-### Added
+#### Added
 
 - Infrastructure security analysis for Dockerfile, Docker Compose, Kubernetes/Helm,
   Terraform, GitHub Actions, SQL and YAML/JSON configuration. Findings cover privileged
@@ -150,15 +158,15 @@ All notable changes to this project are documented here.
 - `check` prioritizes the highest-risk finding, preserving severity/confidence ordering
   as a tie-breaker.
 
-### Honest limits
+#### Honest limits
 
 - Static infrastructure checks do not prove a deployment is reachable or exploitable.
 - Business-logic patterns do not prove an end-to-end workflow can be abused.
 - Live proof remains the job of `pitstop pen` and its sandbox.
 
-## [Unreleased] — Phase 2: universal language architecture
+### Phase 2: universal language architecture
 
-### Added
+#### Added
 
 - Language adapters for JavaScript/TypeScript, Python, Java, Go, C#/.NET, PHP, Ruby,
   C, C++, Rust, Kotlin, Swift and Dart, plus Docker, Terraform, Kubernetes, Helm,
@@ -177,16 +185,16 @@ All notable changes to this project are documented here.
   limit; skipped files are reported instead of silently dropped.
 - [Language support contract](docs/languages.md).
 
-### Honest limits
+#### Honest limits
 
 - Dependency graphs remain JS/TS/Python-only; other adapters mark this as unsupported.
 - CodeQL, Trivy and Checkov are detected and shown in the tool plan but are not executed
   by this build. Semgrep deeper SAST remains opt-in.
 - Parsing is structural, not full semantic or cross-file taint analysis.
 
-## [Unreleased] — Phase 1: first-run experience and trust
+### Phase 1: first-run experience and trust
 
-### Added
+#### Added
 
 - Bare `pitstop` guided setup: real project and agent detection, scoped agent selection,
   an exact file preview, a permission prompt, managed-file updates, backups and rollback.
@@ -209,14 +217,14 @@ All notable changes to this project are documented here.
   `--force` is explicit.
 - [First-run guide](docs/first-run.md).
 
-### Changed
+#### Changed
 
 - Installing over an existing OpenPitStop-managed file creates a backup and records the
   transaction. User-authored files are never overwritten by onboarding.
 - `pitstop verify` and the gate count active security findings only; scoped dismissals no
   longer lower the measured pass criteria.
 
-### Compatibility
+#### Compatibility
 
 - Existing `try`, `scan`, `verify`, `gate`, `flow`, `install`, `report` and `--help`
   behavior is preserved. Onboarding is additive; named commands are not redirected.
