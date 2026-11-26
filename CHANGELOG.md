@@ -2,6 +2,34 @@
 
 All notable changes to this project are documented here.
 
+## [Unreleased] — Phase 3: stronger security intelligence
+
+### Added
+
+- Infrastructure security analysis for Dockerfile, Docker Compose, Kubernetes/Helm,
+  Terraform, GitHub Actions, SQL and YAML/JSON configuration. Findings cover privileged
+  containers, Docker socket mounts, host namespaces, hostPath, public Terraform ACLs,
+  open sensitive ports, CI write-all permissions and untrusted event interpolation,
+  literal secrets, and related deployment risks.
+- Business-logic and access-control findings promoted from the pen static rules into
+  `scan`: IDOR/broken object-level authorization, client-supplied price tampering and
+  weak JWT verification. These are labeled indicated/heuristic, never proven.
+- Deterministic risk scores and reachability context on security findings. The risk score
+  combines severity, confidence, finding class and whether the cited file contains a
+  discovered HTTP route. `pitstop inspect` and `pitstop check` show the score and state
+  explicitly that route-file context is not execution proof.
+- Dependency-hygiene findings: floating `*`/`latest` ranges, plain-HTTP sources,
+  mutable git refs and missing lockfiles. Advisory results still come from the actual
+  dependency audit.
+- `check` prioritizes the highest-risk finding, preserving severity/confidence ordering
+  as a tie-breaker.
+
+### Honest limits
+
+- Static infrastructure checks do not prove a deployment is reachable or exploitable.
+- Business-logic patterns do not prove an end-to-end workflow can be abused.
+- Live proof remains the job of `pitstop pen` and its sandbox.
+
 ## [Unreleased] — Phase 2: universal language architecture
 
 ### Added

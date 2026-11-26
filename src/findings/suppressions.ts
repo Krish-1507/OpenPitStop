@@ -138,6 +138,7 @@ interface Candidate {
   confidence?: import("../findings/schema.js").FindingConfidence;
   sourceTool?: string;
   reachability?: string;
+  risk?: import("../findings/schema.js").FindingRisk;
   verificationStatus?: string;
   impact?: string;
   reproduction?: string;
@@ -180,6 +181,7 @@ function dismiss(repo: string, candidate: Candidate, entry: Suppression, severit
     confidence: candidate.confidence,
     sourceTool: candidate.sourceTool,
     reachability: candidate.reachability,
+    risk: candidate.risk,
     verificationStatus: candidate.verificationStatus,
     impact: candidate.impact,
     reproduction: candidate.reproduction,
@@ -247,7 +249,7 @@ export function applySuppressions(repoInput: string, result: ScanResult): ScanRe
       id: issue.id!, source, type: issue.type, category: issue.category,
       description: issue.description, file: issue.file, line: issue.line,
       fingerprint: issue.fingerprint, title: issue.title, confidence: issue.confidence,
-      sourceTool: issue.sourceTool, reachability: issue.reachability,
+      sourceTool: issue.sourceTool, reachability: issue.reachability, risk: issue.risk,
       verificationStatus: issue.verificationStatus, impact: issue.impact,
       reproduction: issue.reproduction, suggestedFix: issue.suggestedFix,
       verification: issue.verification, references: issue.references,

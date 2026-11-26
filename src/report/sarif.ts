@@ -113,6 +113,7 @@ interface RawFinding {
   confidence?: string;
   sourceTool?: string;
   reachability?: string;
+  risk?: import("../findings/schema.js").FindingRisk;
   verificationStatus?: string;
   impact?: string;
   fingerprint?: string;
@@ -132,6 +133,7 @@ function rawFromIssue(issue: ScanIssue, source: string): RawFinding {
     confidence: issue.confidence,
     sourceTool: issue.sourceTool ?? (source === "security" ? "static-security" : source),
     reachability: issue.reachability,
+    risk: issue.risk,
     verificationStatus: issue.verificationStatus,
     impact: issue.impact,
     fingerprint: issue.fingerprint,
@@ -321,6 +323,13 @@ export function buildSarif(repo: string, model: ReportModel, opts: SarifOptions 
         "security-severity": SEV_NUM[finding.severity] ?? 0,
         suppressed: Boolean(suppression),
         suppressionKind: suppression?.kind,
+        ...(finding.risk
+          ? {
+              riskLevel: finding.risk.level,
+              riskScore: finding.risk.score,
+              riskReasons: finding.risk.reasons,
+            }
+          : {}),
       },
     });
   }

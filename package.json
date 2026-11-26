@@ -33,7 +33,8 @@
     "LICENSE",
     "docs/release-controls.md",
     "docs/first-run.md",
-    "docs/languages.md"
+    "docs/languages.md",
+    "docs/security.md"
   ],
   "engines": {
     "node": ">=22"

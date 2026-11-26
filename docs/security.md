@@ -244,3 +244,69 @@ it. Tests run on your machine, against your repo, with no external calls.
   never reported as clean.
 - The static pass is fully offline: it never sends your code anywhere.
   See [PRIVACY.md](../PRIVACY.md).
+
+## Phase 3: infrastructure, business logic and triage
+
+`pitstop scan` now combines the source rules with two additional deterministic
+passes and a risk score:
+
+### Infrastructure analysis
+
+Files skipped by the source scanners are analyzed directly:
+
+| Area | Examples of findings |
+|---|---|
+| Dockerfile | root user, floating base image, secrets in ENV/ARG, remote `ADD` |
+| Docker Compose | privileged mode, host networking, Docker socket mounts, published database ports, literal secrets |
+| Kubernetes / Helm | privileged pods, host namespaces, hostPath, explicit root, privilege escalation, floating images, literal secrets |
+| Terraform | public ACLs, publicly accessible databases, open sensitive ports, unencrypted storage, wildcard IAM actions |
+| GitHub Actions | `write-all` permissions, `pull_request_target`, untrusted event interpolation, echoed secrets, mutable action refs |
+| SQL | `GRANT ALL`, literal database passwords |
+| YAML / JSON config | literal secret-shaped values (placeholders and `${ENV}` references are skipped) |
+| package manifests | floating `*`/`latest` ranges, plain-HTTP sources, mutable git refs, missing lockfiles |
+
+These findings are `indicated`: the risky construct is present in the file, but
+runtime exposure still depends on deployment, network policy and identity
+configuration. Findings carry the file and line so they can be reviewed,
+suppressed with a reason, or fixed in place.
+
+### Dependency hygiene in scan
+
+The dependency audit still answers "which installed packages have advisories?".
+A separate offline pass catches inputs that make that answer unreliable:
+floating versions, plain-HTTP artifact URLs, git dependencies without a commit
+pin and a declared dependency set with no lockfile. These are hygiene findings,
+not vulnerability claims.
+
+### Business logic and access control in scan
+
+The scan promotes the pen static rules that are not already covered by the
+source pass:
+
+- **IDOR / broken object-level authorization** — object ids read from the
+  request and used in a lookup/mutation without an ownership or scope check.
+- **Price tampering** — a client-supplied amount/price/quantity treated as the
+  order total.
+- **JWT weakness** — token verification without an algorithm allowlist or with a
+  short literal secret.
+
+These are labeled `indicated` or `heuristic`, never `proven`. Live proof still
+comes from `pitstop pen`.
+
+### Risk and reachability
+
+Each security finding receives a deterministic risk score:
+severity + confidence + finding class + whether the cited file also contains a
+discovered HTTP route. The score is a **triage order**, not an exploitability
+claim. `reachable` means "this file contains a route", not "this line is
+executed by that route". `pitstop inspect` and `pitstop check` show both the
+score and that distinction.
+
+### Honest limits
+
+- Static infrastructure rules cannot know whether a Compose file, Terraform
+  module or workflow is deployed or reachable.
+- Business-logic checks are pattern-based; they do not prove a workflow can be
+  abused end to end.
+- Runtime proof remains the job of `pitstop pen` and its sandbox.
+- Missing tools, skipped checks and unparsed files remain visible in the report.

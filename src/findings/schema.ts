@@ -9,6 +9,14 @@ export type FindingConfidence = "proven" | "indicated" | "heuristic" | "unknown"
 export type VerificationStatus = "verified" | "failed" | "blocked" | "unproven" | "cheat";
 export type Reachability = "reachable" | "unreachable" | "unknown";
 
+/** Deterministic triage score. It is prioritization, not an exploitability proof. */
+export interface FindingRisk {
+  score: number;
+  level: "critical" | "high" | "medium" | "low" | "info";
+  reachable: boolean;
+  reasons: string[];
+}
+
 export interface FindingEvidence {
   kind: "static-match" | "scanner-result" | "runtime-observation" | "dependency-advisory";
   summary: string;
@@ -42,6 +50,8 @@ export interface Finding {
   verificationStatus: VerificationStatus;
   verification: string;
   references: string[];
+  /** Present when a scan could correlate the finding with its repository context. */
+  risk?: FindingRisk;
   /** Changes when the finding's rule, location or underlying code line changes. */
   fingerprint: string;
 }
@@ -85,6 +95,37 @@ const IMPACTS: Record<string, string> = {
   "a11y": "Users relying on assistive technology may be unable to understand or operate this interface.",
   "race-condition": "Timing-dependent state can produce intermittent corruption, duplicate work, or authorization inconsistencies.",
   "unused-export": "Unused exports increase the maintenance surface and can obscure which module contracts are still supported.",
+  "price-tampering": "A caller may change a monetary value that the server should derive itself, paying less or altering an order.",
+  "container-privileged": "A privileged container can reach host devices and weaken the boundary between the workload and the host.",
+  "container-docker-socket": "Access to the Docker daemon is effectively host-level control; a compromised workload can control other containers and the host.",
+  "container-root-user": "A root process inside the container has more authority to modify files, install tooling, or exploit a container escape.",
+  "kubernetes-privileged": "A privileged pod weakens isolation and can expose host devices or kernel capabilities.",
+  "kubernetes-host-path": "A hostPath mount can expose or modify host files and is a common container-escape aid.",
+  "terraform-public-acl": "Public storage or resource access can expose sensitive data without authentication.",
+  "ci-untrusted-interpolation": "Attacker-controlled event text may execute shell commands with workflow credentials.",
+  "ci-write-all": "A workflow with write-all permissions can modify repository contents and packages if any step is compromised.",
+  "ci-secret-echo": "Printing a secret can place it in CI logs that are retained or exported.",
+  "ci-pull-request-target": "A workflow with base-repository privileges can expose secrets or write access to untrusted pull-request content.",
+  "ci-unpinned-action": "A mutable action ref can change the code executed by the workflow without a repository change.",
+  "config-literal-secret": "A credential stored in a configuration file can be copied by anyone who can read the repository or artifact.",
+  "container-secret-env": "A secret baked into a container image or deployment file can be recovered by anyone who can pull or read it.",
+  "container-host-network": "Host networking removes a network boundary and may expose services that were intended to be local-only.",
+  "container-published-data-port": "A published database port may be reachable beyond the developer machine and allows direct credential attacks.",
+  "kubernetes-literal-secret": "A literal secret in a manifest can be read by anyone with repository or manifest access.",
+  "kubernetes-host-namespace": "A host namespace weakens pod isolation and can expose host processes or network reachability.",
+  "kubernetes-root-user": "Running as root increases the authority available after a container compromise.",
+  "kubernetes-privilege-escalation": "An escalated process may gain capabilities the workload was not intended to have.",
+  "kubernetes-unpinned-image": "A floating image tag makes deployments non-reproducible and can introduce unreviewed code.",
+  "terraform-publicly-accessible": "The resource may be reachable from the public internet, expanding the attack surface.",
+  "terraform-open-ingress": "Public ingress to a sensitive port enables internet-scale scanning and credential attacks.",
+  "terraform-unencrypted": "Data at rest may be readable if the underlying storage or backup is exposed.",
+  "terraform-wildcard-action": "A wildcard IAM action grants far more authority than the workload needs.",
+  "sql-grant-all": "An application principal with all privileges can modify schema or data beyond its intended role.",
+  "sql-literal-password": "A database password in a SQL file can be copied and used outside the application.",
+  "dependency-floating-version": "A floating dependency can move to an unreviewed or vulnerable release without a repository change.",
+  "dependency-insecure-source": "A package fetched over plain HTTP can be modified in transit.",
+  "dependency-unpinned-git": "A mutable git dependency can install different code than the version reviewed.",
+  "dependency-lockfile-missing": "Without a lockfile, installs and vulnerability scans are not reproducible.",
 };
 
 function titleOf(category: string): string {

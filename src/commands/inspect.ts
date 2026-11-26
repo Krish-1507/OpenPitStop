@@ -247,6 +247,12 @@ export const inspect = new Command("inspect")
         `${chalk.bold("Evidence")}: confidence ${chalk.bold(issue.confidence ?? "unknown")} · source ${issue.sourceTool ?? f.source} · reachability ${issue.reachability ?? "unknown"}`,
       );
     }
+    if (issue?.risk) {
+      lines.push(
+        `${chalk.bold("Risk")}: ${issue.risk.level} (${issue.risk.score}/100)` +
+          chalk.dim(` — ${issue.risk.reasons.join("; ")}`),
+      );
+    }
     lines.push("");
     lines.push(f.description);
     lines.push("");

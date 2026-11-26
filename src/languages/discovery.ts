@@ -41,7 +41,7 @@ export function discoverLanguages(repoInput: string): {
   return { primary, languages, infrastructure: discoverInfrastructure(repo) };
 }
 
-function discoverInfrastructure(repo: string): DetectedInfrastructure[] {
+export function discoverInfrastructure(repo: string): DetectedInfrastructure[] {
   return INFRASTRUCTURE_ADAPTERS.flatMap((adapter) => {
     let files: string[] = [];
     if (adapter.id === "github-actions") {
