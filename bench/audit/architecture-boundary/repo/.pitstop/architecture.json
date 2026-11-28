@@ -1,0 +1,10 @@
+{
+  "boundaries": [
+    {
+      "from": "src/ui/**",
+      "forbidImportsFrom": [
+        "src/data/**"
+      ]
+    }
+  ]
+}

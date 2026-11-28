@@ -1,0 +1,22 @@
+{
+  "name": "architecture-boundary",
+  "description": "A configured UI-to-data import is forbidden; the negative control respects the boundary.",
+  "mode": "deep",
+  "positive": [
+    {
+      "rule": "boundary-violation",
+      "file": "src/ui/view.ts"
+    }
+  ],
+  "negative": [
+    {
+      "rule": "boundary-violation",
+      "file": "src/clean.ts"
+    }
+  ],
+  "score": {
+    "min": 85,
+    "max": 100
+  },
+  "notes": "Boundary rules come from .pitstop/architecture.json and are only enforced when configured."
+}

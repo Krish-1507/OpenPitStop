@@ -37,6 +37,7 @@ import { acceptanceVerify } from "./commands/acceptanceVerify.js";
 import { regressionCheck } from "./commands/regressionCheck.js";
 import { explain } from "./commands/explain.js";
 import { understand } from "./commands/understand.js";
+import { audit } from "./commands/audit.js";
 import { plan } from "./commands/plan.js";
 import { architectureCheck } from "./commands/architectureCheck.js";
 import { verifyStack } from "./commands/verifyStack.js";
@@ -101,7 +102,10 @@ program
   .description("Repo-aware engineering and security verification for coding agents. Run `pitstop` for the guided start.")
   .version(readVersion())
   .option("--setup", "repeat the guided first-run setup instead of showing the returning-user menu")
-  .option("-y, --yes", "with `pitstop`, preselect all detected agents but still preview and confirm before writing")
+  .option(
+    "-y, --yes",
+    "approve an otherwise-confirmed action: preselect agents for bare `pitstop` (still previews), or permit `audit --apply` to edit only its isolated worktree",
+  )
   .option("--no-input", "never prompt, even on a terminal")
   .option("--skip-onboarding", "skip the guided flow and exit; useful in scripts that only use named commands")
   .action((opts: { setup?: boolean; yes?: boolean; input?: boolean; skipOnboarding?: boolean }) =>
@@ -109,6 +113,7 @@ program
   );
 
 program.addCommand(check);
+program.addCommand(audit);
 program.addCommand(suppress);
 program.addCommand(languages);
 program.addCommand(map);

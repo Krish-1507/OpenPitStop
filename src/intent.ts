@@ -35,7 +35,8 @@ const RULES: Rule[] = [
   { label: "Release gate", phrase: "can I ship this", args: ["gate", "--strict"], re: /\b(gate|ci|pre-?commit|safe to commit|can i ship|ready to ship|block bad|pipeline)\b/ },
   { label: "Report", phrase: "show the report", args: ["report"], re: /\b(report|share|score ?card|export|summary)\b/ },
   { label: "Limits and honesty", phrase: "show your limits", args: ["honesty"], re: /\b(honest|honesty|limits|limitations)\b/ },
-  { label: "Scan repository", phrase: "what is wrong with my repo", args: ["scan", "--reuse"], re: /\b(score|grade|what'?s (wrong|broken|off)|what is wrong|what (should|do) i (fix|do)|measure|audit|scan|flaky)\b/ },
+  { label: "Engineering quality audit", phrase: "audit this repo", args: ["audit"], re: /\b(audit|engineering quality|codebase intelligence|unnecessary operations|hardcod\w*|whole[- ]repo(sitory)? (quality|review))\b/ },
+  { label: "Scan repository", phrase: "what is wrong with my repo", args: ["scan", "--reuse"], re: /\b(score|grade|what'?s (wrong|broken|off)|what is wrong|what (should|do) i (fix|do)|measure|scan|flaky)\b/ },
   { label: "Install agent integration", phrase: "install the slash command", args: ["install"], re: /\b(install|setup|set ?up|configure|add (the )?command)\b/, effect: "Writes agent command files; the installer shows the destinations." },
 ];
 

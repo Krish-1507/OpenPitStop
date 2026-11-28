@@ -1,0 +1,38 @@
+{
+  "name": "js-clean",
+  "description": "A small, well-typed module with a real assertion. Negative control: no findings should be reported.",
+  "mode": "deep",
+  "positive": [],
+  "negative": [
+    {
+      "rule": "empty-catch",
+      "file": "src/add.ts"
+    },
+    {
+      "rule": "any-usage",
+      "file": "src/add.ts"
+    },
+    {
+      "rule": "database-or-network-call-in-loop",
+      "file": "src/add.ts"
+    },
+    {
+      "rule": "duplicate-function",
+      "file": "src/format.ts"
+    },
+    {
+      "rule": "test-without-assertion",
+      "file": "test/format.test.ts"
+    },
+    {
+      "rule": "unused-import",
+      "file": "src/format.ts"
+    }
+  ],
+  "score": {
+    "min": 99,
+    "max": 100
+  },
+  "maxFindings": 0,
+  "notes": "A perfect score is acceptable only because the fixture is deliberately tiny and clean."
+}

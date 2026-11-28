@@ -21,6 +21,8 @@ test("plain-English requests resolve to specific engineering stages", () => {
     ["what should I do next", ["next"]],
     ["show my budget", ["budget"]],
     ["why is my score low", ["scan", "--reuse"]],
+    ["audit this repo", ["audit"]],
+    ["find unnecessary operations and hardcoding", ["audit"]],
     ["inspect pen-dyn-abc12345", ["inspect", "pen-dyn-abc12345"]],
   ];
   for (const [phrase, args] of cases) assert.deepEqual(matchIntent(phrase)?.args, args, phrase);

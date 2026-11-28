@@ -2,6 +2,91 @@
 
 All notable changes to this project are documented here.
 
+## [Unreleased]
+
+### Added
+
+- `pitstop audit`: a whole-repository Deep Codebase Intelligence review that runs beside
+  the five existing phases rather than replacing them. It builds a cached repository index,
+  measures correctness, maintainability, architecture, performance, readability, type safety,
+  security and testing, predicts risks with assumptions and confidence, and emits a sealed
+  15-section Markdown/JSON report.
+- `--mode quick|deep|full`: bounded, disclosed passes. Quick skips security, churn and full
+  analyzers; full adds the existing security, test, reliability and build/perf analyzers.
+- A traceable Engineering Quality Score: fixed category weights, severity/confirmation/
+  confidence factors, per-category diminishing returns, a disclosed severity cap, and a
+  `score.deductions` entry for every point. Unmeasured categories are excluded and the
+  remaining weights are re-normalised.
+- Stable finding fingerprints and a `new` / `existing` / `resolved` / `suppressed` lifecycle
+  against a sealed baseline; a finding without a symbol is anchored to its measured text, so
+  inserting an unrelated line does not make it look resolved and then regressed; `--fail-on`
+  for CI; scoped local suppressions with expiry.
+- `--fix-plan` writes a sealed, line-checked plan of deterministic patches. `--apply --yes`
+  runs it in a separate git worktree, verifies the plan digest and exact line content, runs
+  repository verification commands, re-audits and reports the after score plus resolved/
+  regression deltas only when the sealed baseline and the deep re-audit are comparable
+  complete all-category views. Without `--yes` it refuses; the source tree is never edited
+  and nothing is committed.
+- A dedicated evaluation suite (`pitstop audit . --eval`) with eight scenarios, positive
+  expectations and negative controls; it checks recall, precision, score bounds, coverage
+  disclosure, all 15 sections, evidence completeness, deduplication, score traceability and
+  determinism.
+- `test/audit.test.ts`, `test/auditEval.test.ts` and [the audit guide](docs/audit.md).
+
+### Changed
+
+- The audit index ignores dot-directories, preventing self-scans of `.tmp-dist`, `.pitstop`
+  and editor state, and aligns its benchmark/template/demo fixture exclusions with the
+  existing scan walker.
+- Scope paths must resolve inside the repository; outside paths are rejected.
+- JavaScript/TypeScript `any` counting now includes parameter and return annotations, not
+  only expressions in the function body.
+- Binding-use analysis counts type references in signatures, local exports, named
+  re-exports, and used namespace imports; an `export *` target is treated as potentially
+  reachable instead of every export being called unused. A regex `.test()` call is no
+  longer mistaken for a test declaration, and an Array `find()` is no longer mistaken for
+  a database call.
+- The score section states that only displayed findings deduct points when a run is
+  bounded, and per-rule cap warnings report how many findings were actually shown after
+  the global budget rather than the pre-budget count.
+- The report records the requested scope and effective file budget and repeats both in its
+  reproduce command, so a scoped or budget-limited result is not mistaken for a full run.
+- Structured evidence details and security descriptions are redacted like excerpts; security
+  findings from files outside the indexed scope or budget are discarded, and a failed
+  security analyzer removes security from the score instead of scoring it clean.
+- Fix application rejects protected/symlinked targets, skips verification when nothing
+  applied, carries suppressions/boundaries into the worktree, and does not invent regression
+  deltas without a complete sealed baseline.
+- Every audit report now carries a `contentDigest` over nested finding and risk evidence;
+  the shared top-level seal excludes `evidence` fields at every depth, so this closes the
+  gap without changing existing seals. Fix-plan creation refuses a report whose seal or
+  content digest does not verify.
+- Credential redaction covers quoted values, authorization schemes and env-style secret
+  labels; a failed full analyzer or missing full stack marks the run incomplete instead of
+  claiming a whole-repository view.
+- External command capture retries through temporary file descriptors when a restricted
+  environment cannot create stdout/stderr pipes; this keeps full analyzers and fix-plan
+  verification usable in sandboxes without changing the normal pipe path.
+- The global finding budget reserves one finding per affected category before ranking the
+  rest, so a noisy category cannot consume the budget and leave another category reported as
+  a clean 100/100.
+
+### Honest limits
+
+- Static analysis, not runtime proof. Confirmed means the pattern is present, not that users
+  are affected; potential and unproven findings are labelled separately.
+- Python is lexical, not an AST or call graph; other languages are detected and disclosed
+  as `semantic: none`, never counted as clean.
+- Security is pattern-based; there is no taint analysis, penetration test or dependency
+  audit in this command.
+- The score is sensitive to repository size, scope and the file budget. The report always
+  prints coverage, confidence and limits beside it.
+- The bundled evaluation fixtures are written by the same project as the rules; they are a
+  regression suite, not an independent benchmark.
+- Fix application starts its isolated worktree from `HEAD`; uncommitted source changes are
+  not copied, so a plan made against a dirty tree can skip lines rather than guess.
+
+
 ## [1.11.0] - 2026-11-26
 
 One release for the five phases built on `1.10.0`: first-run and trust, the language and

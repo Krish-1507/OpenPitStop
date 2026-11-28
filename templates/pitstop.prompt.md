@@ -144,6 +144,7 @@ the closest match. Never run the full scan just to decide:
 | one finding id | `!npx openpitstop inspect <id>` (or `repro <id>` if they want a regression test) | only that finding |
 | one file or route | a scoped `!npx openpitstop scan` / `inspect` on the relevant finding | only that area |
 | overall repo quality / health | `!npx openpitstop scan` | show the box and stop (no fixes unless asked) |
+| whole-codebase engineering quality / architecture / hardcoding / unnecessary operations / "audit this repo" | `!npx openpitstop audit` (add `--mode quick` for a fast pass; `--fix-plan` only if they asked for patches) | print the score with its coverage, confidence and limits; do not present potential or unproven findings as confirmed bugs, and do not call unsupported languages clean |
 | one category (duplication, circular imports, secrets…) | `!npx openpitstop scan` | read only that category's lines |
 | language support / "what can it actually parse" | `!npx openpitstop languages` | print the support levels and parser limits verbatim |
 | endpoints, routes, attack surface, modules, architecture | `!npx openpitstop map` | routes and path labels are leads, not proof of reachability |

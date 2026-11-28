@@ -1,0 +1,34 @@
+{
+  "name": "python-quality",
+  "description": "Python lexical mode: broad except, looped DB call, and a test without an assertion.",
+  "mode": "deep",
+  "positive": [
+    {
+      "rule": "empty-catch",
+      "file": "py/app.py"
+    },
+    {
+      "rule": "database-or-network-call-in-loop",
+      "file": "py/app.py"
+    },
+    {
+      "rule": "test-without-assertion",
+      "file": "test_app.py"
+    }
+  ],
+  "negative": [
+    {
+      "rule": "empty-catch",
+      "file": "py/clean.py"
+    },
+    {
+      "rule": "test-without-assertion",
+      "file": "test_clean.py"
+    }
+  ],
+  "score": {
+    "min": 50,
+    "max": 99
+  },
+  "notes": "Python analysis is deliberately lexical; the report must disclose that it is not an AST."
+}
