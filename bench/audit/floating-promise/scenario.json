@@ -1,0 +1,22 @@
+{
+  "name": "floating-promise",
+  "description": "An async call used as a bare statement, paired with an awaited control.",
+  "mode": "deep",
+  "positive": [
+    {
+      "rule": "floating-async-call",
+      "file": "src/run.ts"
+    }
+  ],
+  "negative": [
+    {
+      "rule": "floating-async-call",
+      "file": "src/safe.ts"
+    }
+  ],
+  "score": {
+    "min": 85,
+    "max": 100
+  },
+  "notes": "Only same-file async callees are proven; imported callees are deliberately not guessed."
+}

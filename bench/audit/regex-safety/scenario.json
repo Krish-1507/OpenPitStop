@@ -1,0 +1,26 @@
+{
+  "name": "regex-safety",
+  "description": "A catastrophic regex next to an escaped dynamic RegExp. Positive and negative regex controls.",
+  "mode": "deep",
+  "positive": [
+    {
+      "rule": "regex-backtracking",
+      "file": "src/unsafe.ts"
+    }
+  ],
+  "negative": [
+    {
+      "rule": "regex-backtracking",
+      "file": "src/safe.ts"
+    },
+    {
+      "rule": "dynamic-regexp",
+      "file": "src/safe.ts"
+    }
+  ],
+  "score": {
+    "min": 80,
+    "max": 100
+  },
+  "notes": "Escaped dynamic patterns are intentionally not reported; a literal safe pattern must stay clean."
+}

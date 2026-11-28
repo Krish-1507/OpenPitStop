@@ -69,6 +69,20 @@ skipped checks with reasons, and ends with concrete next steps. `--json` returns
 report for automation. Quick/deep exit `0` when the check completed; ship propagates the
 strict gate exit code (`0` verified, `1` failed/unproven, `2` tamper/cheat).
 
+### Audit the whole repository, not just the diff
+
+| Command | Runs | Honest limit |
+|---|---|---|
+| `pitstop audit .` | Repository index, eight measured areas, traceable Engineering Quality Score, risk predictions and a 15-section report | Static patterns, not runtime proof; unsupported languages are disclosed, never called clean |
+| `pitstop audit . --mode quick` | Fast index and rules pass | Security, git churn and full analyzers are skipped; the report says so |
+| `pitstop audit . --mode full` | Deep pass plus existing security/test/reliability/build analyzers | May execute the project's test/build scripts; not a penetration test, coverage run or certification |
+| `pitstop audit . --fix-plan` | A sealed, line-checked plan of deterministic patches | Nothing is edited; apply in an isolated worktree with `--yes` |
+
+Every audit writes sealed evidence to `.pitstop/audit-latest.json` (unless `--no-persist`),
+maps every score point to a finding, and separates confirmed, potential and unproven
+claims. `--fail-on high` makes CI fail on an active finding at or above that severity.
+[Audit guide](docs/audit.md).
+
 ### See language support and attack surface
 
 | Command | Runs | Honest limit |
@@ -89,6 +103,7 @@ pitstop install
 ```text
 /pitstop find vulnerabilities in this repo
 /pitstop find and fix vulnerabilities in this repo
+/pitstop audit this repo
 /pitstop review my changes
 ```
 
@@ -405,9 +420,9 @@ extension integration. [Installer targets](src/installer/targets.ts).
 
 | Job | Commands |
 |---|---|
-| Start and navigate | bare `pitstop`, `check`, `ask`, `next`, `try`, `demo` |
+| Start and navigate | bare `pitstop`, `check`, `audit`, `ask`, `next`, `try`, `demo` |
 | Understand, map and plan | `understand`, `languages`, `map`, `impact`, `plan`, `architecture-check`, `memory` |
-| Measure and diagnose | `scan`, `check`, `test`, `verify-stack`, `doctor`, `ready-check`, `bench` |
+| Measure and diagnose | `scan`, `check`, `audit`, `test`, `verify-stack`, `doctor`, `ready-check`, `bench` |
 | Triage findings | `inspect`, `suppress` |
 | Fix and inspect | `inspect`, `repro`, `drive`, `fix` |
 | Security | `pen`, `pen --static`, `pen --fix`, `scan --ledger` |

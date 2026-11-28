@@ -1,0 +1,32 @@
+{
+  "name": "unsupported-language",
+  "description": "A Go file is detected but not semantically analyzed. The audit must disclose the blind spot, not invent findings.",
+  "mode": "deep",
+  "positive": [],
+  "negative": [
+    {
+      "rule": "empty-catch",
+      "file": "main.go"
+    },
+    {
+      "rule": "unused-import",
+      "file": "main.go"
+    },
+    {
+      "rule": "any-usage",
+      "file": "main.go"
+    }
+  ],
+  "score": {
+    "min": 99,
+    "max": 100
+  },
+  "maxFindings": 0,
+  "disclose": [
+    {
+      "language": "Go",
+      "semantic": "none"
+    }
+  ],
+  "notes": "Detected-but-unsupported languages must appear in coverage with zero semantic claims."
+}

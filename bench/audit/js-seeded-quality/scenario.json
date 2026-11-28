@@ -1,0 +1,62 @@
+{
+  "name": "js-seeded-quality",
+  "description": "A small TypeScript service with seeded quality, performance, typing and test defects.",
+  "mode": "deep",
+  "positive": [
+    {
+      "rule": "empty-catch",
+      "file": "src/service.ts"
+    },
+    {
+      "rule": "database-or-network-call-in-loop",
+      "file": "src/service.ts"
+    },
+    {
+      "rule": "hardcoded-absolute-path",
+      "file": "src/service.ts"
+    },
+    {
+      "rule": "unused-import",
+      "file": "src/service.ts"
+    },
+    {
+      "rule": "loose-equality",
+      "file": "src/service.ts"
+    },
+    {
+      "rule": "any-usage",
+      "file": "src/service.ts"
+    },
+    {
+      "rule": "test-without-assertion",
+      "file": "test/service.test.ts"
+    },
+    {
+      "rule": "skipped-tests",
+      "file": "test/service.test.ts"
+    },
+    {
+      "rule": "duplicate-function",
+      "file": "src/other.ts"
+    }
+  ],
+  "negative": [
+    {
+      "rule": "empty-catch",
+      "file": "src/clean.ts"
+    },
+    {
+      "rule": "duplicate-function",
+      "file": "src/clean.ts"
+    },
+    {
+      "rule": "hardcoded-absolute-path",
+      "file": "test/service.test.ts"
+    }
+  ],
+  "score": {
+    "min": 55,
+    "max": 95
+  },
+  "notes": "The duplicate body is deliberately near-identical but renamed; the clean file is a negative control."
+}

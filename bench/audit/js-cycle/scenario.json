@@ -1,0 +1,22 @@
+{
+  "name": "js-cycle",
+  "description": "Two modules import each other. Positive cycle control with a clean third file as a negative control.",
+  "mode": "deep",
+  "positive": [
+    {
+      "rule": "import-cycle",
+      "file": "src/a.ts"
+    }
+  ],
+  "negative": [
+    {
+      "rule": "import-cycle",
+      "file": "src/clean.ts"
+    }
+  ],
+  "score": {
+    "min": 85,
+    "max": 100
+  },
+  "notes": "Cycle detection is graph-based; the report should name every member of the cycle."
+}
